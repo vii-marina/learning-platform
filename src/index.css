@@ -1,3 +1,51 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.neon-frame {
+  position: relative;
+}
+
+.neon-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 5px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(10, 10, 10, 0.25) 35%,
+    rgba(10, 10, 10, 0.85) 50%,
+    rgba(10, 10, 10, 0.25) 65%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+  animation: neon-run 6s linear infinite;
+  pointer-events: none;
+}
+
+.neon-frame::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+}
+
+@keyframes neon-run {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
