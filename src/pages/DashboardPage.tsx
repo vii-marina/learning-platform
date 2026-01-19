@@ -4,8 +4,20 @@ import { Card } from "../components/Card";
 import { Sidebar } from "../components/Sidebar";
 import { UserPanel } from "../components/UserPanel";
 import { Button } from "../components/ui/button";
+import { useEffect } from "react";
+import { supabase } from "../lib/supabase";
 
 export function DashboardPage() {
+  useEffect(() => {
+    const fetchCourses = async () => {
+      const { data, error } = await supabase.from("courses").select("*");
+      console.log("Supabase courses data:", data);
+      console.log("Supabase courses error:", error);
+    };
+
+    fetchCourses();
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Sidebar />
