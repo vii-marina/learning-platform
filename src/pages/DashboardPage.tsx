@@ -18,6 +18,19 @@ export function DashboardPage() {
     fetchCourses();
   }, []);
 
+  useEffect(() => {
+    const testSignUp = async () => {
+      const { data, error } = await supabase.auth.signUp({
+        email: "test_student_1@mail.com",
+        password: "TestPassword123!",
+      });
+      console.log("Supabase signUp data:", data);
+      console.log("Supabase signUp error:", error);
+    };
+
+    testSignUp();
+  }, []);
+
   return (
     <div className="min-h-screen bg-slate-50">
       <Sidebar />
