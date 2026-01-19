@@ -9,8 +9,8 @@ export function LoginPage() {
       title="Welcome back"
       subtitle="Sign in to continue learning with your team."
     >
-      <Card>
-        <form className="flex flex-col gap-4">
+      <Card className="p-8">
+        <form className="flex flex-col gap-5">
           <label className="text-sm text-slate-600">
             Email
             <Input type="email" placeholder="you@company.com" className="mt-1" />
@@ -19,10 +19,15 @@ export function LoginPage() {
             Password
             <Input type="password" placeholder="••••••••" className="mt-1" />
           </label>
-          <Button type="button">Sign in</Button>
+          <Button type="button" className="mt-1 w-full py-3 text-base">
+            Sign in
+          </Button>
         </form>
         <p className="mt-4 text-xs text-slate-500">
-          New here? <a href="/register">Create an account</a>
+          New here?{" "}
+          <a href="/register" className="font-medium text-blue-600">
+            Create an account
+          </a>
         </p>
       </Card>
     </AuthLayout>

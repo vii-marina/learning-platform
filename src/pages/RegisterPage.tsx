@@ -9,8 +9,8 @@ export function RegisterPage() {
       title="Create your account"
       subtitle="Start your learning journey in minutes."
     >
-      <Card>
-        <form className="flex flex-col gap-4">
+      <Card className="p-8">
+        <form className="flex flex-col gap-5">
           <label className="text-sm text-slate-600">
             Full name
             <Input type="text" placeholder="Alex Johnson" className="mt-1" />
@@ -23,10 +23,15 @@ export function RegisterPage() {
             Password
             <Input type="password" placeholder="Create a password" className="mt-1" />
           </label>
-          <Button type="button">Create account</Button>
+          <Button type="button" className="mt-1 w-full py-3 text-base">
+            Create account
+          </Button>
         </form>
         <p className="mt-4 text-xs text-slate-500">
-          Already have an account? <a href="/login">Sign in</a>
+          Already have an account?{" "}
+          <a href="/login" className="font-medium text-blue-600">
+            Sign in
+          </a>
         </p>
       </Card>
     </AuthLayout>
