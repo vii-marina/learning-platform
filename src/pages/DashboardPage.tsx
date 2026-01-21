@@ -4,39 +4,25 @@ import { Card } from "../components/Card";
 import { Sidebar } from "../components/Sidebar";
 import { UserPanel } from "../components/UserPanel";
 import { Button } from "../components/ui/button";
-import { useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { useState } from "react";
+
 
 export function DashboardPage() {
-  useEffect(() => {
-    const fetchCourses = async () => {
-      const { data, error } = await supabase.from("courses").select("*");
-      console.log("Supabase courses data:", data);
-      console.log("Supabase courses error:", error);
-    };
-
-    fetchCourses();
-  }, []);
-
-  useEffect(() => {
-    const testSignUp = async () => {
-      const { data, error } = await supabase.auth.signUp({
-        email: "test_student_1@mail.com",
-        password: "TestPassword123!",
-      });
-      console.log("Supabase signUp data:", data);
-      console.log("Supabase signUp error:", error);
-    };
-
-    testSignUp();
-  }, []);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <Sidebar />
-      <div className="flex min-h-screen pl-16 md:pl-64">
+      <Sidebar
+        isOpen={isSidebarOpen}
+        onToggle={() => setIsSidebarOpen((prev) => !prev)}
+      />
+      <div
+        className={`flex min-h-screen transition-[padding] duration-300 ${
+          isSidebarOpen ? "pl-64" : "pl-16"
+        }`}
+      >
         <div className="flex w-full flex-col">
-          <Header />
+          <Header alignLeft />
           <div className="flex flex-1">
             <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
               <div>

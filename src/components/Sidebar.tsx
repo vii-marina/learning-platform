@@ -1,5 +1,3 @@
-import { useState } from "react";
-
 const navItems = [
   { label: "Overview" },
   { label: "Explore Courses" },
@@ -23,9 +21,13 @@ function NavIcon() {
   );
 }
 
-export function Sidebar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const tooltipText = isOpen ? "Закрити бічну панель" : "Відкрити бічну панель";
+type SidebarProps = {
+  isOpen: boolean;
+  onToggle: () => void;
+};
+
+export function Sidebar({ isOpen, onToggle }: SidebarProps) {
+  const tooltipText = "Hide";
 
   return (
     <aside
@@ -39,19 +41,21 @@ export function Sidebar() {
             isOpen ? "opacity-100" : "opacity-0"
           }`}
         >
-          Menu
+          
         </span>
         <div className="group relative">
           <button
             type="button"
-            onClick={() => setIsOpen((prev) => !prev)}
+            onClick={onToggle}
             className="rounded-full border border-slate-200 bg-white p-2 text-slate-700 shadow-sm hover:bg-slate-50"
           >
             <NavIcon />
           </button>
-          <span className="pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-slate-900 px-3 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
-            {tooltipText}
-          </span>
+          {isOpen ? (
+            <span className="pointer-events-none absolute right-full top-1/2 mr-3 -translate-y-1/2 whitespace-nowrap rounded-full bg-slate-900 px-3 py-1 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100">
+              {tooltipText}
+            </span>
+          ) : null}
         </div>
       </div>
       <nav className="flex flex-1 flex-col gap-1 px-2 pb-6">
