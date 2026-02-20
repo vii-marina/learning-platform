@@ -1,5 +1,5 @@
 import * as React from "react";
-import { AuthHeroText } from "../components/AuthHeroText";
+import { AuthHeroText } from "./AuthHeroText";
 
 type AuthLayoutProps = {
   title: string;

@@ -1,4 +1,4 @@
-export { DashboardPage } from "./DashboardPage";
-export { LandingPage } from "./LandingPage";
-export { LoginPage } from "./LoginPage";
-export { RegisterPage } from "./RegisterPage";
+export { LandingPage } from "./landing";
+export { LoginPage, RegisterPage } from "./auth";
+export { DashboardPage } from "./dashboard";
+export { AdminPage, CourseBuilderPage } from "./admin";

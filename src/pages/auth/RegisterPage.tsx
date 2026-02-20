@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Card } from "../components/Card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { AuthLayout } from "../layouts/AuthLayout";
-import { supabase } from "../lib/supabase";
-import { PasswordField } from "../components/PasswordField";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
+import { Input } from "../../components/ui/Input";
+import { AuthLayout } from "../../components/layout/AuthLayout";
+import { supabase } from "../../lib/supabase";
+import { PasswordField } from "../../components/ui/PasswordField";
 
 export function RegisterPage() {
   const [email, setEmail] = useState("");
