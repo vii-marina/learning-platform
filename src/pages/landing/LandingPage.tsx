@@ -1,7 +1,7 @@
-import { Footer } from "../components/Footer";
-import { Header } from "../components/Header";
-import { Button } from "../components/ui/button";
-import { Card } from "../components/Card";
+import { Footer } from "../../components/layout/Footer";
+import { Header } from "../../components/layout/Header";
+import { Button } from "../../components/ui/Button";
+import { Card } from "../../components/ui/Card";
 
 export function LandingPage() {
   return (

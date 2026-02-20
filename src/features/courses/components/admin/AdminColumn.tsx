@@ -1,5 +1,5 @@
-import { ReactNode } from "react";
-import { Card } from "../Card";
+import type { ReactNode } from "react";
+import { Card } from "../../../../components/ui/Card";
 
 type AdminColumnProps = {
   title: string;

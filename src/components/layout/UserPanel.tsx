@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { Card } from "./Card";
-import { supabase } from "../lib/supabase";
+import { Card } from "../ui/Card";
+import { supabase } from "../../lib/supabase";
 
 export function UserPanel() {
   const [displayName, setDisplayName] = useState("User");

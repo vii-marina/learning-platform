@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { supabase } from "../lib/supabase";
-import type { Course, Lesson, Module } from "../components/admin/types";
-import { RichTextEditor } from "../components/admin/RichTextEditor";
+import { Button } from "../../components/ui/Button";
+import { Input } from "../../components/ui/Input";
+import { supabase } from "../../lib/supabase";
+import type {
+  Course,
+  Lesson,
+  Module,
+} from "../../features/courses/components/admin/types";
+import { RichTextEditor } from "../../features/courses/components/admin/RichTextEditor";
 
 const steps = [
   { id: 1, label: "Basics", helper: "Course information" },

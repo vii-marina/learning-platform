@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Footer } from "../components/Footer";
-import { Header } from "../components/Header";
-import { Sidebar } from "../components/Sidebar";
+import { Footer } from "../../components/layout/Footer";
+import { Header } from "../../components/layout/Header";
+import { Sidebar } from "../../components/layout/Sidebar";
 import { CourseBuilderPage } from "./CourseBuilderPage";
 
 export function AdminPage() {

@@ -1,5 +1,5 @@
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
+import { Button } from "../../../../components/ui/Button";
+import { Input } from "../../../../components/ui/Input";
 
 type ModuleEditPanelProps = {
   title: string;

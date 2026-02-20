@@ -5,7 +5,7 @@ import {
   LandingPage,
   LoginPage,
   RegisterPage,
-} from "./pages";
+} from "../pages";
 
 function App() {
   return (

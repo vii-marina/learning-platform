@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card } from "../components/Card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { AuthLayout } from "../layouts/AuthLayout";
-import { PasswordField } from "../components/PasswordField";
-import { supabase } from "../lib/supabase";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
+import { Input } from "../../components/ui/Input";
+import { AuthLayout } from "../../components/layout/AuthLayout";
+import { PasswordField } from "../../components/ui/PasswordField";
+import { supabase } from "../../lib/supabase";
 
 export function LoginPage() {
   const [email, setEmail] = useState("");

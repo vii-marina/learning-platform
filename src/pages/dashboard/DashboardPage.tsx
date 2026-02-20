@@ -1,9 +1,9 @@
-import { Footer } from "../components/Footer";
-import { Header } from "../components/Header";
-import { Card } from "../components/Card";
-import { Sidebar } from "../components/Sidebar";
-import { UserPanel } from "../components/UserPanel";
-import { Button } from "../components/ui/button";
+import { Footer } from "../../components/layout/Footer";
+import { Header } from "../../components/layout/Header";
+import { Sidebar } from "../../components/layout/Sidebar";
+import { UserPanel } from "../../components/layout/UserPanel";
+import { Card } from "../../components/ui/Card";
+import { Button } from "../../components/ui/Button";
 import { useState } from "react";
 
 
