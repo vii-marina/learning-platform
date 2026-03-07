@@ -2,11 +2,25 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { supabase } from "../../lib/supabase";
-import type {
-  Course,
-  Lesson,
-  Module,
-} from "../../features/courses/components/admin/types";
+import {
+  createCourse,
+  createModule,
+  createLesson,
+  deleteLesson,
+  deleteModule,
+  listCourses,
+  listLessonsByModule,
+  listModulesByCourse,
+  listLessonBlocksByLesson,
+  publishCourse,
+  swapLessonOrder,
+  swapModuleOrder,
+  updateCourse,
+  updateLesson,
+  updateModule,
+  upsertLessonPrimaryRichTextBlock,
+} from "../../features/courses/api";
+import type { Course, Lesson, Module } from "../../features/courses/api";
 import { RichTextEditor } from "../../features/courses/components/admin/RichTextEditor";
 
 const steps = [
@@ -37,6 +51,20 @@ const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+const readRichTextFromBlock = (content: Record<string, unknown>) => {
+  const html = content.html;
+  if (typeof html === "string") {
+    return html;
+  }
+
+  const text = content.text;
+  if (typeof text === "string") {
+    return text;
+  }
+
+  return "";
+};
 
 export function CourseBuilderPage() {
   const [courses, setCourses] = useState<Course[]>([]);
@@ -79,133 +107,131 @@ export function CourseBuilderPage() {
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
 
   const fetchCourses = async () => {
-    const { data, error } = await supabase
-      .from("courses")
-      .select("*")
-      .order("id", { ascending: true });
-    if (error) {
+    try {
+      const data = await listCourses();
+      setCourses(data);
+      setMessage("");
+    } catch {
       setMessage("Unable to load courses.");
-      return;
     }
-    setCourses(data || []);
   };
 
   const fetchModules = async (courseId: string) => {
-    const { data, error } = await supabase
-      .from("modules")
-      .select("*")
-      .eq("course_id", courseId)
-      .order("order", { ascending: true });
-    if (error) {
+    try {
+      const data = await listModulesByCourse(courseId);
+      setModules(data);
+      setMessage("");
+    } catch {
       setMessage("Unable to load modules.");
-      return;
     }
-    setModules(data || []);
   };
 
   const fetchLessons = async (moduleId: string) => {
-    const { data, error } = await supabase
-      .from("lessons")
-      .select("*")
-      .eq("module_id", moduleId)
-      .order("order", { ascending: true });
-    if (error) {
+    try {
+      const data = await listLessonsByModule(moduleId);
+      setLessonsByModule((prev) => ({ ...prev, [moduleId]: data }));
+      setMessage("");
+    } catch {
       setMessage("Unable to load lessons.");
-      return;
     }
-    setLessonsByModule((prev) => ({ ...prev, [moduleId]: data || [] }));
+  };
+
+  const getCurrentTeacherId = async () => {
+    const { data, error } = await supabase.auth.getUser();
+    if (error || !data.user) {
+      throw new Error("Unable to resolve current teacher.");
+    }
+    return data.user.id;
   };
 
   useEffect(() => {
-    fetchCourses();
+    queueMicrotask(() => {
+      void fetchCourses();
+    });
   }, []);
 
   useEffect(() => {
     if (selectedCourse) {
-      setCourseTitle(selectedCourse.title);
-      setCourseDescription(selectedCourse.description || "");
+      queueMicrotask(() => {
+        setCourseTitle(selectedCourse.title);
+        setCourseDescription(selectedCourse.description || "");
+      });
     }
   }, [selectedCourse]);
 
   useEffect(() => {
     if (currentCourseId) {
-      fetchModules(currentCourseId);
+      queueMicrotask(() => {
+        void fetchModules(currentCourseId);
+      });
     } else {
-      setModules([]);
-      setLessonsByModule({});
+      queueMicrotask(() => {
+        setModules([]);
+        setLessonsByModule({});
+      });
     }
   }, [currentCourseId]);
 
   const handleSaveDraft = async () => {
     if (!isBasicsComplete) return;
-    if (currentCourseId) {
-      const { error } = await supabase
-        .from("courses")
-        .update({
+    try {
+      if (currentCourseId) {
+        await updateCourse(currentCourseId, {
           title: courseTitle.trim(),
           description: courseDescription.trim() || null,
-        })
-        .eq("id", currentCourseId);
-      if (error) {
-        setMessage("Unable to update course.");
-        return;
-      }
-    } else {
-      const { data, error } = await supabase
-        .from("courses")
-        .insert({
+        });
+      } else {
+        const teacherId = await getCurrentTeacherId();
+        const course = await createCourse({
+          teacher_id: teacherId,
           title: courseTitle.trim(),
           description: courseDescription.trim() || null,
           is_published: false,
-        })
-        .select("id")
-        .single();
-      if (error) {
-        setMessage("Unable to create course.");
-        return;
+        });
+        setCurrentCourseId(course.id);
       }
-      setCurrentCourseId(data?.id ?? null);
+      await fetchCourses();
+      setMessage("");
+    } catch {
+      setMessage(currentCourseId ? "Unable to update course." : "Unable to create course.");
     }
-    fetchCourses();
   };
 
   const handleCreateModule = async () => {
     if (!currentCourseId || !newModuleTitle.trim()) return;
-    const nextOrder =
-      modules.length === 0 ? 1 : Math.max(...modules.map((m) => m.order)) + 1;
-    const { error } = await supabase.from("modules").insert({
-      course_id: currentCourseId,
-      title: newModuleTitle.trim(),
-      order: nextOrder,
-    });
-    if (error) {
+    try {
+      await createModule({
+        course_id: currentCourseId,
+        title: newModuleTitle.trim(),
+      });
+      setNewModuleTitle("");
+      await fetchModules(currentCourseId);
+      setMessage("");
+    } catch {
       setMessage("Unable to create module.");
-      return;
     }
-    setNewModuleTitle("");
-    fetchModules(currentCourseId);
   };
 
   const handleUpdateModule = async () => {
     if (!editModuleId || !editModuleTitle.trim()) return;
-    const { error } = await supabase
-      .from("modules")
-      .update({ title: editModuleTitle.trim() })
-      .eq("id", editModuleId);
-    if (error) {
+    try {
+      await updateModule(editModuleId, { title: editModuleTitle.trim() });
+      setEditModuleId(null);
+      setEditModuleTitle("");
+      if (currentCourseId) {
+        await fetchModules(currentCourseId);
+      }
+      setMessage("");
+    } catch {
       setMessage("Unable to update module.");
-      return;
-    }
-    setEditModuleId(null);
-    if (currentCourseId) {
-      fetchModules(currentCourseId);
     }
   };
 
   const handleDeleteModule = async (moduleId: string) => {
     if (!window.confirm("Delete this module?")) return;
-    const { error } = await supabase.from("modules").delete().eq("id", moduleId);
-    if (error) {
+    try {
+      await deleteModule(moduleId);
+    } catch {
       setMessage("Unable to delete module.");
       return;
     }
@@ -223,8 +249,9 @@ export function CourseBuilderPage() {
       setExpandedModuleId(null);
     }
     if (currentCourseId) {
-      fetchModules(currentCourseId);
+      await fetchModules(currentCourseId);
     }
+    setMessage("");
   };
 
   const moveModule = async (moduleId: string, direction: "up" | "down") => {
@@ -234,17 +261,13 @@ export function CourseBuilderPage() {
     if (index < 0 || swapWith < 0 || swapWith >= modules.length) return;
     const current = modules[index];
     const target = modules[swapWith];
-    const { error } = await supabase
-      .from("modules")
-      .upsert([
-        { id: current.id, order: target.order },
-        { id: target.id, order: current.order },
-      ]);
-    if (error) {
+    try {
+      await swapModuleOrder(current, target);
+      await fetchModules(currentCourseId);
+      setMessage("");
+    } catch {
       setMessage("Unable to reorder modules.");
-      return;
     }
-    fetchModules(currentCourseId);
   };
 
   const toggleModule = async (moduleId: string) => {
@@ -275,7 +298,7 @@ export function CourseBuilderPage() {
     setLessonMinScore("");
   };
 
-  const startEditLesson = (moduleId: string, lesson: Lesson) => {
+  const startEditLesson = async (moduleId: string, lesson: Lesson) => {
     setLessonEditorModuleId(moduleId);
     setEditingLessonId(lesson.id);
     setLessonTitle(lesson.title);
@@ -283,52 +306,54 @@ export function CourseBuilderPage() {
     setLessonVideoUrl("");
     setLessonDuration("");
     setLessonMinScore("");
+
+    try {
+      const blocks = await listLessonBlocksByLesson(lesson.id);
+      if (blocks.length > 0) {
+        setLessonContent(readRichTextFromBlock(blocks[0].content));
+      }
+    } catch {
+      setMessage("Unable to load lesson blocks.");
+    }
   };
 
   const handleSaveLesson = async () => {
     if (!lessonEditorModuleId || !lessonTitle.trim()) return;
     const moduleId = lessonEditorModuleId;
-    if (editingLessonId) {
-      const { error } = await supabase
-        .from("lessons")
-        .update({
+    try {
+      if (editingLessonId) {
+        await updateLesson(editingLessonId, {
           title: lessonTitle.trim(),
           content: lessonContent,
           content_type: "html",
-        })
-        .eq("id", editingLessonId);
-      if (error) {
-        setMessage("Unable to update lesson.");
-        return;
+        });
+        await upsertLessonPrimaryRichTextBlock(editingLessonId, lessonContent);
+      } else {
+        const lesson = await createLesson({
+          module_id: moduleId,
+          title: lessonTitle.trim(),
+          content: lessonContent,
+          content_type: "html",
+        });
+        await upsertLessonPrimaryRichTextBlock(lesson.id, lessonContent);
       }
-    } else {
-      const lessons = lessonsByModule[moduleId] || [];
-      const nextOrder =
-        lessons.length === 0 ? 1 : Math.max(...lessons.map((l) => l.order)) + 1;
-      const { error } = await supabase.from("lessons").insert({
-        module_id: moduleId,
-        title: lessonTitle.trim(),
-        content: lessonContent,
-        content_type: "html",
-        order: nextOrder,
-      });
-      if (error) {
-        setMessage("Unable to create lesson.");
-        return;
-      }
+      await fetchLessons(moduleId);
+      resetLessonEditor();
+      setMessage("");
+    } catch {
+      setMessage(editingLessonId ? "Unable to update lesson." : "Unable to create lesson.");
     }
-    await fetchLessons(moduleId);
-    resetLessonEditor();
   };
 
   const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
     if (!window.confirm("Delete this lesson?")) return;
-    const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
-    if (error) {
+    try {
+      await deleteLesson(lessonId);
+      await fetchLessons(moduleId);
+      setMessage("");
+    } catch {
       setMessage("Unable to delete lesson.");
-      return;
     }
-    await fetchLessons(moduleId);
   };
 
   const moveLesson = async (
@@ -342,17 +367,13 @@ export function CourseBuilderPage() {
     if (index < 0 || swapWith < 0 || swapWith >= lessons.length) return;
     const current = lessons[index];
     const target = lessons[swapWith];
-    const { error } = await supabase
-      .from("lessons")
-      .upsert([
-        { id: current.id, order: target.order },
-        { id: target.id, order: current.order },
-      ]);
-    if (error) {
+    try {
+      await swapLessonOrder(current, target);
+      await fetchLessons(moduleId);
+      setMessage("");
+    } catch {
       setMessage("Unable to reorder lessons.");
-      return;
     }
-    await fetchLessons(moduleId);
   };
 
   const resetTestEditor = () => {
@@ -451,6 +472,21 @@ export function CourseBuilderPage() {
     });
     return warnings;
   }, [modules, lessonsByModule]);
+
+  const handlePublishCourse = async () => {
+    if (!currentCourseId) {
+      setMessage("Create a draft course before publishing.");
+      return;
+    }
+
+    try {
+      await publishCourse(currentCourseId);
+      await fetchCourses();
+      setMessage("");
+    } catch {
+      setMessage("Unable to publish course.");
+    }
+  };
 
   return (
     <div className="flex w-full flex-col gap-6">
@@ -695,7 +731,9 @@ export function CourseBuilderPage() {
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={() => startEditLesson(module.id, lesson)}
+                                    onClick={() => {
+                                      void startEditLesson(module.id, lesson);
+                                    }}
                                   >
                                     ✎
                                   </button>
@@ -1051,7 +1089,9 @@ export function CourseBuilderPage() {
               </div>
             ) : null}
             <div className="mt-6 flex justify-end">
-              <Button>Publish Course</Button>
+              <Button onClick={handlePublishCourse} disabled={!currentCourseId}>
+                Publish Course
+              </Button>
             </div>
           </div>
         </div>
