@@ -3,25 +3,36 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { supabase } from "../../lib/supabase";
 import {
+  ChevronDown,
+  ChevronUp,
+  Pencil,
+  Plus,
+  TriangleAlert,
+  Trash2,
+} from "lucide-react";
+import {
   createCourse,
-  createModule,
   createLesson,
-  deleteLesson,
+  createModule,
   deleteModule,
   listCourses,
   listLessonsByModule,
   listModulesByCourse,
-  listLessonBlocksByLesson,
   publishCourse,
-  swapLessonOrder,
   swapModuleOrder,
   updateCourse,
-  updateLesson,
   updateModule,
-  upsertLessonPrimaryRichTextBlock,
 } from "../../features/courses/api";
 import type { Course, Lesson, Module } from "../../features/courses/api";
-import { RichTextEditor } from "../../features/courses/components/admin/RichTextEditor";
+import { CreateModuleModal } from "../../features/courses/components/admin/CreateModuleModal";
+import { LessonCreateModal } from "../../features/courses/components/admin/LessonCreateModal";
+import { ModuleLessonsSection } from "../../features/courses/components/admin/ModuleLessonsSection";
+import { ModuleTestsSection } from "../../features/courses/components/admin/ModuleTestsSection";
+import { TestCreateModal } from "../../features/courses/components/admin/TestCreateModal";
+import type {
+  CourseTest,
+  CourseTestQuestion,
+} from "../../features/courses/components/admin/courseBuilderUiTypes";
 
 const steps = [
   { id: 1, label: "Basics", helper: "Course information" },
@@ -29,41 +40,60 @@ const steps = [
   { id: 3, label: "Review & Publish", helper: "Launch course" },
 ];
 
-type TestQuestionType = "Multiple Choice" | "True/False" | "Short Answer";
-
-type TestQuestion = {
-  id: string;
-  text: string;
-  type: TestQuestionType;
-  options: string[];
-  correct: string;
-};
-
-type CourseTest = {
-  id: string;
-  title: string;
-  description: string;
-  minScore: string;
-  questions: TestQuestion[];
-};
-
 const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const readRichTextFromBlock = (content: Record<string, unknown>) => {
-  const html = content.html;
-  if (typeof html === "string") {
-    return html;
+const createEmptyTestQuestion = (): CourseTestQuestion => ({
+  id: createId(),
+  type: "single_choice",
+  questionText: "",
+  options: ["Option 1", "Option 2"],
+  correctOptionIndexes: [],
+});
+
+const isQuestionValid = (question: CourseTestQuestion) => {
+  if (!question.questionText.trim()) {
+    return false;
   }
 
-  const text = content.text;
-  if (typeof text === "string") {
-    return text;
+  if (question.type === "true_false") {
+    return (
+      question.correctOptionIndexes.length === 1 &&
+      (question.correctOptionIndexes[0] === 0 || question.correctOptionIndexes[0] === 1)
+    );
   }
 
-  return "";
+  if (question.options.length < 2 || question.options.some((option) => !option.trim())) {
+    return false;
+  }
+
+  if (question.correctOptionIndexes.length === 0) {
+    return false;
+  }
+
+  if (
+    question.correctOptionIndexes.some(
+      (optionIndex) => optionIndex < 0 || optionIndex >= question.options.length
+    )
+  ) {
+    return false;
+  }
+
+  if (question.type === "single_choice" && question.correctOptionIndexes.length !== 1) {
+    return false;
+  }
+
+  return true;
+};
+
+const canSaveTestDraft = (title: string, questions: CourseTestQuestion[]) => {
+  if (!title.trim() || questions.length === 0) {
+    return false;
+  }
+
+  return questions.every(isQuestionValid);
 };
 
 export function CourseBuilderPage() {
@@ -77,30 +107,32 @@ export function CourseBuilderPage() {
 
   const [modules, setModules] = useState<Module[]>([]);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [isCreateModuleModalOpen, setIsCreateModuleModalOpen] = useState(false);
+  const [isCreatingModule, setIsCreatingModule] = useState(false);
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [editModuleId, setEditModuleId] = useState<string | null>(null);
   const [editModuleTitle, setEditModuleTitle] = useState("");
 
   const [lessonsByModule, setLessonsByModule] = useState<Record<string, Lesson[]>>({});
   const [lessonEditorModuleId, setLessonEditorModuleId] = useState<string | null>(null);
-  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
   const [lessonContent, setLessonContent] = useState("");
   const [lessonVideoUrl, setLessonVideoUrl] = useState("");
-  const [lessonDuration, setLessonDuration] = useState("");
-  const [lessonMinScore, setLessonMinScore] = useState("");
 
   const [testsByModule, setTestsByModule] = useState<Record<string, CourseTest[]>>({});
   const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
-  const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [testTitle, setTestTitle] = useState("");
-  const [testDescription, setTestDescription] = useState("");
-  const [testMinScore, setTestMinScore] = useState("");
-  const [testQuestions, setTestQuestions] = useState<TestQuestion[]>([]);
+  const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === currentCourseId) || null,
     [courses, currentCourseId]
+  );
+
+  const canSaveCurrentTest = useMemo(
+    () => canSaveTestDraft(testTitle, testQuestions),
+    [testQuestions, testTitle]
   );
 
   const isBasicsComplete =
@@ -192,23 +224,46 @@ export function CourseBuilderPage() {
       }
       await fetchCourses();
       setMessage("");
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
       setMessage(currentCourseId ? "Unable to update course." : "Unable to create course.");
     }
   };
 
-  const handleCreateModule = async () => {
+  const openCreateModuleModal = () => {
+    setNewModuleTitle("");
+    setIsCreateModuleModalOpen(true);
+  };
+
+  const closeCreateModuleModal = () => {
+    setIsCreateModuleModalOpen(false);
+    setNewModuleTitle("");
+  };
+
+  const handleSaveModuleModal = async () => {
     if (!currentCourseId || !newModuleTitle.trim()) return;
+
     try {
-      await createModule({
+      setIsCreatingModule(true);
+      const module = await createModule({
         course_id: currentCourseId,
         title: newModuleTitle.trim(),
       });
-      setNewModuleTitle("");
       await fetchModules(currentCourseId);
+      setExpandedModuleId(module.id);
+      closeCreateModuleModal();
       setMessage("");
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
       setMessage("Unable to create module.");
+    } finally {
+      setIsCreatingModule(false);
     }
   };
 
@@ -278,196 +333,111 @@ export function CourseBuilderPage() {
     }
   };
 
-  const resetLessonEditor = () => {
+  const closeCreateLessonModal = () => {
     setLessonEditorModuleId(null);
-    setEditingLessonId(null);
     setLessonTitle("");
     setLessonContent("");
     setLessonVideoUrl("");
-    setLessonDuration("");
-    setLessonMinScore("");
   };
 
-  const startNewLesson = (moduleId: string) => {
+  const openCreateLessonModal = (moduleId: string) => {
     setLessonEditorModuleId(moduleId);
-    setEditingLessonId(null);
     setLessonTitle("");
     setLessonContent("");
     setLessonVideoUrl("");
-    setLessonDuration("");
-    setLessonMinScore("");
   };
 
-  const startEditLesson = async (moduleId: string, lesson: Lesson) => {
-    setLessonEditorModuleId(moduleId);
-    setEditingLessonId(lesson.id);
-    setLessonTitle(lesson.title);
-    setLessonContent(lesson.content || "");
-    setLessonVideoUrl("");
-    setLessonDuration("");
-    setLessonMinScore("");
-
-    try {
-      const blocks = await listLessonBlocksByLesson(lesson.id);
-      if (blocks.length > 0) {
-        setLessonContent(readRichTextFromBlock(blocks[0].content));
-      }
-    } catch {
-      setMessage("Unable to load lesson blocks.");
-    }
-  };
-
-  const handleSaveLesson = async () => {
+  const handleCreateLesson = async () => {
     if (!lessonEditorModuleId || !lessonTitle.trim()) return;
     const moduleId = lessonEditorModuleId;
+
     try {
-      if (editingLessonId) {
-        await updateLesson(editingLessonId, {
-          title: lessonTitle.trim(),
-          content: lessonContent,
-          content_type: "html",
-        });
-        await upsertLessonPrimaryRichTextBlock(editingLessonId, lessonContent);
-      } else {
-        const lesson = await createLesson({
-          module_id: moduleId,
-          title: lessonTitle.trim(),
-          content: lessonContent,
-          content_type: "html",
-        });
-        await upsertLessonPrimaryRichTextBlock(lesson.id, lessonContent);
+      setIsCreatingLesson(true);
+      await createLesson({
+        module_id: moduleId,
+        title: lessonTitle.trim(),
+        content: lessonContent.trim() || null,
+        video_url: lessonVideoUrl.trim() || null,
+        content_type: "text",
+      });
+      await fetchLessons(moduleId);
+      closeCreateLessonModal();
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
       }
-      await fetchLessons(moduleId);
-      resetLessonEditor();
-      setMessage("");
-    } catch {
-      setMessage(editingLessonId ? "Unable to update lesson." : "Unable to create lesson.");
+      setMessage("Unable to create lesson.");
+    } finally {
+      setIsCreatingLesson(false);
     }
   };
 
-  const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
-    if (!window.confirm("Delete this lesson?")) return;
-    try {
-      await deleteLesson(lessonId);
-      await fetchLessons(moduleId);
-      setMessage("");
-    } catch {
-      setMessage("Unable to delete lesson.");
-    }
-  };
-
-  const moveLesson = async (
-    moduleId: string,
-    lessonId: string,
-    direction: "up" | "down"
-  ) => {
-    const lessons = lessonsByModule[moduleId] || [];
-    const index = lessons.findIndex((lesson) => lesson.id === lessonId);
-    const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || swapWith < 0 || swapWith >= lessons.length) return;
-    const current = lessons[index];
-    const target = lessons[swapWith];
-    try {
-      await swapLessonOrder(current, target);
-      await fetchLessons(moduleId);
-      setMessage("");
-    } catch {
-      setMessage("Unable to reorder lessons.");
-    }
-  };
-
-  const resetTestEditor = () => {
+  const closeCreateTestModal = () => {
     setTestEditorModuleId(null);
-    setEditingTestId(null);
     setTestTitle("");
-    setTestDescription("");
-    setTestMinScore("");
     setTestQuestions([]);
   };
 
-  const startNewTest = (moduleId: string) => {
+  const openCreateTestModal = (moduleId: string) => {
     setTestEditorModuleId(moduleId);
-    setEditingTestId(null);
     setTestTitle("");
-    setTestDescription("");
-    setTestMinScore("");
-    setTestQuestions([]);
+    setTestQuestions([createEmptyTestQuestion()]);
   };
 
-  const startEditTest = (moduleId: string, test: CourseTest) => {
-    setTestEditorModuleId(moduleId);
-    setEditingTestId(test.id);
-    setTestTitle(test.title);
-    setTestDescription(test.description);
-    setTestMinScore(test.minScore);
-    setTestQuestions(test.questions);
+  const handleAddTestQuestion = () => {
+    setTestQuestions((prev) => [...prev, createEmptyTestQuestion()]);
   };
 
-  const handleSaveTest = () => {
-    if (!testEditorModuleId || !testTitle.trim()) return;
-    const moduleId = testEditorModuleId;
-    setTestsByModule((prev) => {
-      const list = prev[moduleId] || [];
-      const updated: CourseTest = {
-        id: editingTestId || createId(),
-        title: testTitle.trim(),
-        description: testDescription,
-        minScore: testMinScore,
-        questions: testQuestions,
-      };
-      const nextList = editingTestId
-        ? list.map((item) => (item.id === editingTestId ? updated : item))
-        : [...list, updated];
-      return { ...prev, [moduleId]: nextList };
-    });
-    resetTestEditor();
-  };
-
-  const handleDeleteTest = (moduleId: string, testId: string) => {
-    if (!window.confirm("Delete this test?")) return;
-    setTestsByModule((prev) => {
-      const list = prev[moduleId] || [];
-      return { ...prev, [moduleId]: list.filter((item) => item.id !== testId) };
-    });
-  };
-
-  const addQuestion = () => {
-    setTestQuestions((prev) => [
-      ...prev,
-      {
-        id: createId(),
-        text: "",
-        type: "Multiple Choice",
-        options: ["Option 1", "Option 2"],
-        correct: "Option 1",
-      },
-    ]);
-  };
-
-  const updateQuestion = (
+  const handleChangeTestQuestion = (
     questionId: string,
-    patch: Partial<TestQuestion>
+    nextQuestion: CourseTestQuestion
   ) => {
     setTestQuestions((prev) =>
-      prev.map((question) =>
-        question.id === questionId ? { ...question, ...patch } : question
-      )
+      prev.map((question) => (question.id === questionId ? nextQuestion : question))
     );
   };
 
-  const removeQuestion = (questionId: string) => {
-    setTestQuestions((prev) => prev.filter((question) => question.id !== questionId));
+  const handleDeleteTestQuestion = (questionId: string) => {
+    setTestQuestions((prev) => {
+      const remaining = prev.filter((question) => question.id !== questionId);
+      return remaining.length > 0 ? remaining : [createEmptyTestQuestion()];
+    });
+  };
+
+  const handleCreateTest = () => {
+    if (!testEditorModuleId || !canSaveCurrentTest) return;
+    const moduleId = testEditorModuleId;
+
+    setTestsByModule((prev) => {
+      const list = prev[moduleId] || [];
+      const created: CourseTest = {
+        id: createId(),
+        title: testTitle.trim(),
+        description: "",
+        minScore: "",
+        questions: testQuestions.map((question) => ({
+          ...question,
+          options: [...question.options],
+          correctOptionIndexes: [...question.correctOptionIndexes],
+        })),
+      };
+      return { ...prev, [moduleId]: [...list, created] };
+    });
+
+    closeCreateTestModal();
   };
 
   const courseWarnings = useMemo(() => {
     const warnings: string[] = [];
     if (!modules.length) {
-      warnings.push("⚠ No modules created yet.");
+      warnings.push("No modules created yet.");
     }
     modules.forEach((module) => {
       const lessons = lessonsByModule[module.id] || [];
       if (lessons.length === 0) {
-        warnings.push(`⚠ No lessons in ${module.title}.`);
+        warnings.push(`No lessons in ${module.title}.`);
       }
     });
     return warnings;
@@ -599,14 +569,11 @@ export function CourseBuilderPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Input
-                  value={newModuleTitle}
-                  onChange={(event) => setNewModuleTitle(event.target.value)}
-                  placeholder="New module title"
-                  className="w-64"
-                />
-                <Button onClick={handleCreateModule} disabled={!currentCourseId}>
-                  Add module
+                <Button onClick={openCreateModuleModal} disabled={!currentCourseId}>
+                  <span className="inline-flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add module
+                  </span>
                 </Button>
               </div>
             </div>
@@ -647,23 +614,26 @@ export function CourseBuilderPage() {
                         onClick={() => toggleModule(module.id)}
                         className="flex flex-1 items-center gap-3 text-left"
                       >
-                        <span className="text-base font-semibold text-slate-900">
-                          {module.title}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {isExpanded ? "Hide" : "Show"}
-                        </span>
+                        <span className="text-sm text-slate-400">Module {module.order}</span>
+                        <span className="text-base font-semibold text-slate-900">{module.title}</span>
+                        <span className="text-sm text-slate-500">{lessons.length} lessons</span>
+                        <span className="text-sm text-slate-500">{tests.length} tests</span>
                       </button>
                     )}
                     <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <button type="button" onClick={() => moveModule(module.id, "up")}>
-                        ↑
+                      <button
+                        type="button"
+                        onClick={() => moveModule(module.id, "up")}
+                        aria-label="Move module up"
+                      >
+                        <ChevronUp className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
                         onClick={() => moveModule(module.id, "down")}
+                        aria-label="Move module down"
                       >
-                        ↓
+                        <ChevronDown className="h-4 w-4" />
                       </button>
                       <button
                         type="button"
@@ -671,11 +641,16 @@ export function CourseBuilderPage() {
                           setEditModuleId(module.id);
                           setEditModuleTitle(module.title);
                         }}
+                        aria-label="Edit module"
                       >
-                        ✎
+                        <Pencil className="h-4 w-4" />
                       </button>
-                      <button type="button" onClick={() => handleDeleteModule(module.id)}>
-                        🗑
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteModule(module.id)}
+                        aria-label="Delete module"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -683,325 +658,17 @@ export function CourseBuilderPage() {
                   {isExpanded ? (
                     <div className="border-t border-slate-200 px-5 py-5">
                       <div className="flex flex-col gap-6">
-                        <section className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-semibold text-slate-900">
-                                Lessons
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                Build lesson content and materials.
-                              </p>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              onClick={() => startNewLesson(module.id)}
-                            >
-                              + Add Lesson
-                            </Button>
-                          </div>
+                        <ModuleLessonsSection
+                          moduleId={module.id}
+                          lessons={lessons}
+                          onOpenCreateLesson={openCreateLessonModal}
+                        />
 
-                          <div className="flex flex-col gap-3">
-                            {lessons.map((lesson, index) => (
-                              <div
-                                key={lesson.id}
-                                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs text-slate-400">≡</span>
-                                  <span className="text-xs text-slate-400">
-                                    {index + 1}.
-                                  </span>
-                                  <span className="font-medium text-slate-900">
-                                    {lesson.title}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <button
-                                    type="button"
-                                    onClick={() => moveLesson(module.id, lesson.id, "up")}
-                                  >
-                                    ↑
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => moveLesson(module.id, lesson.id, "down")}
-                                  >
-                                    ↓
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void startEditLesson(module.id, lesson);
-                                    }}
-                                  >
-                                    ✎
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLesson(module.id, lesson.id)}
-                                  >
-                                    🗑
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {lessonEditorModuleId === module.id ? (
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <div className="flex flex-col gap-4">
-                                <Input
-                                  value={lessonTitle}
-                                  onChange={(event) => setLessonTitle(event.target.value)}
-                                  placeholder="Lesson title"
-                                />
-                                <RichTextEditor
-                                  value={lessonContent}
-                                  onChange={setLessonContent}
-                                  placeholder="Write lesson content..."
-                                />
-                                <div className="grid gap-3 md:grid-cols-2">
-                                  <Input
-                                    value={lessonVideoUrl}
-                                    onChange={(event) =>
-                                      setLessonVideoUrl(event.target.value)
-                                    }
-                                    placeholder="Video URL"
-                                  />
-                                  <Input
-                                    value={lessonDuration}
-                                    onChange={(event) =>
-                                      setLessonDuration(event.target.value)
-                                    }
-                                    placeholder="Duration (e.g. 12:30)"
-                                  />
-                                </div>
-                                <Input
-                                  value={lessonMinScore}
-                                  onChange={(event) =>
-                                    setLessonMinScore(event.target.value)
-                                  }
-                                  placeholder="Optional minimum score"
-                                />
-                                <div className="flex gap-2">
-                                  <Button onClick={handleSaveLesson}>
-                                    Save lesson
-                                  </Button>
-                                  <Button variant="secondary" onClick={resetLessonEditor}>
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </section>
-
-                        <section className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-semibold text-slate-900">
-                                Tests
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                Draft quizzes and knowledge checks.
-                              </p>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              onClick={() => startNewTest(module.id)}
-                            >
-                              + Add Test
-                            </Button>
-                          </div>
-
-                          <div className="flex flex-col gap-3">
-                            {tests.map((test) => (
-                              <div
-                                key={test.id}
-                                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                              >
-                                <span className="font-medium text-slate-900">
-                                  {test.title}
-                                </span>
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditTest(module.id, test)}
-                                  >
-                                    ✎
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteTest(module.id, test.id)}
-                                  >
-                                    🗑
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {testEditorModuleId === module.id ? (
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <div className="flex flex-col gap-4">
-                                <Input
-                                  value={testTitle}
-                                  onChange={(event) => setTestTitle(event.target.value)}
-                                  placeholder="Test title"
-                                />
-                                <textarea
-                                  value={testDescription}
-                                  onChange={(event) =>
-                                    setTestDescription(event.target.value)
-                                  }
-                                  placeholder="Test description"
-                                  className="h-24 w-full rounded border border-slate-300 bg-white/85 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
-                                />
-                                <Input
-                                  value={testMinScore}
-                                  onChange={(event) => setTestMinScore(event.target.value)}
-                                  placeholder="Minimum score"
-                                />
-
-                                <div className="flex flex-col gap-3">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-slate-900">
-                                      Questions
-                                    </h4>
-                                    <Button variant="secondary" onClick={addQuestion}>
-                                      + Add Question
-                                    </Button>
-                                  </div>
-                                  {testQuestions.map((question, index) => (
-                                    <div
-                                      key={question.id}
-                                      className="rounded-xl border border-slate-200 bg-white p-3"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-xs text-slate-500">
-                                          Question {index + 1}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          className="text-xs text-slate-400"
-                                          onClick={() => removeQuestion(question.id)}
-                                        >
-                                          Remove
-                                        </button>
-                                      </div>
-                                      <div className="mt-3 flex flex-col gap-3">
-                                        <Input
-                                          value={question.text}
-                                          onChange={(event) =>
-                                            updateQuestion(question.id, {
-                                              text: event.target.value,
-                                            })
-                                          }
-                                          placeholder="Question text"
-                                        />
-                                        <select
-                                          value={question.type}
-                                          onChange={(event) => {
-                                            const value = event.target
-                                              .value as TestQuestionType;
-                                            const baseOptions =
-                                              value === "True/False"
-                                                ? ["True", "False"]
-                                                : ["Option 1", "Option 2"];
-                                            updateQuestion(question.id, {
-                                              type: value,
-                                              options:
-                                                value === "Short Answer"
-                                                  ? []
-                                                  : baseOptions,
-                                              correct:
-                                                value === "Short Answer"
-                                                  ? ""
-                                                  : baseOptions[0],
-                                            });
-                                          }}
-                                          className="rounded border border-slate-300 bg-white/85 px-3 py-2 text-sm"
-                                        >
-                                          <option>Multiple Choice</option>
-                                          <option>True/False</option>
-                                          <option>Short Answer</option>
-                                        </select>
-                                        {question.type !== "Short Answer" ? (
-                                          <div className="flex flex-col gap-2">
-                                            {question.options.map((option, optionIndex) => (
-                                              <Input
-                                                key={`${question.id}-${optionIndex}`}
-                                                value={option}
-                                                onChange={(event) => {
-                                                  const next = [...question.options];
-                                                  next[optionIndex] = event.target.value;
-                                                  updateQuestion(question.id, {
-                                                    options: next,
-                                                    correct:
-                                                      question.correct === option
-                                                        ? event.target.value
-                                                        : question.correct,
-                                                  });
-                                                }}
-                                                placeholder={`Option ${optionIndex + 1}`}
-                                              />
-                                            ))}
-                                            <Button
-                                              variant="secondary"
-                                              onClick={() =>
-                                                updateQuestion(question.id, {
-                                                  options: [
-                                                    ...question.options,
-                                                    `Option ${question.options.length + 1}`,
-                                                  ],
-                                                })
-                                              }
-                                            >
-                                              + Add option
-                                            </Button>
-                                            <select
-                                              value={question.correct}
-                                              onChange={(event) =>
-                                                updateQuestion(question.id, {
-                                                  correct: event.target.value,
-                                                })
-                                              }
-                                              className="rounded border border-slate-300 bg-white/85 px-3 py-2 text-sm"
-                                            >
-                                              {question.options.map((option) => (
-                                                <option key={option} value={option}>
-                                                  {option}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                        ) : (
-                                          <Input
-                                            value={question.correct}
-                                            onChange={(event) =>
-                                              updateQuestion(question.id, {
-                                                correct: event.target.value,
-                                              })
-                                            }
-                                            placeholder="Correct answer"
-                                          />
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                <div className="flex gap-2">
-                                  <Button onClick={handleSaveTest}>Save test</Button>
-                                  <Button variant="secondary" onClick={resetTestEditor}>
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </section>
+                        <ModuleTestsSection
+                          moduleId={module.id}
+                          tests={tests}
+                          onOpenCreateTest={openCreateTestModal}
+                        />
                       </div>
                     </div>
                   ) : null}
@@ -1084,7 +751,10 @@ export function CourseBuilderPage() {
             {courseWarnings.length > 0 ? (
               <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
                 {courseWarnings.map((warning) => (
-                  <div key={warning}>{warning}</div>
+                  <div key={warning} className="flex items-center gap-2">
+                    <TriangleAlert className="h-4 w-4" />
+                    <span>{warning}</span>
+                  </div>
                 ))}
               </div>
             ) : null}
@@ -1096,6 +766,45 @@ export function CourseBuilderPage() {
           </div>
         </div>
       ) : null}
+
+      <LessonCreateModal
+        isOpen={lessonEditorModuleId !== null}
+        title={lessonTitle}
+        content={lessonContent}
+        videoUrl={lessonVideoUrl}
+        isSaving={isCreatingLesson}
+        onClose={closeCreateLessonModal}
+        onSave={() => {
+          void handleCreateLesson();
+        }}
+        onTitleChange={setLessonTitle}
+        onContentChange={setLessonContent}
+        onVideoUrlChange={setLessonVideoUrl}
+      />
+
+      <TestCreateModal
+        isOpen={testEditorModuleId !== null}
+        title={testTitle}
+        questions={testQuestions}
+        canSave={canSaveCurrentTest}
+        onClose={closeCreateTestModal}
+        onSave={handleCreateTest}
+        onTitleChange={setTestTitle}
+        onAddQuestion={handleAddTestQuestion}
+        onQuestionChange={handleChangeTestQuestion}
+        onDeleteQuestion={handleDeleteTestQuestion}
+      />
+
+      <CreateModuleModal
+        isOpen={isCreateModuleModalOpen}
+        title={newModuleTitle}
+        isSaving={isCreatingModule}
+        onTitleChange={setNewModuleTitle}
+        onCancel={closeCreateModuleModal}
+        onSave={() => {
+          void handleSaveModuleModal();
+        }}
+      />
     </div>
   );
 }

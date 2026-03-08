@@ -2,8 +2,9 @@ import { useState } from "react";
 import { Footer } from "../../components/layout/Footer";
 import { Header } from "../../components/layout/Header";
 import { Sidebar } from "../../components/layout/Sidebar";
+import { CourseBuilderPage } from "../admin/CourseBuilderPage";
 
-export function AdminPage() {
+export function CourseBuilderWorkspacePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
@@ -19,12 +20,7 @@ export function AdminPage() {
       >
         <Header alignLeft />
         <main className="mx-auto flex w-full max-w-none flex-col gap-6 px-6 py-8">
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h1 className="text-2xl font-semibold text-slate-900">Admin Panel</h1>
-            <p className="mt-3 text-sm text-slate-600">
-              This page is reserved for future admin tools.
-            </p>
-          </section>
+          <CourseBuilderPage />
         </main>
         <Footer />
       </div>
