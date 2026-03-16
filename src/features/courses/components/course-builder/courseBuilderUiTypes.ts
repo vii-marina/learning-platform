@@ -13,5 +13,6 @@ export type CourseTest = {
   title: string;
   description: string;
   minScore: string;
+  afterLessonId: string | null;
   questions: CourseTestQuestion[];
 };

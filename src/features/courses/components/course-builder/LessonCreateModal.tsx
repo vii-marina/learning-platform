@@ -4,6 +4,8 @@ import { Input } from "../../../../components/ui/Input";
 
 type LessonCreateModalProps = {
   isOpen: boolean;
+  heading?: string;
+  saveLabel?: string;
   title: string;
   content: string;
   videoUrl: string;
@@ -17,6 +19,8 @@ type LessonCreateModalProps = {
 
 export function LessonCreateModal({
   isOpen,
+  heading = "Create Lesson",
+  saveLabel = "Save Lesson",
   title,
   content,
   videoUrl,
@@ -37,7 +41,7 @@ export function LessonCreateModal({
         <div className="flex items-center justify-between">
           <div className="inline-flex items-center gap-3">
             <Play className="h-6 w-6 text-slate-900" />
-            <h3 className="text-2xl font-semibold text-slate-900">Edit Lesson</h3>
+            <h3 className="text-2xl font-semibold text-slate-900">{heading}</h3>
           </div>
           <button type="button" onClick={onClose} aria-label="Close lesson modal">
             <X className="h-6 w-6 text-slate-900" />
@@ -97,7 +101,7 @@ export function LessonCreateModal({
               disabled={!title.trim() || isSaving}
               className="rounded-xl bg-blue-600 px-5 py-2 text-base text-white hover:bg-blue-700"
             >
-              {isSaving ? "Saving..." : "Save Lesson"}
+              {isSaving ? "Saving..." : saveLabel}
             </Button>
           </div>
         </div>

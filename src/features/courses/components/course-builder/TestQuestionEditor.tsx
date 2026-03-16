@@ -122,17 +122,26 @@ export function TestQuestionEditor({
       <div className="mt-6 space-y-4">
         <div>
           <label className="text-base font-semibold text-slate-900">Question Type</label>
-          <select
-            value={question.type}
-            onChange={(event) => handleTypeChange(event.target.value as TestQuestionType)}
-            className="mt-2 h-11 w-full rounded-xl border-0 bg-slate-100 px-4 text-base text-slate-900 focus:outline-none"
-          >
-            {questionTypeOptions.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            {questionTypeOptions.map((option) => {
+              const isActive = question.type === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleTypeChange(option.value)}
+                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                    isActive
+                      ? "border-slate-900 bg-slate-900 text-white"
+                      : "border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-slate-200"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         <div>

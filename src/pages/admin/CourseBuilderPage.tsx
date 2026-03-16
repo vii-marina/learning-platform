@@ -4,7 +4,7 @@ import { Input } from "../../components/ui/Input";
 import { supabase } from "../../lib/supabase";
 import {
   ChevronDown,
-  ChevronUp,
+  ChevronRight,
   Pencil,
   Plus,
   TriangleAlert,
@@ -14,25 +14,26 @@ import {
   createCourse,
   createLesson,
   createModule,
+  deleteLesson,
   deleteModule,
   listCourses,
   listLessonsByModule,
   listModulesByCourse,
   publishCourse,
-  swapModuleOrder,
   updateCourse,
+  updateLesson,
   updateModule,
 } from "../../features/courses/api";
 import type { Course, Lesson, Module } from "../../features/courses/api";
-import { CreateModuleModal } from "../../features/courses/components/admin/CreateModuleModal";
-import { LessonCreateModal } from "../../features/courses/components/admin/LessonCreateModal";
-import { ModuleLessonsSection } from "../../features/courses/components/admin/ModuleLessonsSection";
-import { ModuleTestsSection } from "../../features/courses/components/admin/ModuleTestsSection";
-import { TestCreateModal } from "../../features/courses/components/admin/TestCreateModal";
+import { CreateModuleModal } from "../../features/courses/components/course-builder/CreateModuleModal";
+import { LessonCreateModal } from "../../features/courses/components/course-builder/LessonCreateModal";
+import { ModuleLessonsSection } from "../../features/courses/components/course-builder/ModuleLessonsSection";
+import { ModuleTestsSection } from "../../features/courses/components/course-builder/ModuleTestsSection";
+import { TestCreateModal } from "../../features/courses/components/course-builder/TestCreateModal";
 import type {
   CourseTest,
   CourseTestQuestion,
-} from "../../features/courses/components/admin/courseBuilderUiTypes";
+} from "../../features/courses/components/course-builder/courseBuilderUiTypes";
 
 const steps = [
   { id: 1, label: "Basics", helper: "Course information" },
@@ -51,6 +52,12 @@ const createEmptyTestQuestion = (): CourseTestQuestion => ({
   questionText: "",
   options: ["Option 1", "Option 2"],
   correctOptionIndexes: [],
+});
+
+const cloneTestQuestion = (question: CourseTestQuestion): CourseTestQuestion => ({
+  ...question,
+  options: [...question.options],
+  correctOptionIndexes: [...question.correctOptionIndexes],
 });
 
 const isQuestionValid = (question: CourseTestQuestion) => {
@@ -115,19 +122,29 @@ export function CourseBuilderPage() {
 
   const [lessonsByModule, setLessonsByModule] = useState<Record<string, Lesson[]>>({});
   const [lessonEditorModuleId, setLessonEditorModuleId] = useState<string | null>(null);
+  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
   const [isCreatingLesson, setIsCreatingLesson] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
   const [lessonContent, setLessonContent] = useState("");
   const [lessonVideoUrl, setLessonVideoUrl] = useState("");
+  const [expandedLessonIds, setExpandedLessonIds] = useState<Record<string, boolean>>({});
 
   const [testsByModule, setTestsByModule] = useState<Record<string, CourseTest[]>>({});
   const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
+  const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [testTitle, setTestTitle] = useState("");
+  const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
   const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
+  const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === currentCourseId) || null,
     [courses, currentCourseId]
+  );
+
+  const activeTestModuleLessons = useMemo(
+    () => (testEditorModuleId ? lessonsByModule[testEditorModuleId] || [] : []),
+    [lessonsByModule, testEditorModuleId]
   );
 
   const canSaveCurrentTest = useMemo(
@@ -295,9 +312,27 @@ export function CourseBuilderPage() {
       delete next[moduleId];
       return next;
     });
+    setExpandedLessonIds((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((lessonId) => {
+        if ((lessonsByModule[moduleId] || []).some((lesson) => lesson.id === lessonId)) {
+          delete next[lessonId];
+        }
+      });
+      return next;
+    });
     setTestsByModule((prev) => {
       const next = { ...prev };
       delete next[moduleId];
+      return next;
+    });
+    setExpandedTestIds((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((testId) => {
+        if ((testsByModule[moduleId] || []).some((test) => test.id === testId)) {
+          delete next[testId];
+        }
+      });
       return next;
     });
     if (expandedModuleId === moduleId) {
@@ -307,22 +342,6 @@ export function CourseBuilderPage() {
       await fetchModules(currentCourseId);
     }
     setMessage("");
-  };
-
-  const moveModule = async (moduleId: string, direction: "up" | "down") => {
-    if (!currentCourseId) return;
-    const index = modules.findIndex((module) => module.id === moduleId);
-    const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || swapWith < 0 || swapWith >= modules.length) return;
-    const current = modules[index];
-    const target = modules[swapWith];
-    try {
-      await swapModuleOrder(current, target);
-      await fetchModules(currentCourseId);
-      setMessage("");
-    } catch {
-      setMessage("Unable to reorder modules.");
-    }
   };
 
   const toggleModule = async (moduleId: string) => {
@@ -335,6 +354,7 @@ export function CourseBuilderPage() {
 
   const closeCreateLessonModal = () => {
     setLessonEditorModuleId(null);
+    setEditingLessonId(null);
     setLessonTitle("");
     setLessonContent("");
     setLessonVideoUrl("");
@@ -342,9 +362,18 @@ export function CourseBuilderPage() {
 
   const openCreateLessonModal = (moduleId: string) => {
     setLessonEditorModuleId(moduleId);
+    setEditingLessonId(null);
     setLessonTitle("");
     setLessonContent("");
     setLessonVideoUrl("");
+  };
+
+  const openEditLessonModal = (moduleId: string, lesson: Lesson) => {
+    setLessonEditorModuleId(moduleId);
+    setEditingLessonId(lesson.id);
+    setLessonTitle(lesson.title);
+    setLessonContent(lesson.content || "");
+    setLessonVideoUrl(lesson.video_url || "");
   };
 
   const handleCreateLesson = async () => {
@@ -353,13 +382,22 @@ export function CourseBuilderPage() {
 
     try {
       setIsCreatingLesson(true);
-      await createLesson({
-        module_id: moduleId,
-        title: lessonTitle.trim(),
-        content: lessonContent.trim() || null,
-        video_url: lessonVideoUrl.trim() || null,
-        content_type: "text",
-      });
+      if (editingLessonId) {
+        await updateLesson(editingLessonId, {
+          title: lessonTitle.trim(),
+          content: lessonContent.trim() || null,
+          video_url: lessonVideoUrl.trim() || null,
+          content_type: "text",
+        });
+      } else {
+        await createLesson({
+          module_id: moduleId,
+          title: lessonTitle.trim(),
+          content: lessonContent.trim() || null,
+          video_url: lessonVideoUrl.trim() || null,
+          content_type: "text",
+        });
+      }
       await fetchLessons(moduleId);
       closeCreateLessonModal();
       setMessage("");
@@ -368,22 +406,65 @@ export function CourseBuilderPage() {
         setMessage(error.message);
         return;
       }
-      setMessage("Unable to create lesson.");
+      setMessage(editingLessonId ? "Unable to update lesson." : "Unable to create lesson.");
     } finally {
       setIsCreatingLesson(false);
     }
   };
 
+  const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
+    if (!window.confirm("Delete this lesson?")) return;
+
+    try {
+      await deleteLesson(lessonId);
+      await fetchLessons(moduleId);
+      setTestsByModule((prev) => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).map((test) =>
+          test.afterLessonId === lessonId ? { ...test, afterLessonId: null } : test
+        ),
+      }));
+      setExpandedLessonIds((prev) => {
+        const next = { ...prev };
+        delete next[lessonId];
+        return next;
+      });
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
+      setMessage("Unable to delete lesson.");
+    }
+  };
+
+  const toggleLessonPreview = (lessonId: string) => {
+    setExpandedLessonIds((prev) => ({ ...prev, [lessonId]: !prev[lessonId] }));
+  };
+
   const closeCreateTestModal = () => {
     setTestEditorModuleId(null);
+    setEditingTestId(null);
     setTestTitle("");
+    setTestAfterLessonId(null);
     setTestQuestions([]);
   };
 
   const openCreateTestModal = (moduleId: string) => {
     setTestEditorModuleId(moduleId);
+    setEditingTestId(null);
     setTestTitle("");
+    setTestAfterLessonId(null);
     setTestQuestions([createEmptyTestQuestion()]);
+  };
+
+  const openEditTestModal = (moduleId: string, test: CourseTest) => {
+    setTestEditorModuleId(moduleId);
+    setEditingTestId(test.id);
+    setTestTitle(test.title);
+    setTestAfterLessonId(test.afterLessonId);
+    setTestQuestions(test.questions.map(cloneTestQuestion));
   };
 
   const handleAddTestQuestion = () => {
@@ -412,21 +493,43 @@ export function CourseBuilderPage() {
 
     setTestsByModule((prev) => {
       const list = prev[moduleId] || [];
-      const created: CourseTest = {
-        id: createId(),
+      const draft: CourseTest = {
+        id: editingTestId || createId(),
         title: testTitle.trim(),
         description: "",
-        minScore: "",
-        questions: testQuestions.map((question) => ({
-          ...question,
-          options: [...question.options],
-          correctOptionIndexes: [...question.correctOptionIndexes],
-        })),
+        minScore:
+          editingTestId
+            ? list.find((test) => test.id === editingTestId)?.minScore || "70"
+            : "70",
+        afterLessonId: testAfterLessonId,
+        questions: testQuestions.map(cloneTestQuestion),
       };
-      return { ...prev, [moduleId]: [...list, created] };
+      const nextList = editingTestId
+        ? list.map((test) => (test.id === editingTestId ? draft : test))
+        : [...list, draft];
+
+      return { ...prev, [moduleId]: nextList };
     });
 
     closeCreateTestModal();
+  };
+
+  const handleDeleteTest = (moduleId: string, testId: string) => {
+    if (!window.confirm("Delete this test?")) return;
+
+    setTestsByModule((prev) => ({
+      ...prev,
+      [moduleId]: (prev[moduleId] || []).filter((test) => test.id !== testId),
+    }));
+    setExpandedTestIds((prev) => {
+      const next = { ...prev };
+      delete next[testId];
+      return next;
+    });
+  };
+
+  const toggleTestPreview = (testId: string) => {
+    setExpandedTestIds((prev) => ({ ...prev, [testId]: !prev[testId] }));
   };
 
   const courseWarnings = useMemo(() => {
@@ -609,31 +712,26 @@ export function CourseBuilderPage() {
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => toggleModule(module.id)}
-                        className="flex flex-1 items-center gap-3 text-left"
-                      >
+                      <div className="flex flex-1 items-center gap-3 text-left">
                         <span className="text-sm text-slate-400">Module {module.order}</span>
                         <span className="text-base font-semibold text-slate-900">{module.title}</span>
                         <span className="text-sm text-slate-500">{lessons.length} lessons</span>
                         <span className="text-sm text-slate-500">{tests.length} tests</span>
-                      </button>
+                      </div>
                     )}
                     <div className="flex items-center gap-3 text-xs text-slate-500">
                       <button
                         type="button"
-                        onClick={() => moveModule(module.id, "up")}
-                        aria-label="Move module up"
+                        onClick={() => {
+                          void toggleModule(module.id);
+                        }}
+                        aria-label={isExpanded ? "Collapse module" : "Expand module"}
                       >
-                        <ChevronUp className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => moveModule(module.id, "down")}
-                        aria-label="Move module down"
-                      >
-                        <ChevronDown className="h-4 w-4" />
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         type="button"
@@ -661,13 +759,24 @@ export function CourseBuilderPage() {
                         <ModuleLessonsSection
                           moduleId={module.id}
                           lessons={lessons}
+                          expandedLessonIds={expandedLessonIds}
                           onOpenCreateLesson={openCreateLessonModal}
+                          onToggleLesson={toggleLessonPreview}
+                          onEditLesson={openEditLessonModal}
+                          onDeleteLesson={(moduleId, lessonId) => {
+                            void handleDeleteLesson(moduleId, lessonId);
+                          }}
                         />
 
                         <ModuleTestsSection
                           moduleId={module.id}
+                          lessons={lessons}
                           tests={tests}
+                          expandedTestIds={expandedTestIds}
                           onOpenCreateTest={openCreateTestModal}
+                          onToggleTest={toggleTestPreview}
+                          onEditTest={openEditTestModal}
+                          onDeleteTest={handleDeleteTest}
                         />
                       </div>
                     </div>
@@ -769,6 +878,8 @@ export function CourseBuilderPage() {
 
       <LessonCreateModal
         isOpen={lessonEditorModuleId !== null}
+        heading={editingLessonId ? "Edit Lesson" : "Create Lesson"}
+        saveLabel={editingLessonId ? "Save Changes" : "Save Lesson"}
         title={lessonTitle}
         content={lessonContent}
         videoUrl={lessonVideoUrl}
@@ -784,12 +895,17 @@ export function CourseBuilderPage() {
 
       <TestCreateModal
         isOpen={testEditorModuleId !== null}
+        heading={editingTestId ? "Edit Test" : "Create Test"}
+        saveLabel={editingTestId ? "Save Changes" : "Save Test"}
         title={testTitle}
+        lessons={activeTestModuleLessons}
+        selectedAfterLessonId={testAfterLessonId}
         questions={testQuestions}
         canSave={canSaveCurrentTest}
         onClose={closeCreateTestModal}
         onSave={handleCreateTest}
         onTitleChange={setTestTitle}
+        onAfterLessonChange={setTestAfterLessonId}
         onAddQuestion={handleAddTestQuestion}
         onQuestionChange={handleChangeTestQuestion}
         onDeleteQuestion={handleDeleteTestQuestion}
