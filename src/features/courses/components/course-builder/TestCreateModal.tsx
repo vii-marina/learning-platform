@@ -1,4 +1,4 @@
-import { CircleHelp, Plus, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
 import { Input } from "../../../../components/ui/Input";
 import type { Lesson } from "../../api";
@@ -52,10 +52,7 @@ export function TestCreateModal({
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/75 px-4 py-6">
       <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl bg-white p-8">
         <div className="flex items-center justify-between">
-          <div className="inline-flex items-center gap-3">
-            <CircleHelp className="h-6 w-6 text-slate-900" />
-            <h3 className="text-2xl font-semibold text-slate-900">{heading}</h3>
-          </div>
+          <h3 className="text-2xl font-semibold text-slate-900">{heading}</h3>
           <button type="button" onClick={onClose} aria-label="Close test modal">
             <X className="h-6 w-6 text-slate-900" />
           </button>
@@ -110,7 +107,7 @@ export function TestCreateModal({
 
         <div className="mt-8 border-t border-slate-200 pt-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-2xl font-semibold text-slate-900">Questions ({questions.length})</h4>
+            <h4 className="text-2xl font-semibold text-slate-900">Questions</h4>
             <Button onClick={onAddQuestion}>
               <span className="inline-flex items-center gap-2">
                 <Plus className="h-4 w-4" />

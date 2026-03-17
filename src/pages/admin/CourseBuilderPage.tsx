@@ -3,9 +3,12 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { supabase } from "../../lib/supabase";
 import {
+  BadgeCheck,
+  BookOpen,
   ChevronDown,
   ChevronRight,
   Pencil,
+  Play,
   Plus,
   TriangleAlert,
   Trash2,
@@ -34,6 +37,7 @@ import type {
   CourseTest,
   CourseTestQuestion,
 } from "../../features/courses/components/course-builder/courseBuilderUiTypes";
+import { getYouTubeEmbedUrl } from "../../features/courses/components/course-builder/youtube";
 
 const steps = [
   { id: 1, label: "Basics", helper: "Course information" },
@@ -103,6 +107,37 @@ const canSaveTestDraft = (title: string, questions: CourseTestQuestion[]) => {
   return questions.every(isQuestionValid);
 };
 
+const buildOrderedModuleItems = (lessons: Lesson[], tests: CourseTest[]) => {
+  const items: Array<
+    | { type: "lesson"; lesson: Lesson }
+    | { type: "test"; test: CourseTest }
+  > = [];
+
+  lessons.forEach((lesson) => {
+    items.push({ type: "lesson", lesson });
+
+    tests
+      .filter((test) => test.afterLessonId === lesson.id)
+      .forEach((test) => {
+        items.push({ type: "test", test });
+      });
+  });
+
+  tests
+    .filter((test) => !test.afterLessonId || !lessons.some((lesson) => lesson.id === test.afterLessonId))
+    .forEach((test) => {
+      items.push({ type: "test", test });
+    });
+
+  return items;
+};
+
+const studentQuestionTypeLabels: Record<CourseTestQuestion["type"], string> = {
+  true_false: "True / False",
+  single_choice: "One correct answer",
+  multiple_choice: "Multiple correct answers",
+};
+
 export function CourseBuilderPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [message, setMessage] = useState("");
@@ -136,6 +171,9 @@ export function CourseBuilderPage() {
   const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
   const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
   const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
+  const [expandedStudentPreviewModuleIds, setExpandedStudentPreviewModuleIds] = useState<
+    Record<string, boolean>
+  >({});
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === currentCourseId) || null,
@@ -154,6 +192,34 @@ export function CourseBuilderPage() {
 
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
+  const totalModules = modules.length;
+  const totalLessons = useMemo(
+    () =>
+      modules.reduce((sum, module) => sum + (lessonsByModule[module.id]?.length || 0), 0),
+    [lessonsByModule, modules]
+  );
+  const totalTests = useMemo(
+    () =>
+      modules.reduce((sum, module) => sum + (testsByModule[module.id]?.length || 0), 0),
+    [modules, testsByModule]
+  );
+  const isReviewContentLoading = modules.some(
+    (module) => lessonsByModule[module.id] === undefined
+  );
+  const publishBlockingIssues = useMemo(() => {
+    const issues: string[] = [];
+
+    if (modules.length === 0) {
+      issues.push("Add at least one module before publishing the course.");
+      return issues;
+    }
+
+    if (!isReviewContentLoading && totalLessons === 0) {
+      issues.push("Add at least one lesson so at least one module contains lesson content.");
+    }
+
+    return issues;
+  }, [isReviewContentLoading, modules.length, totalLessons]);
 
   const fetchCourses = async () => {
     try {
@@ -221,8 +287,47 @@ export function CourseBuilderPage() {
     }
   }, [currentCourseId]);
 
+  useEffect(() => {
+    const missingModuleIds = modules
+      .filter((module) => lessonsByModule[module.id] === undefined)
+      .map((module) => module.id);
+
+    if (missingModuleIds.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void Promise.all(
+      missingModuleIds.map(async (moduleId) => ({
+        moduleId,
+        lessons: await listLessonsByModule(moduleId),
+      }))
+    )
+      .then((results) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setLessonsByModule((prev) => ({
+          ...prev,
+          ...Object.fromEntries(results.map(({ moduleId, lessons }) => [moduleId, lessons])),
+        }));
+        setMessage("");
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setMessage("Unable to load lessons.");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [lessonsByModule, modules]);
+
   const handleSaveDraft = async () => {
-    if (!isBasicsComplete) return;
+    if (!isBasicsComplete) return false;
     try {
       if (currentCourseId) {
         await updateCourse(currentCourseId, {
@@ -241,12 +346,14 @@ export function CourseBuilderPage() {
       }
       await fetchCourses();
       setMessage("");
+      return true;
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
-        return;
+        return false;
       }
       setMessage(currentCourseId ? "Unable to update course." : "Unable to create course.");
+      return false;
     }
   };
 
@@ -532,23 +639,21 @@ export function CourseBuilderPage() {
     setExpandedTestIds((prev) => ({ ...prev, [testId]: !prev[testId] }));
   };
 
-  const courseWarnings = useMemo(() => {
-    const warnings: string[] = [];
-    if (!modules.length) {
-      warnings.push("No modules created yet.");
-    }
-    modules.forEach((module) => {
-      const lessons = lessonsByModule[module.id] || [];
-      if (lessons.length === 0) {
-        warnings.push(`No lessons in ${module.title}.`);
-      }
-    });
-    return warnings;
-  }, [modules, lessonsByModule]);
+  const toggleStudentPreviewModule = (moduleId: string) => {
+    setExpandedStudentPreviewModuleIds((prev) => ({
+      ...prev,
+      [moduleId]: !prev[moduleId],
+    }));
+  };
 
   const handlePublishCourse = async () => {
     if (!currentCourseId) {
       setMessage("Create a draft course before publishing.");
+      return;
+    }
+
+    if (publishBlockingIssues.length > 0) {
+      setMessage("Resolve the blocking issues before publishing the course.");
       return;
     }
 
@@ -574,8 +679,8 @@ export function CourseBuilderPage() {
         <div className="flex items-center justify-between">
           {steps.map((step) => {
             const isActive = activeStep === step.id;
-            const isEnabled =
-              step.id === 1 || (step.id === 2 && isBasicsComplete);
+            const isCompleted = activeStep > step.id;
+            const isEnabled = step.id === 1 || Boolean(currentCourseId);
             return (
               <button
                 key={step.id}
@@ -586,8 +691,10 @@ export function CourseBuilderPage() {
               >
                 <span
                   className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                    isActive
-                      ? "bg-slate-900 text-white"
+                    isCompleted
+                      ? "bg-emerald-500 text-white"
+                      : isActive
+                      ? "bg-blue-600 text-white"
                       : isEnabled
                       ? "border border-slate-300 text-slate-600"
                       : "border border-slate-200 text-slate-300"
@@ -595,10 +702,28 @@ export function CourseBuilderPage() {
                 >
                   {step.id}
                 </span>
-                <div className="text-xs font-semibold text-slate-700">
+                <div
+                  className={`text-xs font-semibold ${
+                    isCompleted
+                      ? "text-emerald-600"
+                      : isActive
+                      ? "text-blue-600"
+                      : "text-slate-700"
+                  }`}
+                >
                   {step.label}
                 </div>
-                <div className="text-[11px] text-slate-400">{step.helper}</div>
+                <div
+                  className={`text-[11px] ${
+                    isCompleted
+                      ? "text-emerald-500"
+                      : isActive
+                      ? "text-blue-500"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {step.helper}
+                </div>
               </button>
             );
           })}
@@ -647,8 +772,10 @@ export function CourseBuilderPage() {
               </p>
               <Button
                 onClick={async () => {
-                  await handleSaveDraft();
-                  setActiveStep(2);
+                  const wasSaved = await handleSaveDraft();
+                  if (wasSaved) {
+                    setActiveStep(2);
+                  }
                 }}
                 disabled={!isBasicsComplete}
               >
@@ -754,7 +881,7 @@ export function CourseBuilderPage() {
                   </div>
 
                   {isExpanded ? (
-                    <div className="border-t border-slate-200 px-5 py-5">
+                    <div className="border-t border-slate-100 px-6 py-6">
                       <div className="flex flex-col gap-6">
                         <ModuleLessonsSection
                           moduleId={module.id}
@@ -784,6 +911,12 @@ export function CourseBuilderPage() {
                 </div>
               );
             })}
+
+            <div className="flex justify-end">
+              <Button onClick={() => setActiveStep(3)} disabled={!currentCourseId}>
+                Continue to Review & Publish
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -795,80 +928,283 @@ export function CourseBuilderPage() {
               Review & Publish
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Preview your course before publishing.
+              Review your course content and publish when everything is ready.
             </p>
-            <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Course summary
-                </h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
-                  <p>
-                    <span className="font-semibold text-slate-900">Title:</span>{" "}
-                    {courseTitle || "Untitled course"}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-slate-900">
-                      Description:
-                    </span>{" "}
-                    {courseDescription || "No description yet."}
-                  </p>
-                  <div className="h-32 rounded-xl border border-dashed border-slate-300 bg-white/80" />
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    <div>
-                      <span className="text-xs text-slate-400">Category</span>
-                      <p className="text-sm text-slate-700">Not set</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-400">Level</span>
-                      <p className="text-sm text-slate-700">Not set</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-400">Price</span>
-                      <p className="text-sm text-slate-700">Not set</p>
-                    </div>
-                  </div>
+            <div className="mt-6 space-y-6">
+              {isReviewContentLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                  Loading course content preview...
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Content overview
-                </h3>
-                <div className="mt-4 space-y-4 text-sm text-slate-600">
-                  {modules.map((module) => (
-                    <div key={module.id} className="rounded-xl bg-white/80 p-3">
-                      <p className="font-semibold text-slate-900">
-                        {module.title}
+              ) : publishBlockingIssues.length > 0 ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <TriangleAlert className="mt-0.5 h-5 w-5 text-amber-600" />
+                    <div>
+                      <p className="text-sm font-semibold text-amber-900">
+                        Please address these issues before publishing:
                       </p>
-                      <div className="mt-2 space-y-1 text-xs text-slate-500">
-                        {(lessonsByModule[module.id] || []).map((lesson) => (
-                          <div key={lesson.id}>• {lesson.title}</div>
+                      <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-amber-800">
+                        {publishBlockingIssues.map((issue) => (
+                          <li key={issue}>{issue}</li>
                         ))}
-                        {(testsByModule[module.id] || []).map((test) => (
-                          <div key={test.id}>• Test: {test.title}</div>
-                        ))}
-                      </div>
+                      </ul>
                     </div>
-                  ))}
-                  {modules.length === 0 ? (
-                    <p className="text-xs text-slate-400">No modules yet.</p>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-            {courseWarnings.length > 0 ? (
-              <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-                {courseWarnings.map((warning) => (
-                  <div key={warning} className="flex items-center gap-2">
-                    <TriangleAlert className="h-4 w-4" />
-                    <span>{warning}</span>
                   </div>
-                ))}
-              </div>
-            ) : null}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+                  <div className="flex items-center gap-3">
+                    <BadgeCheck className="h-5 w-5" />
+                    <p className="font-semibold">Course structure is ready for publishing.</p>
+                  </div>
+                </div>
+              )}
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h3 className="text-xl font-semibold text-slate-900">Course Overview</h3>
+
+                <div className="mt-6 rounded-2xl border border-slate-100 bg-white p-5">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-slate-100 bg-white text-slate-400">
+                      <BookOpen className="h-10 w-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-2xl font-semibold text-slate-900">
+                        {courseTitle.trim() || "Untitled course"}
+                      </h4>
+                      <p className="max-w-3xl text-sm leading-6 text-slate-600">
+                        {courseDescription.trim() || "No description yet."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                    <BookOpen className="mx-auto h-9 w-9 text-blue-600" />
+                    <p className="mt-3 text-3xl font-semibold text-slate-900">{totalModules}</p>
+                    <p className="mt-1 text-sm text-slate-500">Modules</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                    <Play className="mx-auto h-9 w-9 text-emerald-600" />
+                    <p className="mt-3 text-3xl font-semibold text-slate-900">
+                      {isReviewContentLoading ? "..." : totalLessons}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">Lessons</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                    <BadgeCheck className="mx-auto h-9 w-9 text-violet-600" />
+                    <p className="mt-3 text-3xl font-semibold text-slate-900">{totalTests}</p>
+                    <p className="mt-1 text-sm text-slate-500">Tests</p>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xl font-semibold text-slate-900">Student Course Preview</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Approximate preview of how the course structure and lesson content will look to students.
+                </p>
+
+                <div className="mt-6 space-y-6">
+                  {modules.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                      Add modules and lessons to see the course preview.
+                    </div>
+                  ) : (
+                    modules.map((module) => {
+                      const lessons = lessonsByModule[module.id] || [];
+                      const tests = testsByModule[module.id] || [];
+                      const orderedItems = buildOrderedModuleItems(lessons, tests);
+                      const isPreviewExpanded = Boolean(expandedStudentPreviewModuleIds[module.id]);
+
+                      return (
+                        <article
+                          key={module.id}
+                          className="rounded-3xl border-2 border-slate-200 bg-slate-50 p-6"
+                        >
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => toggleStudentPreviewModule(module.id)}
+                              className="absolute right-0 top-0 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300"
+                            >
+                              {isPreviewExpanded ? "Hide" : "Preview"}
+                              {isPreviewExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </button>
+
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-slate-500">Module {module.order}</p>
+                              <h4 className="mt-2 text-2xl font-semibold text-slate-900">
+                                {module.title}
+                              </h4>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 space-y-4">
+                            {orderedItems.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
+                                This module does not contain any lessons or tests yet.
+                              </div>
+                            ) : !isPreviewExpanded ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                {orderedItems.map((item, index) => (
+                                  <div
+                                    key={item.type === "lesson" ? item.lesson.id : item.test.id}
+                                    className={`flex items-center gap-3 px-2 py-3 ${
+                                      index < orderedItems.length - 1 ? "border-b border-slate-100" : ""
+                                    }`}
+                                  >
+                                    {item.type === "lesson" ? (
+                                      <Play className="h-4 w-4 text-slate-500" />
+                                    ) : (
+                                      <BadgeCheck className="h-4 w-4 text-slate-500" />
+                                    )}
+                                    <span className="text-sm font-medium text-slate-800">
+                                      {item.type === "lesson" ? item.lesson.title : item.test.title}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              orderedItems.map((item) => {
+                                if (item.type === "lesson") {
+                                  const embedUrl = getYouTubeEmbedUrl(item.lesson.video_url);
+                                  const lessonPosition =
+                                    lessons.findIndex((lesson) => lesson.id === item.lesson.id) + 1;
+
+                                  return (
+                                    <div
+                                      key={item.lesson.id}
+                                      className="rounded-2xl border border-slate-200 bg-white p-5"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-sm font-semibold text-slate-700">
+                                          {lessonPosition}
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                            Lesson
+                                          </p>
+                                          <h5 className="text-base font-semibold text-slate-900">
+                                            {item.lesson.title}
+                                          </h5>
+                                        </div>
+                                      </div>
+
+                                      <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                                        {item.lesson.content?.trim() || "No lesson content yet."}
+                                      </p>
+
+                                      {embedUrl ? (
+                                        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
+                                          <div className="aspect-video">
+                                            <iframe
+                                              src={embedUrl}
+                                              title={`${item.lesson.title} preview video`}
+                                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                              allowFullScreen
+                                              className="h-full w-full"
+                                            />
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={item.test.id}
+                                    className="rounded-2xl border border-slate-200 bg-white p-5"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                        Test
+                                      </p>
+                                      <h5 className="text-base font-semibold text-slate-900">
+                                        {item.test.title}
+                                      </h5>
+                                    </div>
+
+                                    <div className="mt-4 space-y-4">
+                                      {item.test.questions.map((question, questionIndex) => (
+                                        <div
+                                          key={question.id}
+                                          className="rounded-2xl border border-slate-100 bg-white p-4"
+                                        >
+                                          <div className="flex items-center justify-between gap-4">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {questionIndex + 1}
+                                            </p>
+                                            <span className="text-xs font-medium text-slate-500">
+                                              {studentQuestionTypeLabels[question.type]}
+                                            </span>
+                                          </div>
+
+                                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                                            {question.questionText}
+                                          </p>
+
+                                          <div className="mt-4 space-y-2">
+                                            {question.type === "true_false" ? (
+                                              <div className="grid gap-3 sm:grid-cols-2">
+                                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                                                  True
+                                                </div>
+                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                                                  False
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              question.options.map((option, optionIndex) => (
+                                                <div
+                                                  key={`${question.id}-${optionIndex}`}
+                                                  className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700"
+                                                >
+                                                  <span
+                                                    className={`flex h-4 w-4 items-center justify-center border border-slate-300 ${
+                                                      question.type === "multiple_choice"
+                                                        ? "rounded-[4px]"
+                                                        : "rounded-full"
+                                                    }`}
+                                                  />
+                                                  <span>{option}</span>
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
+            </div>
+
             <div className="mt-6 flex justify-end">
-              <Button onClick={handlePublishCourse} disabled={!currentCourseId}>
+              <Button
+                onClick={handlePublishCourse}
+                disabled={
+                  !currentCourseId ||
+                  isReviewContentLoading ||
+                  publishBlockingIssues.length > 0
+                }
+              >
                 Publish Course
               </Button>
             </div>

@@ -107,7 +107,7 @@ export function TestQuestionEditor({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-6">
       <div className="flex items-center justify-between">
-        <h4 className="text-xl font-semibold text-slate-900">Question {index + 1}</h4>
+        <h4 className="text-xl font-semibold text-slate-900">{index + 1}</h4>
         <button
           type="button"
           onClick={() => onDelete(question.id)}
@@ -121,7 +121,7 @@ export function TestQuestionEditor({
 
       <div className="mt-6 space-y-4">
         <div>
-          <label className="text-base font-semibold text-slate-900">Question Type</label>
+          <label className="text-base font-semibold text-slate-900">Type</label>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {questionTypeOptions.map((option) => {
               const isActive = question.type === option.value;
@@ -145,7 +145,7 @@ export function TestQuestionEditor({
         </div>
 
         <div>
-          <label className="text-base font-semibold text-slate-900">Question Text</label>
+          <label className="text-base font-semibold text-slate-900">Text</label>
           <textarea
             value={question.questionText}
             onChange={(event) =>
@@ -159,21 +159,40 @@ export function TestQuestionEditor({
         {isTrueFalse ? (
           <div>
             <label className="text-base font-semibold text-slate-900">Correct Answer</label>
-            <select
-              value={question.correctOptionIndexes[0] ?? ""}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                onChange(question.id, {
-                  ...question,
-                  correctOptionIndexes: nextValue === "" ? [] : [Number(nextValue)],
-                });
-              }}
-              className="mt-2 h-11 w-full rounded-xl border-0 bg-slate-100 px-4 text-base text-slate-900 focus:outline-none"
-            >
-              <option value="">Select correct answer</option>
-              <option value={0}>True</option>
-              <option value={1}>False</option>
-            </select>
+            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() =>
+                  onChange(question.id, {
+                    ...question,
+                    correctOptionIndexes: [0],
+                  })
+                }
+                className={`rounded-xl border px-4 py-3 text-base font-semibold transition ${
+                  question.correctOptionIndexes.includes(0)
+                    ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}
+              >
+                True
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  onChange(question.id, {
+                    ...question,
+                    correctOptionIndexes: [1],
+                  })
+                }
+                className={`rounded-xl border px-4 py-3 text-base font-semibold transition ${
+                  question.correctOptionIndexes.includes(1)
+                    ? "border-rose-300 bg-rose-100 text-rose-800"
+                    : "border-rose-200 bg-rose-50 text-rose-700"
+                }`}
+              >
+                False
+              </button>
+            </div>
           </div>
         ) : (
           <div>
