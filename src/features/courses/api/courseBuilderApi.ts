@@ -47,10 +47,6 @@ function normalizeCourseStatus(isPublished: boolean | undefined): CourseStatus {
   return isPublished ? "published" : "draft";
 }
 
-function normalizeCourseAccess(accessType: CourseAccessType | undefined): CourseAccessType {
-  return accessType ?? "private";
-}
-
 async function getNextModuleOrder(courseId: string) {
   const { data, error } = await supabase
     .from("modules")
@@ -158,16 +154,28 @@ export async function getCourseById(courseId: string) {
 }
 
 export async function createCourse(input: CreateCourseInput) {
-  const payload = {
+  const payload: {
+    title: string;
+    description: string | null;
+    teacher_id: string;
+    status: CourseStatus;
+    slug: string;
+    thumbnail_path: string | null;
+    is_published: boolean;
+    access_type?: CourseAccessType;
+  } = {
     title: input.title.trim(),
     description: input.description?.trim() || null,
     teacher_id: input.teacher_id,
     status: input.status ?? normalizeCourseStatus(input.is_published),
-    access_type: normalizeCourseAccess(input.access_type),
     slug: input.slug?.trim() || buildDefaultSlug(input.title),
     thumbnail_path: input.thumbnail_path ?? null,
     is_published: input.is_published ?? false,
   };
+
+  if (input.access_type) {
+    payload.access_type = input.access_type;
+  }
 
   const { data, error } = await supabase
     .from("courses")
@@ -329,6 +337,7 @@ export async function createLesson(input: CreateLessonInput) {
       module_id: input.module_id,
       title: input.title.trim(),
       content: input.content ?? null,
+      video_url: input.video_url?.trim() || null,
       content_type: input.content_type ?? null,
       order,
       is_locked: input.is_locked ?? false,
@@ -349,6 +358,8 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput) {
     .update({
       ...input,
       title: typeof input.title === "string" ? input.title.trim() : input.title,
+      video_url:
+        typeof input.video_url === "string" ? input.video_url.trim() || null : input.video_url,
     })
     .eq("id", lessonId)
     .select("*")

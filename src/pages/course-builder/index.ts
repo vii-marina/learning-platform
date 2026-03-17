@@ -1,0 +1,1 @@
+export { CourseBuilderWorkspacePage } from "./CourseBuilderWorkspacePage";

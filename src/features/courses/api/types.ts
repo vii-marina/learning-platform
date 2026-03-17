@@ -30,6 +30,7 @@ export type Lesson = {
   module_id: string;
   title: string;
   content: string | null;
+  video_url: string | null;
   content_type: string | null;
   order: number;
   is_locked: boolean;
@@ -98,13 +99,14 @@ export type CreateLessonInput = {
   module_id: string;
   title: string;
   content?: string | null;
+  video_url?: string | null;
   content_type?: string | null;
   order?: number;
   is_locked?: boolean;
 };
 
 export type UpdateLessonInput = Partial<
-  Pick<Lesson, "title" | "content" | "content_type" | "order" | "is_locked">
+  Pick<Lesson, "title" | "content" | "video_url" | "content_type" | "order" | "is_locked">
 >;
 
 export type CreateLessonBlockInput = {

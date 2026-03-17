@@ -5,6 +5,7 @@ import { UserPanel } from "../../components/layout/UserPanel";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 
 export function DashboardPage() {
@@ -25,13 +26,18 @@ export function DashboardPage() {
           <Header alignLeft />
           <div className="flex flex-1">
             <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
-              <div>
-                <h1 className="text-2xl font-semibold text-slate-900">
-                  Dashboard
-                </h1>
-                <p className="mt-2 text-sm text-slate-600">
-                  Placeholder view for the MVP dashboard.
-                </p>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h1 className="text-2xl font-semibold text-slate-900">
+                    Dashboard
+                  </h1>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Placeholder view for the MVP dashboard.
+                  </p>
+                </div>
+                <Link to="/course-builder">
+                  <Button>Створити курс</Button>
+                </Link>
               </div>
               <div className="flex flex-col gap-8">
                 <Card className="flex min-h-[200px] flex-col justify-between gap-6 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white">

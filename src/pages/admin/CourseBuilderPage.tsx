@@ -3,25 +3,41 @@ import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { supabase } from "../../lib/supabase";
 import {
+  BadgeCheck,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Pencil,
+  Play,
+  Plus,
+  TriangleAlert,
+  Trash2,
+} from "lucide-react";
+import {
   createCourse,
-  createModule,
   createLesson,
+  createModule,
   deleteLesson,
   deleteModule,
   listCourses,
   listLessonsByModule,
   listModulesByCourse,
-  listLessonBlocksByLesson,
   publishCourse,
-  swapLessonOrder,
-  swapModuleOrder,
   updateCourse,
   updateLesson,
   updateModule,
-  upsertLessonPrimaryRichTextBlock,
 } from "../../features/courses/api";
 import type { Course, Lesson, Module } from "../../features/courses/api";
-import { RichTextEditor } from "../../features/courses/components/admin/RichTextEditor";
+import { CreateModuleModal } from "../../features/courses/components/course-builder/CreateModuleModal";
+import { LessonCreateModal } from "../../features/courses/components/course-builder/LessonCreateModal";
+import { ModuleLessonsSection } from "../../features/courses/components/course-builder/ModuleLessonsSection";
+import { ModuleTestsSection } from "../../features/courses/components/course-builder/ModuleTestsSection";
+import { TestCreateModal } from "../../features/courses/components/course-builder/TestCreateModal";
+import type {
+  CourseTest,
+  CourseTestQuestion,
+} from "../../features/courses/components/course-builder/courseBuilderUiTypes";
+import { getYouTubeEmbedUrl } from "../../features/courses/components/course-builder/youtube";
 
 const steps = [
   { id: 1, label: "Basics", helper: "Course information" },
@@ -29,41 +45,97 @@ const steps = [
   { id: 3, label: "Review & Publish", helper: "Launch course" },
 ];
 
-type TestQuestionType = "Multiple Choice" | "True/False" | "Short Answer";
-
-type TestQuestion = {
-  id: string;
-  text: string;
-  type: TestQuestionType;
-  options: string[];
-  correct: string;
-};
-
-type CourseTest = {
-  id: string;
-  title: string;
-  description: string;
-  minScore: string;
-  questions: TestQuestion[];
-};
-
 const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const readRichTextFromBlock = (content: Record<string, unknown>) => {
-  const html = content.html;
-  if (typeof html === "string") {
-    return html;
+const createEmptyTestQuestion = (): CourseTestQuestion => ({
+  id: createId(),
+  type: "single_choice",
+  questionText: "",
+  options: ["Option 1", "Option 2"],
+  correctOptionIndexes: [],
+});
+
+const cloneTestQuestion = (question: CourseTestQuestion): CourseTestQuestion => ({
+  ...question,
+  options: [...question.options],
+  correctOptionIndexes: [...question.correctOptionIndexes],
+});
+
+const isQuestionValid = (question: CourseTestQuestion) => {
+  if (!question.questionText.trim()) {
+    return false;
   }
 
-  const text = content.text;
-  if (typeof text === "string") {
-    return text;
+  if (question.type === "true_false") {
+    return (
+      question.correctOptionIndexes.length === 1 &&
+      (question.correctOptionIndexes[0] === 0 || question.correctOptionIndexes[0] === 1)
+    );
   }
 
-  return "";
+  if (question.options.length < 2 || question.options.some((option) => !option.trim())) {
+    return false;
+  }
+
+  if (question.correctOptionIndexes.length === 0) {
+    return false;
+  }
+
+  if (
+    question.correctOptionIndexes.some(
+      (optionIndex) => optionIndex < 0 || optionIndex >= question.options.length
+    )
+  ) {
+    return false;
+  }
+
+  if (question.type === "single_choice" && question.correctOptionIndexes.length !== 1) {
+    return false;
+  }
+
+  return true;
+};
+
+const canSaveTestDraft = (title: string, questions: CourseTestQuestion[]) => {
+  if (!title.trim() || questions.length === 0) {
+    return false;
+  }
+
+  return questions.every(isQuestionValid);
+};
+
+const buildOrderedModuleItems = (lessons: Lesson[], tests: CourseTest[]) => {
+  const items: Array<
+    | { type: "lesson"; lesson: Lesson }
+    | { type: "test"; test: CourseTest }
+  > = [];
+
+  lessons.forEach((lesson) => {
+    items.push({ type: "lesson", lesson });
+
+    tests
+      .filter((test) => test.afterLessonId === lesson.id)
+      .forEach((test) => {
+        items.push({ type: "test", test });
+      });
+  });
+
+  tests
+    .filter((test) => !test.afterLessonId || !lessons.some((lesson) => lesson.id === test.afterLessonId))
+    .forEach((test) => {
+      items.push({ type: "test", test });
+    });
+
+  return items;
+};
+
+const studentQuestionTypeLabels: Record<CourseTestQuestion["type"], string> = {
+  true_false: "True / False",
+  single_choice: "One correct answer",
+  multiple_choice: "Multiple correct answers",
 };
 
 export function CourseBuilderPage() {
@@ -77,6 +149,8 @@ export function CourseBuilderPage() {
 
   const [modules, setModules] = useState<Module[]>([]);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
+  const [isCreateModuleModalOpen, setIsCreateModuleModalOpen] = useState(false);
+  const [isCreatingModule, setIsCreatingModule] = useState(false);
   const [newModuleTitle, setNewModuleTitle] = useState("");
   const [editModuleId, setEditModuleId] = useState<string | null>(null);
   const [editModuleTitle, setEditModuleTitle] = useState("");
@@ -84,27 +158,68 @@ export function CourseBuilderPage() {
   const [lessonsByModule, setLessonsByModule] = useState<Record<string, Lesson[]>>({});
   const [lessonEditorModuleId, setLessonEditorModuleId] = useState<string | null>(null);
   const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
   const [lessonTitle, setLessonTitle] = useState("");
   const [lessonContent, setLessonContent] = useState("");
   const [lessonVideoUrl, setLessonVideoUrl] = useState("");
-  const [lessonDuration, setLessonDuration] = useState("");
-  const [lessonMinScore, setLessonMinScore] = useState("");
+  const [expandedLessonIds, setExpandedLessonIds] = useState<Record<string, boolean>>({});
 
   const [testsByModule, setTestsByModule] = useState<Record<string, CourseTest[]>>({});
   const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [testTitle, setTestTitle] = useState("");
-  const [testDescription, setTestDescription] = useState("");
-  const [testMinScore, setTestMinScore] = useState("");
-  const [testQuestions, setTestQuestions] = useState<TestQuestion[]>([]);
+  const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
+  const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
+  const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
+  const [expandedStudentPreviewModuleIds, setExpandedStudentPreviewModuleIds] = useState<
+    Record<string, boolean>
+  >({});
 
   const selectedCourse = useMemo(
     () => courses.find((course) => course.id === currentCourseId) || null,
     [courses, currentCourseId]
   );
 
+  const activeTestModuleLessons = useMemo(
+    () => (testEditorModuleId ? lessonsByModule[testEditorModuleId] || [] : []),
+    [lessonsByModule, testEditorModuleId]
+  );
+
+  const canSaveCurrentTest = useMemo(
+    () => canSaveTestDraft(testTitle, testQuestions),
+    [testQuestions, testTitle]
+  );
+
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
+  const totalModules = modules.length;
+  const totalLessons = useMemo(
+    () =>
+      modules.reduce((sum, module) => sum + (lessonsByModule[module.id]?.length || 0), 0),
+    [lessonsByModule, modules]
+  );
+  const totalTests = useMemo(
+    () =>
+      modules.reduce((sum, module) => sum + (testsByModule[module.id]?.length || 0), 0),
+    [modules, testsByModule]
+  );
+  const isReviewContentLoading = modules.some(
+    (module) => lessonsByModule[module.id] === undefined
+  );
+  const publishBlockingIssues = useMemo(() => {
+    const issues: string[] = [];
+
+    if (modules.length === 0) {
+      issues.push("Add at least one module before publishing the course.");
+      return issues;
+    }
+
+    if (!isReviewContentLoading && totalLessons === 0) {
+      issues.push("Add at least one lesson so at least one module contains lesson content.");
+    }
+
+    return issues;
+  }, [isReviewContentLoading, modules.length, totalLessons]);
 
   const fetchCourses = async () => {
     try {
@@ -172,8 +287,47 @@ export function CourseBuilderPage() {
     }
   }, [currentCourseId]);
 
+  useEffect(() => {
+    const missingModuleIds = modules
+      .filter((module) => lessonsByModule[module.id] === undefined)
+      .map((module) => module.id);
+
+    if (missingModuleIds.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void Promise.all(
+      missingModuleIds.map(async (moduleId) => ({
+        moduleId,
+        lessons: await listLessonsByModule(moduleId),
+      }))
+    )
+      .then((results) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setLessonsByModule((prev) => ({
+          ...prev,
+          ...Object.fromEntries(results.map(({ moduleId, lessons }) => [moduleId, lessons])),
+        }));
+        setMessage("");
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setMessage("Unable to load lessons.");
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [lessonsByModule, modules]);
+
   const handleSaveDraft = async () => {
-    if (!isBasicsComplete) return;
+    if (!isBasicsComplete) return false;
     try {
       if (currentCourseId) {
         await updateCourse(currentCourseId, {
@@ -192,23 +346,48 @@ export function CourseBuilderPage() {
       }
       await fetchCourses();
       setMessage("");
-    } catch {
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return false;
+      }
       setMessage(currentCourseId ? "Unable to update course." : "Unable to create course.");
+      return false;
     }
   };
 
-  const handleCreateModule = async () => {
+  const openCreateModuleModal = () => {
+    setNewModuleTitle("");
+    setIsCreateModuleModalOpen(true);
+  };
+
+  const closeCreateModuleModal = () => {
+    setIsCreateModuleModalOpen(false);
+    setNewModuleTitle("");
+  };
+
+  const handleSaveModuleModal = async () => {
     if (!currentCourseId || !newModuleTitle.trim()) return;
+
     try {
-      await createModule({
+      setIsCreatingModule(true);
+      const module = await createModule({
         course_id: currentCourseId,
         title: newModuleTitle.trim(),
       });
-      setNewModuleTitle("");
       await fetchModules(currentCourseId);
+      setExpandedModuleId(module.id);
+      closeCreateModuleModal();
       setMessage("");
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
       setMessage("Unable to create module.");
+    } finally {
+      setIsCreatingModule(false);
     }
   };
 
@@ -240,9 +419,27 @@ export function CourseBuilderPage() {
       delete next[moduleId];
       return next;
     });
+    setExpandedLessonIds((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((lessonId) => {
+        if ((lessonsByModule[moduleId] || []).some((lesson) => lesson.id === lessonId)) {
+          delete next[lessonId];
+        }
+      });
+      return next;
+    });
     setTestsByModule((prev) => {
       const next = { ...prev };
       delete next[moduleId];
+      return next;
+    });
+    setExpandedTestIds((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((testId) => {
+        if ((testsByModule[moduleId] || []).some((test) => test.id === testId)) {
+          delete next[testId];
+        }
+      });
       return next;
     });
     if (expandedModuleId === moduleId) {
@@ -254,22 +451,6 @@ export function CourseBuilderPage() {
     setMessage("");
   };
 
-  const moveModule = async (moduleId: string, direction: "up" | "down") => {
-    if (!currentCourseId) return;
-    const index = modules.findIndex((module) => module.id === moduleId);
-    const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || swapWith < 0 || swapWith >= modules.length) return;
-    const current = modules[index];
-    const target = modules[swapWith];
-    try {
-      await swapModuleOrder(current, target);
-      await fetchModules(currentCourseId);
-      setMessage("");
-    } catch {
-      setMessage("Unable to reorder modules.");
-    }
-  };
-
   const toggleModule = async (moduleId: string) => {
     const nextId = expandedModuleId === moduleId ? null : moduleId;
     setExpandedModuleId(nextId);
@@ -278,204 +459,201 @@ export function CourseBuilderPage() {
     }
   };
 
-  const resetLessonEditor = () => {
+  const closeCreateLessonModal = () => {
     setLessonEditorModuleId(null);
     setEditingLessonId(null);
     setLessonTitle("");
     setLessonContent("");
     setLessonVideoUrl("");
-    setLessonDuration("");
-    setLessonMinScore("");
   };
 
-  const startNewLesson = (moduleId: string) => {
+  const openCreateLessonModal = (moduleId: string) => {
     setLessonEditorModuleId(moduleId);
     setEditingLessonId(null);
     setLessonTitle("");
     setLessonContent("");
     setLessonVideoUrl("");
-    setLessonDuration("");
-    setLessonMinScore("");
   };
 
-  const startEditLesson = async (moduleId: string, lesson: Lesson) => {
+  const openEditLessonModal = (moduleId: string, lesson: Lesson) => {
     setLessonEditorModuleId(moduleId);
     setEditingLessonId(lesson.id);
     setLessonTitle(lesson.title);
     setLessonContent(lesson.content || "");
-    setLessonVideoUrl("");
-    setLessonDuration("");
-    setLessonMinScore("");
-
-    try {
-      const blocks = await listLessonBlocksByLesson(lesson.id);
-      if (blocks.length > 0) {
-        setLessonContent(readRichTextFromBlock(blocks[0].content));
-      }
-    } catch {
-      setMessage("Unable to load lesson blocks.");
-    }
+    setLessonVideoUrl(lesson.video_url || "");
   };
 
-  const handleSaveLesson = async () => {
+  const handleCreateLesson = async () => {
     if (!lessonEditorModuleId || !lessonTitle.trim()) return;
     const moduleId = lessonEditorModuleId;
+
     try {
+      setIsCreatingLesson(true);
       if (editingLessonId) {
         await updateLesson(editingLessonId, {
           title: lessonTitle.trim(),
-          content: lessonContent,
-          content_type: "html",
+          content: lessonContent.trim() || null,
+          video_url: lessonVideoUrl.trim() || null,
+          content_type: "text",
         });
-        await upsertLessonPrimaryRichTextBlock(editingLessonId, lessonContent);
       } else {
-        const lesson = await createLesson({
+        await createLesson({
           module_id: moduleId,
           title: lessonTitle.trim(),
-          content: lessonContent,
-          content_type: "html",
+          content: lessonContent.trim() || null,
+          video_url: lessonVideoUrl.trim() || null,
+          content_type: "text",
         });
-        await upsertLessonPrimaryRichTextBlock(lesson.id, lessonContent);
       }
       await fetchLessons(moduleId);
-      resetLessonEditor();
+      closeCreateLessonModal();
       setMessage("");
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
       setMessage(editingLessonId ? "Unable to update lesson." : "Unable to create lesson.");
+    } finally {
+      setIsCreatingLesson(false);
     }
   };
 
   const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
     if (!window.confirm("Delete this lesson?")) return;
+
     try {
       await deleteLesson(lessonId);
       await fetchLessons(moduleId);
+      setTestsByModule((prev) => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).map((test) =>
+          test.afterLessonId === lessonId ? { ...test, afterLessonId: null } : test
+        ),
+      }));
+      setExpandedLessonIds((prev) => {
+        const next = { ...prev };
+        delete next[lessonId];
+        return next;
+      });
       setMessage("");
-    } catch {
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
       setMessage("Unable to delete lesson.");
     }
   };
 
-  const moveLesson = async (
-    moduleId: string,
-    lessonId: string,
-    direction: "up" | "down"
-  ) => {
-    const lessons = lessonsByModule[moduleId] || [];
-    const index = lessons.findIndex((lesson) => lesson.id === lessonId);
-    const swapWith = direction === "up" ? index - 1 : index + 1;
-    if (index < 0 || swapWith < 0 || swapWith >= lessons.length) return;
-    const current = lessons[index];
-    const target = lessons[swapWith];
-    try {
-      await swapLessonOrder(current, target);
-      await fetchLessons(moduleId);
-      setMessage("");
-    } catch {
-      setMessage("Unable to reorder lessons.");
-    }
+  const toggleLessonPreview = (lessonId: string) => {
+    setExpandedLessonIds((prev) => ({ ...prev, [lessonId]: !prev[lessonId] }));
   };
 
-  const resetTestEditor = () => {
+  const closeCreateTestModal = () => {
     setTestEditorModuleId(null);
     setEditingTestId(null);
     setTestTitle("");
-    setTestDescription("");
-    setTestMinScore("");
+    setTestAfterLessonId(null);
     setTestQuestions([]);
   };
 
-  const startNewTest = (moduleId: string) => {
+  const openCreateTestModal = (moduleId: string) => {
     setTestEditorModuleId(moduleId);
     setEditingTestId(null);
     setTestTitle("");
-    setTestDescription("");
-    setTestMinScore("");
-    setTestQuestions([]);
+    setTestAfterLessonId(null);
+    setTestQuestions([createEmptyTestQuestion()]);
   };
 
-  const startEditTest = (moduleId: string, test: CourseTest) => {
+  const openEditTestModal = (moduleId: string, test: CourseTest) => {
     setTestEditorModuleId(moduleId);
     setEditingTestId(test.id);
     setTestTitle(test.title);
-    setTestDescription(test.description);
-    setTestMinScore(test.minScore);
-    setTestQuestions(test.questions);
+    setTestAfterLessonId(test.afterLessonId);
+    setTestQuestions(test.questions.map(cloneTestQuestion));
   };
 
-  const handleSaveTest = () => {
-    if (!testEditorModuleId || !testTitle.trim()) return;
+  const handleAddTestQuestion = () => {
+    setTestQuestions((prev) => [...prev, createEmptyTestQuestion()]);
+  };
+
+  const handleChangeTestQuestion = (
+    questionId: string,
+    nextQuestion: CourseTestQuestion
+  ) => {
+    setTestQuestions((prev) =>
+      prev.map((question) => (question.id === questionId ? nextQuestion : question))
+    );
+  };
+
+  const handleDeleteTestQuestion = (questionId: string) => {
+    setTestQuestions((prev) => {
+      const remaining = prev.filter((question) => question.id !== questionId);
+      return remaining.length > 0 ? remaining : [createEmptyTestQuestion()];
+    });
+  };
+
+  const handleCreateTest = () => {
+    if (!testEditorModuleId || !canSaveCurrentTest) return;
     const moduleId = testEditorModuleId;
+
     setTestsByModule((prev) => {
       const list = prev[moduleId] || [];
-      const updated: CourseTest = {
+      const draft: CourseTest = {
         id: editingTestId || createId(),
         title: testTitle.trim(),
-        description: testDescription,
-        minScore: testMinScore,
-        questions: testQuestions,
+        description: "",
+        minScore:
+          editingTestId
+            ? list.find((test) => test.id === editingTestId)?.minScore || "70"
+            : "70",
+        afterLessonId: testAfterLessonId,
+        questions: testQuestions.map(cloneTestQuestion),
       };
       const nextList = editingTestId
-        ? list.map((item) => (item.id === editingTestId ? updated : item))
-        : [...list, updated];
+        ? list.map((test) => (test.id === editingTestId ? draft : test))
+        : [...list, draft];
+
       return { ...prev, [moduleId]: nextList };
     });
-    resetTestEditor();
+
+    closeCreateTestModal();
   };
 
   const handleDeleteTest = (moduleId: string, testId: string) => {
     if (!window.confirm("Delete this test?")) return;
-    setTestsByModule((prev) => {
-      const list = prev[moduleId] || [];
-      return { ...prev, [moduleId]: list.filter((item) => item.id !== testId) };
-    });
-  };
 
-  const addQuestion = () => {
-    setTestQuestions((prev) => [
+    setTestsByModule((prev) => ({
       ...prev,
-      {
-        id: createId(),
-        text: "",
-        type: "Multiple Choice",
-        options: ["Option 1", "Option 2"],
-        correct: "Option 1",
-      },
-    ]);
-  };
-
-  const updateQuestion = (
-    questionId: string,
-    patch: Partial<TestQuestion>
-  ) => {
-    setTestQuestions((prev) =>
-      prev.map((question) =>
-        question.id === questionId ? { ...question, ...patch } : question
-      )
-    );
-  };
-
-  const removeQuestion = (questionId: string) => {
-    setTestQuestions((prev) => prev.filter((question) => question.id !== questionId));
-  };
-
-  const courseWarnings = useMemo(() => {
-    const warnings: string[] = [];
-    if (!modules.length) {
-      warnings.push("⚠ No modules created yet.");
-    }
-    modules.forEach((module) => {
-      const lessons = lessonsByModule[module.id] || [];
-      if (lessons.length === 0) {
-        warnings.push(`⚠ No lessons in ${module.title}.`);
-      }
+      [moduleId]: (prev[moduleId] || []).filter((test) => test.id !== testId),
+    }));
+    setExpandedTestIds((prev) => {
+      const next = { ...prev };
+      delete next[testId];
+      return next;
     });
-    return warnings;
-  }, [modules, lessonsByModule]);
+  };
+
+  const toggleTestPreview = (testId: string) => {
+    setExpandedTestIds((prev) => ({ ...prev, [testId]: !prev[testId] }));
+  };
+
+  const toggleStudentPreviewModule = (moduleId: string) => {
+    setExpandedStudentPreviewModuleIds((prev) => ({
+      ...prev,
+      [moduleId]: !prev[moduleId],
+    }));
+  };
 
   const handlePublishCourse = async () => {
     if (!currentCourseId) {
       setMessage("Create a draft course before publishing.");
+      return;
+    }
+
+    if (publishBlockingIssues.length > 0) {
+      setMessage("Resolve the blocking issues before publishing the course.");
       return;
     }
 
@@ -501,8 +679,8 @@ export function CourseBuilderPage() {
         <div className="flex items-center justify-between">
           {steps.map((step) => {
             const isActive = activeStep === step.id;
-            const isEnabled =
-              step.id === 1 || (step.id === 2 && isBasicsComplete);
+            const isCompleted = activeStep > step.id;
+            const isEnabled = step.id === 1 || Boolean(currentCourseId);
             return (
               <button
                 key={step.id}
@@ -513,8 +691,10 @@ export function CourseBuilderPage() {
               >
                 <span
                   className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold ${
-                    isActive
-                      ? "bg-slate-900 text-white"
+                    isCompleted
+                      ? "bg-emerald-500 text-white"
+                      : isActive
+                      ? "bg-blue-600 text-white"
                       : isEnabled
                       ? "border border-slate-300 text-slate-600"
                       : "border border-slate-200 text-slate-300"
@@ -522,10 +702,28 @@ export function CourseBuilderPage() {
                 >
                   {step.id}
                 </span>
-                <div className="text-xs font-semibold text-slate-700">
+                <div
+                  className={`text-xs font-semibold ${
+                    isCompleted
+                      ? "text-emerald-600"
+                      : isActive
+                      ? "text-blue-600"
+                      : "text-slate-700"
+                  }`}
+                >
                   {step.label}
                 </div>
-                <div className="text-[11px] text-slate-400">{step.helper}</div>
+                <div
+                  className={`text-[11px] ${
+                    isCompleted
+                      ? "text-emerald-500"
+                      : isActive
+                      ? "text-blue-500"
+                      : "text-slate-400"
+                  }`}
+                >
+                  {step.helper}
+                </div>
               </button>
             );
           })}
@@ -574,8 +772,10 @@ export function CourseBuilderPage() {
               </p>
               <Button
                 onClick={async () => {
-                  await handleSaveDraft();
-                  setActiveStep(2);
+                  const wasSaved = await handleSaveDraft();
+                  if (wasSaved) {
+                    setActiveStep(2);
+                  }
                 }}
                 disabled={!isBasicsComplete}
               >
@@ -599,14 +799,11 @@ export function CourseBuilderPage() {
                 </p>
               </div>
               <div className="flex items-center gap-3">
-                <Input
-                  value={newModuleTitle}
-                  onChange={(event) => setNewModuleTitle(event.target.value)}
-                  placeholder="New module title"
-                  className="w-64"
-                />
-                <Button onClick={handleCreateModule} disabled={!currentCourseId}>
-                  Add module
+                <Button onClick={openCreateModuleModal} disabled={!currentCourseId}>
+                  <span className="inline-flex items-center gap-2">
+                    <Plus className="h-4 w-4" />
+                    Add module
+                  </span>
                 </Button>
               </div>
             </div>
@@ -642,28 +839,26 @@ export function CourseBuilderPage() {
                         </div>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => toggleModule(module.id)}
-                        className="flex flex-1 items-center gap-3 text-left"
-                      >
-                        <span className="text-base font-semibold text-slate-900">
-                          {module.title}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {isExpanded ? "Hide" : "Show"}
-                        </span>
-                      </button>
+                      <div className="flex flex-1 items-center gap-3 text-left">
+                        <span className="text-sm text-slate-400">Module {module.order}</span>
+                        <span className="text-base font-semibold text-slate-900">{module.title}</span>
+                        <span className="text-sm text-slate-500">{lessons.length} lessons</span>
+                        <span className="text-sm text-slate-500">{tests.length} tests</span>
+                      </div>
                     )}
                     <div className="flex items-center gap-3 text-xs text-slate-500">
-                      <button type="button" onClick={() => moveModule(module.id, "up")}>
-                        ↑
-                      </button>
                       <button
                         type="button"
-                        onClick={() => moveModule(module.id, "down")}
+                        onClick={() => {
+                          void toggleModule(module.id);
+                        }}
+                        aria-label={isExpanded ? "Collapse module" : "Expand module"}
                       >
-                        ↓
+                        {isExpanded ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
                       </button>
                       <button
                         type="button"
@@ -671,343 +866,57 @@ export function CourseBuilderPage() {
                           setEditModuleId(module.id);
                           setEditModuleTitle(module.title);
                         }}
+                        aria-label="Edit module"
                       >
-                        ✎
+                        <Pencil className="h-4 w-4" />
                       </button>
-                      <button type="button" onClick={() => handleDeleteModule(module.id)}>
-                        🗑
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteModule(module.id)}
+                        aria-label="Delete module"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
 
                   {isExpanded ? (
-                    <div className="border-t border-slate-200 px-5 py-5">
+                    <div className="border-t border-slate-100 px-6 py-6">
                       <div className="flex flex-col gap-6">
-                        <section className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-semibold text-slate-900">
-                                Lessons
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                Build lesson content and materials.
-                              </p>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              onClick={() => startNewLesson(module.id)}
-                            >
-                              + Add Lesson
-                            </Button>
-                          </div>
+                        <ModuleLessonsSection
+                          moduleId={module.id}
+                          lessons={lessons}
+                          expandedLessonIds={expandedLessonIds}
+                          onOpenCreateLesson={openCreateLessonModal}
+                          onToggleLesson={toggleLessonPreview}
+                          onEditLesson={openEditLessonModal}
+                          onDeleteLesson={(moduleId, lessonId) => {
+                            void handleDeleteLesson(moduleId, lessonId);
+                          }}
+                        />
 
-                          <div className="flex flex-col gap-3">
-                            {lessons.map((lesson, index) => (
-                              <div
-                                key={lesson.id}
-                                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                              >
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs text-slate-400">≡</span>
-                                  <span className="text-xs text-slate-400">
-                                    {index + 1}.
-                                  </span>
-                                  <span className="font-medium text-slate-900">
-                                    {lesson.title}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <button
-                                    type="button"
-                                    onClick={() => moveLesson(module.id, lesson.id, "up")}
-                                  >
-                                    ↑
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => moveLesson(module.id, lesson.id, "down")}
-                                  >
-                                    ↓
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void startEditLesson(module.id, lesson);
-                                    }}
-                                  >
-                                    ✎
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteLesson(module.id, lesson.id)}
-                                  >
-                                    🗑
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {lessonEditorModuleId === module.id ? (
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <div className="flex flex-col gap-4">
-                                <Input
-                                  value={lessonTitle}
-                                  onChange={(event) => setLessonTitle(event.target.value)}
-                                  placeholder="Lesson title"
-                                />
-                                <RichTextEditor
-                                  value={lessonContent}
-                                  onChange={setLessonContent}
-                                  placeholder="Write lesson content..."
-                                />
-                                <div className="grid gap-3 md:grid-cols-2">
-                                  <Input
-                                    value={lessonVideoUrl}
-                                    onChange={(event) =>
-                                      setLessonVideoUrl(event.target.value)
-                                    }
-                                    placeholder="Video URL"
-                                  />
-                                  <Input
-                                    value={lessonDuration}
-                                    onChange={(event) =>
-                                      setLessonDuration(event.target.value)
-                                    }
-                                    placeholder="Duration (e.g. 12:30)"
-                                  />
-                                </div>
-                                <Input
-                                  value={lessonMinScore}
-                                  onChange={(event) =>
-                                    setLessonMinScore(event.target.value)
-                                  }
-                                  placeholder="Optional minimum score"
-                                />
-                                <div className="flex gap-2">
-                                  <Button onClick={handleSaveLesson}>
-                                    Save lesson
-                                  </Button>
-                                  <Button variant="secondary" onClick={resetLessonEditor}>
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </section>
-
-                        <section className="space-y-4">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <h3 className="text-sm font-semibold text-slate-900">
-                                Tests
-                              </h3>
-                              <p className="text-xs text-slate-500">
-                                Draft quizzes and knowledge checks.
-                              </p>
-                            </div>
-                            <Button
-                              variant="secondary"
-                              onClick={() => startNewTest(module.id)}
-                            >
-                              + Add Test
-                            </Button>
-                          </div>
-
-                          <div className="flex flex-col gap-3">
-                            {tests.map((test) => (
-                              <div
-                                key={test.id}
-                                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-3 text-sm"
-                              >
-                                <span className="font-medium text-slate-900">
-                                  {test.title}
-                                </span>
-                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                  <button
-                                    type="button"
-                                    onClick={() => startEditTest(module.id, test)}
-                                  >
-                                    ✎
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteTest(module.id, test.id)}
-                                  >
-                                    🗑
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          {testEditorModuleId === module.id ? (
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <div className="flex flex-col gap-4">
-                                <Input
-                                  value={testTitle}
-                                  onChange={(event) => setTestTitle(event.target.value)}
-                                  placeholder="Test title"
-                                />
-                                <textarea
-                                  value={testDescription}
-                                  onChange={(event) =>
-                                    setTestDescription(event.target.value)
-                                  }
-                                  placeholder="Test description"
-                                  className="h-24 w-full rounded border border-slate-300 bg-white/85 px-3 py-2 text-sm focus:border-slate-400 focus:outline-none focus:ring-1 focus:ring-slate-300"
-                                />
-                                <Input
-                                  value={testMinScore}
-                                  onChange={(event) => setTestMinScore(event.target.value)}
-                                  placeholder="Minimum score"
-                                />
-
-                                <div className="flex flex-col gap-3">
-                                  <div className="flex items-center justify-between">
-                                    <h4 className="text-sm font-semibold text-slate-900">
-                                      Questions
-                                    </h4>
-                                    <Button variant="secondary" onClick={addQuestion}>
-                                      + Add Question
-                                    </Button>
-                                  </div>
-                                  {testQuestions.map((question, index) => (
-                                    <div
-                                      key={question.id}
-                                      className="rounded-xl border border-slate-200 bg-white p-3"
-                                    >
-                                      <div className="flex items-center justify-between">
-                                        <span className="text-xs text-slate-500">
-                                          Question {index + 1}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          className="text-xs text-slate-400"
-                                          onClick={() => removeQuestion(question.id)}
-                                        >
-                                          Remove
-                                        </button>
-                                      </div>
-                                      <div className="mt-3 flex flex-col gap-3">
-                                        <Input
-                                          value={question.text}
-                                          onChange={(event) =>
-                                            updateQuestion(question.id, {
-                                              text: event.target.value,
-                                            })
-                                          }
-                                          placeholder="Question text"
-                                        />
-                                        <select
-                                          value={question.type}
-                                          onChange={(event) => {
-                                            const value = event.target
-                                              .value as TestQuestionType;
-                                            const baseOptions =
-                                              value === "True/False"
-                                                ? ["True", "False"]
-                                                : ["Option 1", "Option 2"];
-                                            updateQuestion(question.id, {
-                                              type: value,
-                                              options:
-                                                value === "Short Answer"
-                                                  ? []
-                                                  : baseOptions,
-                                              correct:
-                                                value === "Short Answer"
-                                                  ? ""
-                                                  : baseOptions[0],
-                                            });
-                                          }}
-                                          className="rounded border border-slate-300 bg-white/85 px-3 py-2 text-sm"
-                                        >
-                                          <option>Multiple Choice</option>
-                                          <option>True/False</option>
-                                          <option>Short Answer</option>
-                                        </select>
-                                        {question.type !== "Short Answer" ? (
-                                          <div className="flex flex-col gap-2">
-                                            {question.options.map((option, optionIndex) => (
-                                              <Input
-                                                key={`${question.id}-${optionIndex}`}
-                                                value={option}
-                                                onChange={(event) => {
-                                                  const next = [...question.options];
-                                                  next[optionIndex] = event.target.value;
-                                                  updateQuestion(question.id, {
-                                                    options: next,
-                                                    correct:
-                                                      question.correct === option
-                                                        ? event.target.value
-                                                        : question.correct,
-                                                  });
-                                                }}
-                                                placeholder={`Option ${optionIndex + 1}`}
-                                              />
-                                            ))}
-                                            <Button
-                                              variant="secondary"
-                                              onClick={() =>
-                                                updateQuestion(question.id, {
-                                                  options: [
-                                                    ...question.options,
-                                                    `Option ${question.options.length + 1}`,
-                                                  ],
-                                                })
-                                              }
-                                            >
-                                              + Add option
-                                            </Button>
-                                            <select
-                                              value={question.correct}
-                                              onChange={(event) =>
-                                                updateQuestion(question.id, {
-                                                  correct: event.target.value,
-                                                })
-                                              }
-                                              className="rounded border border-slate-300 bg-white/85 px-3 py-2 text-sm"
-                                            >
-                                              {question.options.map((option) => (
-                                                <option key={option} value={option}>
-                                                  {option}
-                                                </option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                        ) : (
-                                          <Input
-                                            value={question.correct}
-                                            onChange={(event) =>
-                                              updateQuestion(question.id, {
-                                                correct: event.target.value,
-                                              })
-                                            }
-                                            placeholder="Correct answer"
-                                          />
-                                        )}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-
-                                <div className="flex gap-2">
-                                  <Button onClick={handleSaveTest}>Save test</Button>
-                                  <Button variant="secondary" onClick={resetTestEditor}>
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          ) : null}
-                        </section>
+                        <ModuleTestsSection
+                          moduleId={module.id}
+                          lessons={lessons}
+                          tests={tests}
+                          expandedTestIds={expandedTestIds}
+                          onOpenCreateTest={openCreateTestModal}
+                          onToggleTest={toggleTestPreview}
+                          onEditTest={openEditTestModal}
+                          onDeleteTest={handleDeleteTest}
+                        />
                       </div>
                     </div>
                   ) : null}
                 </div>
               );
             })}
+
+            <div className="flex justify-end">
+              <Button onClick={() => setActiveStep(3)} disabled={!currentCourseId}>
+                Continue to Review & Publish
+              </Button>
+            </div>
           </div>
         </div>
       ) : null}
@@ -1019,83 +928,335 @@ export function CourseBuilderPage() {
               Review & Publish
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Preview your course before publishing.
+              Review your course content and publish when everything is ready.
             </p>
-            <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Course summary
-                </h3>
-                <div className="mt-4 space-y-3 text-sm text-slate-600">
-                  <p>
-                    <span className="font-semibold text-slate-900">Title:</span>{" "}
-                    {courseTitle || "Untitled course"}
-                  </p>
-                  <p>
-                    <span className="font-semibold text-slate-900">
-                      Description:
-                    </span>{" "}
-                    {courseDescription || "No description yet."}
-                  </p>
-                  <div className="h-32 rounded-xl border border-dashed border-slate-300 bg-white/80" />
-                  <div className="grid gap-2 sm:grid-cols-3">
+            <div className="mt-6 space-y-6">
+              {isReviewContentLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-sm text-slate-600">
+                  Loading course content preview...
+                </div>
+              ) : publishBlockingIssues.length > 0 ? (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                  <div className="flex items-start gap-3">
+                    <TriangleAlert className="mt-0.5 h-5 w-5 text-amber-600" />
                     <div>
-                      <span className="text-xs text-slate-400">Category</span>
-                      <p className="text-sm text-slate-700">Not set</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-400">Level</span>
-                      <p className="text-sm text-slate-700">Not set</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-slate-400">Price</span>
-                      <p className="text-sm text-slate-700">Not set</p>
+                      <p className="text-sm font-semibold text-amber-900">
+                        Please address these issues before publishing:
+                      </p>
+                      <ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-amber-800">
+                        {publishBlockingIssues.map((issue) => (
+                          <li key={issue}>{issue}</li>
+                        ))}
+                      </ul>
                     </div>
                   </div>
                 </div>
-              </div>
-
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Content overview
-                </h3>
-                <div className="mt-4 space-y-4 text-sm text-slate-600">
-                  {modules.map((module) => (
-                    <div key={module.id} className="rounded-xl bg-white/80 p-3">
-                      <p className="font-semibold text-slate-900">
-                        {module.title}
-                      </p>
-                      <div className="mt-2 space-y-1 text-xs text-slate-500">
-                        {(lessonsByModule[module.id] || []).map((lesson) => (
-                          <div key={lesson.id}>• {lesson.title}</div>
-                        ))}
-                        {(testsByModule[module.id] || []).map((test) => (
-                          <div key={test.id}>• Test: {test.title}</div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                  {modules.length === 0 ? (
-                    <p className="text-xs text-slate-400">No modules yet.</p>
-                  ) : null}
+              ) : (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-800">
+                  <div className="flex items-center gap-3">
+                    <BadgeCheck className="h-5 w-5" />
+                    <p className="font-semibold">Course structure is ready for publishing.</p>
+                  </div>
                 </div>
-              </div>
+              )}
+
+              <section className="rounded-2xl border border-slate-200 bg-white p-5">
+                <h3 className="text-xl font-semibold text-slate-900">Course Overview</h3>
+
+                <div className="mt-6 rounded-2xl border border-slate-100 bg-white p-5">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-center">
+                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-slate-100 bg-white text-slate-400">
+                      <BookOpen className="h-10 w-10" />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="text-2xl font-semibold text-slate-900">
+                        {courseTitle.trim() || "Untitled course"}
+                      </h4>
+                      <p className="max-w-3xl text-sm leading-6 text-slate-600">
+                        {courseDescription.trim() || "No description yet."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                    <BookOpen className="mx-auto h-9 w-9 text-blue-600" />
+                    <p className="mt-3 text-3xl font-semibold text-slate-900">{totalModules}</p>
+                    <p className="mt-1 text-sm text-slate-500">Modules</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                    <Play className="mx-auto h-9 w-9 text-emerald-600" />
+                    <p className="mt-3 text-3xl font-semibold text-slate-900">
+                      {isReviewContentLoading ? "..." : totalLessons}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">Lessons</p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-100 bg-white p-5 text-center">
+                    <BadgeCheck className="mx-auto h-9 w-9 text-violet-600" />
+                    <p className="mt-3 text-3xl font-semibold text-slate-900">{totalTests}</p>
+                    <p className="mt-1 text-sm text-slate-500">Tests</p>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h3 className="text-xl font-semibold text-slate-900">Student Course Preview</h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Approximate preview of how the course structure and lesson content will look to students.
+                </p>
+
+                <div className="mt-6 space-y-6">
+                  {modules.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-8 text-center text-sm text-slate-500">
+                      Add modules and lessons to see the course preview.
+                    </div>
+                  ) : (
+                    modules.map((module) => {
+                      const lessons = lessonsByModule[module.id] || [];
+                      const tests = testsByModule[module.id] || [];
+                      const orderedItems = buildOrderedModuleItems(lessons, tests);
+                      const isPreviewExpanded = Boolean(expandedStudentPreviewModuleIds[module.id]);
+
+                      return (
+                        <article
+                          key={module.id}
+                          className="rounded-3xl border-2 border-slate-200 bg-slate-50 p-6"
+                        >
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => toggleStudentPreviewModule(module.id)}
+                              className="absolute right-0 top-0 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300"
+                            >
+                              {isPreviewExpanded ? "Hide" : "Preview"}
+                              {isPreviewExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </button>
+
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-slate-500">Module {module.order}</p>
+                              <h4 className="mt-2 text-2xl font-semibold text-slate-900">
+                                {module.title}
+                              </h4>
+                            </div>
+                          </div>
+
+                          <div className="mt-5 space-y-4">
+                            {orderedItems.length === 0 ? (
+                              <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
+                                This module does not contain any lessons or tests yet.
+                              </div>
+                            ) : !isPreviewExpanded ? (
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                {orderedItems.map((item, index) => (
+                                  <div
+                                    key={item.type === "lesson" ? item.lesson.id : item.test.id}
+                                    className={`flex items-center gap-3 px-2 py-3 ${
+                                      index < orderedItems.length - 1 ? "border-b border-slate-100" : ""
+                                    }`}
+                                  >
+                                    {item.type === "lesson" ? (
+                                      <Play className="h-4 w-4 text-slate-500" />
+                                    ) : (
+                                      <BadgeCheck className="h-4 w-4 text-slate-500" />
+                                    )}
+                                    <span className="text-sm font-medium text-slate-800">
+                                      {item.type === "lesson" ? item.lesson.title : item.test.title}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              orderedItems.map((item) => {
+                                if (item.type === "lesson") {
+                                  const embedUrl = getYouTubeEmbedUrl(item.lesson.video_url);
+                                  const lessonPosition =
+                                    lessons.findIndex((lesson) => lesson.id === item.lesson.id) + 1;
+
+                                  return (
+                                    <div
+                                      key={item.lesson.id}
+                                      className="rounded-2xl border border-slate-200 bg-white p-5"
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-100 bg-white text-sm font-semibold text-slate-700">
+                                          {lessonPosition}
+                                        </div>
+                                        <div>
+                                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                            Lesson
+                                          </p>
+                                          <h5 className="text-base font-semibold text-slate-900">
+                                            {item.lesson.title}
+                                          </h5>
+                                        </div>
+                                      </div>
+
+                                      <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
+                                        {item.lesson.content?.trim() || "No lesson content yet."}
+                                      </p>
+
+                                      {embedUrl ? (
+                                        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
+                                          <div className="aspect-video">
+                                            <iframe
+                                              src={embedUrl}
+                                              title={`${item.lesson.title} preview video`}
+                                              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                              allowFullScreen
+                                              className="h-full w-full"
+                                            />
+                                          </div>
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div
+                                    key={item.test.id}
+                                    className="rounded-2xl border border-slate-200 bg-white p-5"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                        Test
+                                      </p>
+                                      <h5 className="text-base font-semibold text-slate-900">
+                                        {item.test.title}
+                                      </h5>
+                                    </div>
+
+                                    <div className="mt-4 space-y-4">
+                                      {item.test.questions.map((question, questionIndex) => (
+                                        <div
+                                          key={question.id}
+                                          className="rounded-2xl border border-slate-100 bg-white p-4"
+                                        >
+                                          <div className="flex items-center justify-between gap-4">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {questionIndex + 1}
+                                            </p>
+                                            <span className="text-xs font-medium text-slate-500">
+                                              {studentQuestionTypeLabels[question.type]}
+                                            </span>
+                                          </div>
+
+                                          <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                                            {question.questionText}
+                                          </p>
+
+                                          <div className="mt-4 space-y-2">
+                                            {question.type === "true_false" ? (
+                                              <div className="grid gap-3 sm:grid-cols-2">
+                                                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                                                  True
+                                                </div>
+                                                <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                                                  False
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              question.options.map((option, optionIndex) => (
+                                                <div
+                                                  key={`${question.id}-${optionIndex}`}
+                                                  className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700"
+                                                >
+                                                  <span
+                                                    className={`flex h-4 w-4 items-center justify-center border border-slate-300 ${
+                                                      question.type === "multiple_choice"
+                                                        ? "rounded-[4px]"
+                                                        : "rounded-full"
+                                                    }`}
+                                                  />
+                                                  <span>{option}</span>
+                                                </div>
+                                              ))
+                                            )}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })
+                            )}
+                          </div>
+                        </article>
+                      );
+                    })
+                  )}
+                </div>
+              </section>
             </div>
-            {courseWarnings.length > 0 ? (
-              <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-                {courseWarnings.map((warning) => (
-                  <div key={warning}>{warning}</div>
-                ))}
-              </div>
-            ) : null}
+
             <div className="mt-6 flex justify-end">
-              <Button onClick={handlePublishCourse} disabled={!currentCourseId}>
+              <Button
+                onClick={handlePublishCourse}
+                disabled={
+                  !currentCourseId ||
+                  isReviewContentLoading ||
+                  publishBlockingIssues.length > 0
+                }
+              >
                 Publish Course
               </Button>
             </div>
           </div>
         </div>
       ) : null}
+
+      <LessonCreateModal
+        isOpen={lessonEditorModuleId !== null}
+        heading={editingLessonId ? "Edit Lesson" : "Create Lesson"}
+        saveLabel={editingLessonId ? "Save Changes" : "Save Lesson"}
+        title={lessonTitle}
+        content={lessonContent}
+        videoUrl={lessonVideoUrl}
+        isSaving={isCreatingLesson}
+        onClose={closeCreateLessonModal}
+        onSave={() => {
+          void handleCreateLesson();
+        }}
+        onTitleChange={setLessonTitle}
+        onContentChange={setLessonContent}
+        onVideoUrlChange={setLessonVideoUrl}
+      />
+
+      <TestCreateModal
+        isOpen={testEditorModuleId !== null}
+        heading={editingTestId ? "Edit Test" : "Create Test"}
+        saveLabel={editingTestId ? "Save Changes" : "Save Test"}
+        title={testTitle}
+        lessons={activeTestModuleLessons}
+        selectedAfterLessonId={testAfterLessonId}
+        questions={testQuestions}
+        canSave={canSaveCurrentTest}
+        onClose={closeCreateTestModal}
+        onSave={handleCreateTest}
+        onTitleChange={setTestTitle}
+        onAfterLessonChange={setTestAfterLessonId}
+        onAddQuestion={handleAddTestQuestion}
+        onQuestionChange={handleChangeTestQuestion}
+        onDeleteQuestion={handleDeleteTestQuestion}
+      />
+
+      <CreateModuleModal
+        isOpen={isCreateModuleModalOpen}
+        title={newModuleTitle}
+        isSaving={isCreatingModule}
+        onTitleChange={setNewModuleTitle}
+        onCancel={closeCreateModuleModal}
+        onSave={() => {
+          void handleSaveModuleModal();
+        }}
+      />
     </div>
   );
 }
