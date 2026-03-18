@@ -1,5 +1,6 @@
 export type CourseStatus = "draft" | "published" | "archived";
 export type CourseAccessType = "public" | "private" | "invite";
+export type TestQuestionType = "true_false" | "single_choice" | "multiple_choice";
 
 export type Course = {
   id: string;
@@ -33,7 +34,6 @@ export type Lesson = {
   video_url: string | null;
   content_type: string | null;
   order: number;
-  is_locked: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -50,17 +50,22 @@ export type LessonBlock = {
 
 export type TestEntity = {
   id: string;
-  lesson_id: string | null;
-  module_id: string | null;
-  passing_percentage: number | null;
+  after_lesson_id: string | null;
+  module_id: string;
+  title: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
 };
 
 export type TestQuestion = {
   id: string;
   test_id: string;
-  type: string;
+  type: TestQuestionType;
   question_text: string;
   order: number;
+  hint: string | null;
+  created_at: string;
 };
 
 export type TestAnswer = {
@@ -68,6 +73,7 @@ export type TestAnswer = {
   question_id: string;
   answer_text: string;
   is_correct: boolean;
+  created_at: string;
 };
 
 export type CreateCourseInput = {
@@ -102,11 +108,10 @@ export type CreateLessonInput = {
   video_url?: string | null;
   content_type?: string | null;
   order?: number;
-  is_locked?: boolean;
 };
 
 export type UpdateLessonInput = Partial<
-  Pick<Lesson, "title" | "content" | "video_url" | "content_type" | "order" | "is_locked">
+  Pick<Lesson, "title" | "content" | "video_url" | "content_type" | "order">
 >;
 
 export type CreateLessonBlockInput = {
@@ -121,22 +126,26 @@ export type UpdateLessonBlockInput = Partial<
 >;
 
 export type CreateTestEntityInput = {
-  lesson_id?: string;
-  module_id?: string;
-  passing_percentage?: number | null;
-};
-
-export type UpdateTestEntityInput = Partial<Pick<TestEntity, "passing_percentage">>;
-
-export type CreateTestQuestionInput = {
-  test_id: string;
-  type: string;
-  question_text: string;
+  module_id: string;
+  after_lesson_id?: string | null;
+  title: string;
   order?: number;
 };
 
+export type UpdateTestEntityInput = Partial<
+  Pick<TestEntity, "after_lesson_id" | "title" | "order">
+>;
+
+export type CreateTestQuestionInput = {
+  test_id: string;
+  type: TestQuestionType;
+  question_text: string;
+  order?: number;
+  hint?: string | null;
+};
+
 export type UpdateTestQuestionInput = Partial<
-  Pick<TestQuestion, "type" | "question_text" | "order">
+  Pick<TestQuestion, "type" | "question_text" | "order" | "hint">
 >;
 
 export type CreateTestAnswerInput = {

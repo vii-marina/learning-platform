@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
+import { Redo2, Undo2 } from "lucide-react";
 
 type RichTextEditorProps = {
   value: string;
@@ -22,6 +23,11 @@ export function RichTextEditor({
       }),
     ],
     content: value,
+    editorProps: {
+      attributes: {
+        class: "rich-text-editor__content",
+      },
+    },
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
@@ -51,8 +57,33 @@ export function RichTextEditor({
     </button>
   );
 
+  const toolbarIconButton = (
+    label: string,
+    onClick: () => void,
+    icon: ReactNode,
+    isDisabled = false
+  ) => (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      disabled={isDisabled}
+      className={`rounded p-2 ${
+        isDisabled
+          ? "cursor-not-allowed bg-slate-100 text-slate-300"
+          : "bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+      }`}
+    >
+      {icon}
+    </button>
+  );
+
+  const canUndo = editor.can().chain().focus().undo().run();
+  const canRedo = editor.can().chain().focus().redo().run();
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white">
+    <div className="rich-text-editor rounded-xl border border-slate-200 bg-white">
       <div className="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-2">
         {toolbarButton("Bold", () => editor.chain().focus().toggleBold().run(), editor.isActive("bold"))}
         {toolbarButton(
@@ -60,23 +91,26 @@ export function RichTextEditor({
           () => editor.chain().focus().toggleItalic().run(),
           editor.isActive("italic")
         )}
-        {toolbarButton(
-          "Bullet",
-          () => editor.chain().focus().toggleBulletList().run(),
-          editor.isActive("bulletList")
+        {toolbarIconButton(
+          "Undo",
+          () => editor.chain().focus().undo().run(),
+          <Undo2 className="h-4 w-4" />,
+          !canUndo
         )}
-        {toolbarButton(
-          "Numbered",
-          () => editor.chain().focus().toggleOrderedList().run(),
-          editor.isActive("orderedList")
+        {toolbarIconButton(
+          "Redo",
+          () => editor.chain().focus().redo().run(),
+          <Redo2 className="h-4 w-4" />,
+          !canRedo
         )}
-        {toolbarButton("Undo", () => editor.chain().focus().undo().run())}
-        {toolbarButton("Redo", () => editor.chain().focus().redo().run())}
       </div>
-      <EditorContent
-        editor={editor}
-        className="min-h-[180px] px-3 py-2 text-sm text-slate-700"
-      />
+      <div
+        role="presentation"
+        onClick={() => editor.chain().focus().run()}
+        className="min-h-[240px] cursor-text"
+      >
+        <EditorContent editor={editor} className="text-sm text-slate-700" />
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-export type TestQuestionType = "true_false" | "single_choice" | "multiple_choice";
+import type { TestQuestionType } from "../../api";
 
 export type CourseTestQuestion = {
   id: string;
@@ -6,13 +6,13 @@ export type CourseTestQuestion = {
   questionText: string;
   options: string[];
   correctOptionIndexes: number[];
+  hint?: string | null;
 };
 
 export type CourseTest = {
   id: string;
   title: string;
-  description: string;
-  minScore: string;
   afterLessonId: string | null;
+  order: number;
   questions: CourseTestQuestion[];
 };

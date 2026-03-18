@@ -1,6 +1,7 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Input } from "../../../../components/ui/Input";
-import type { CourseTestQuestion, TestQuestionType } from "./courseBuilderUiTypes";
+import type { TestQuestionType } from "../../api";
+import type { CourseTestQuestion } from "./courseBuilderUiTypes";
 
 type TestQuestionEditorProps = {
   question: CourseTestQuestion;
@@ -153,6 +154,21 @@ export function TestQuestionEditor({
             }
             placeholder="Enter your question here..."
             className="mt-2 h-28 w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-base text-slate-700 focus:outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="text-base font-semibold text-slate-900">Hint</label>
+          <textarea
+            value={question.hint ?? ""}
+            onChange={(event) =>
+              onChange(question.id, {
+                ...question,
+                hint: event.target.value,
+              })
+            }
+            placeholder="Optional hint students can reveal if they need help."
+            className="mt-2 h-24 w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-base text-slate-700 focus:outline-none"
           />
         </div>
 
