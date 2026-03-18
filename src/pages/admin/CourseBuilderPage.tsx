@@ -17,17 +17,42 @@ import {
   createCourse,
   createLesson,
   createModule,
+  createTestAnswer,
+  createTestEntity,
+  createTestQuestion,
   deleteLesson,
   deleteModule,
+  deleteTestEntity,
+  deleteTestQuestion,
   listCourses,
+  listLessonBlocksByLesson,
   listLessonsByModule,
   listModulesByCourse,
+  listTestAnswers,
+  listTestQuestions,
+  listTestsByModule,
   publishCourse,
+  upsertLessonPrimaryRichTextBlock,
   updateCourse,
   updateLesson,
+  updateTestEntity,
   updateModule,
 } from "../../features/courses/api";
-import type { Course, Lesson, Module } from "../../features/courses/api";
+import {
+  getCourseMediaKind,
+  getCourseMediaLabel,
+  getCourseMediaPublicUrl,
+  uploadCourseMedia,
+} from "../../features/courses/api/courseMediaStorage";
+import { CourseMediaUpload } from "../../features/courses/components/course-builder/CourseMediaUpload";
+import type {
+  Course,
+  Lesson,
+  Module,
+  TestAnswer,
+  TestEntity,
+  TestQuestion,
+} from "../../features/courses/api";
 import { CreateModuleModal } from "../../features/courses/components/course-builder/CreateModuleModal";
 import { LessonCreateModal } from "../../features/courses/components/course-builder/LessonCreateModal";
 import { ModuleLessonsSection } from "../../features/courses/components/course-builder/ModuleLessonsSection";
@@ -56,13 +81,67 @@ const createEmptyTestQuestion = (): CourseTestQuestion => ({
   questionText: "",
   options: ["Option 1", "Option 2"],
   correctOptionIndexes: [],
+  hint: null,
 });
 
 const cloneTestQuestion = (question: CourseTestQuestion): CourseTestQuestion => ({
   ...question,
   options: [...question.options],
   correctOptionIndexes: [...question.correctOptionIndexes],
+  hint: question.hint ?? null,
 });
+
+const TRUE_FALSE_OPTIONS = ["True", "False"] as const;
+
+const buildQuestionOptions = (question: TestQuestion, answers: TestAnswer[]) => {
+  if (question.type === "true_false") {
+    return [...TRUE_FALSE_OPTIONS];
+  }
+
+  return answers.map((answer) => answer.answer_text);
+};
+
+const buildCorrectOptionIndexes = (question: TestQuestion, answers: TestAnswer[]) => {
+  if (question.type === "true_false") {
+    const correctAnswer = answers.find((answer) => answer.is_correct);
+
+    if (!correctAnswer) {
+      return [];
+    }
+
+    return correctAnswer.answer_text.trim().toLowerCase() === "false" ? [1] : [0];
+  }
+
+  return answers.reduce<number[]>((indexes, answer, index) => {
+    if (answer.is_correct) {
+      indexes.push(index);
+    }
+
+    return indexes;
+  }, []);
+};
+
+const mapQuestionToCourseTestQuestion = (
+  question: TestQuestion,
+  answers: TestAnswer[]
+): CourseTestQuestion => ({
+  id: question.id,
+  type: question.type,
+  questionText: question.question_text,
+  options: buildQuestionOptions(question, answers),
+  correctOptionIndexes: buildCorrectOptionIndexes(question, answers),
+  hint: question.hint,
+});
+
+const buildAnswerPayloads = (question: CourseTestQuestion) => {
+  const options =
+    question.type === "true_false" ? [...TRUE_FALSE_OPTIONS] : question.options.map((option) => option.trim());
+
+  return options.map((answerText, index) => ({
+    answer_text: answerText,
+    is_correct: question.correctOptionIndexes.includes(index),
+  }));
+};
 
 const isQuestionValid = (question: CourseTestQuestion) => {
   if (!question.questionText.trim()) {
@@ -138,6 +217,9 @@ const studentQuestionTypeLabels: Record<CourseTestQuestion["type"], string> = {
   multiple_choice: "Multiple correct answers",
 };
 
+const hasLessonContent = (content: string | null) =>
+  Boolean(content?.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim());
+
 export function CourseBuilderPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [message, setMessage] = useState("");
@@ -146,6 +228,8 @@ export function CourseBuilderPage() {
 
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
+  const [courseThumbnailPath, setCourseThumbnailPath] = useState<string | null>(null);
+  const [isUploadingCourseMedia, setIsUploadingCourseMedia] = useState(false);
 
   const [modules, setModules] = useState<Module[]>([]);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
@@ -167,6 +251,7 @@ export function CourseBuilderPage() {
   const [testsByModule, setTestsByModule] = useState<Record<string, CourseTest[]>>({});
   const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
+  const [isSavingTest, setIsSavingTest] = useState(false);
   const [testTitle, setTestTitle] = useState("");
   const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
   const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
@@ -189,6 +274,18 @@ export function CourseBuilderPage() {
     () => canSaveTestDraft(testTitle, testQuestions),
     [testQuestions, testTitle]
   );
+  const courseThumbnailUrl = useMemo(
+    () => getCourseMediaPublicUrl(courseThumbnailPath),
+    [courseThumbnailPath]
+  );
+  const courseThumbnailKind = useMemo(
+    () => getCourseMediaKind(courseThumbnailPath),
+    [courseThumbnailPath]
+  );
+  const courseThumbnailLabel = useMemo(
+    () => getCourseMediaLabel(courseThumbnailPath),
+    [courseThumbnailPath]
+  );
 
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
@@ -204,7 +301,7 @@ export function CourseBuilderPage() {
     [modules, testsByModule]
   );
   const isReviewContentLoading = modules.some(
-    (module) => lessonsByModule[module.id] === undefined
+    (module) => lessonsByModule[module.id] === undefined || testsByModule[module.id] === undefined
   );
   const publishBlockingIssues = useMemo(() => {
     const issues: string[] = [];
@@ -246,8 +343,74 @@ export function CourseBuilderPage() {
       const data = await listLessonsByModule(moduleId);
       setLessonsByModule((prev) => ({ ...prev, [moduleId]: data }));
       setMessage("");
+      return data;
     } catch {
       setMessage("Unable to load lessons.");
+      return null;
+    }
+  };
+
+  const hydrateCourseTest = async (testEntity: TestEntity): Promise<CourseTest> => {
+    const questions = await listTestQuestions(testEntity.id);
+    const questionsWithAnswers = await Promise.all(
+      questions.map(async (question) => ({
+        question,
+        answers: await listTestAnswers(question.id),
+      }))
+    );
+
+    return {
+      id: testEntity.id,
+      title: testEntity.title,
+      afterLessonId: testEntity.after_lesson_id,
+      order: testEntity.order,
+      questions: questionsWithAnswers.map(({ question, answers }) =>
+        mapQuestionToCourseTestQuestion(question, answers)
+      ),
+    };
+  };
+
+  const fetchTests = async (moduleId: string) => {
+    try {
+      const entities = await listTestsByModule(moduleId);
+      const tests = await Promise.all(entities.map(hydrateCourseTest));
+      setTestsByModule((prev) => ({ ...prev, [moduleId]: tests }));
+      setMessage("");
+      return tests;
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to load tests.");
+      }
+      return null;
+    }
+  };
+
+  const persistTestQuestions = async (testId: string, questions: CourseTestQuestion[]) => {
+    const existingQuestions = await listTestQuestions(testId);
+
+    for (const question of existingQuestions) {
+      await deleteTestQuestion(question.id);
+    }
+
+    for (const [questionIndex, question] of questions.entries()) {
+      const createdQuestion = await createTestQuestion({
+        test_id: testId,
+        type: question.type,
+        question_text: question.questionText.trim(),
+        order: questionIndex + 1,
+        hint: question.hint ?? null,
+      });
+
+      const answers = buildAnswerPayloads(question);
+      for (const answer of answers) {
+        await createTestAnswer({
+          question_id: createdQuestion.id,
+          answer_text: answer.answer_text,
+          is_correct: answer.is_correct,
+        });
+      }
     }
   };
 
@@ -270,6 +433,7 @@ export function CourseBuilderPage() {
       queueMicrotask(() => {
         setCourseTitle(selectedCourse.title);
         setCourseDescription(selectedCourse.description || "");
+        setCourseThumbnailPath(selectedCourse.thumbnail_path);
       });
     }
   }, [selectedCourse]);
@@ -283,6 +447,8 @@ export function CourseBuilderPage() {
       queueMicrotask(() => {
         setModules([]);
         setLessonsByModule({});
+        setTestsByModule({});
+        setCourseThumbnailPath(null);
       });
     }
   }, [currentCourseId]);
@@ -326,34 +492,127 @@ export function CourseBuilderPage() {
     };
   }, [lessonsByModule, modules]);
 
-  const handleSaveDraft = async () => {
-    if (!isBasicsComplete) return false;
+  useEffect(() => {
+    const missingModuleIds = modules
+      .filter((module) => testsByModule[module.id] === undefined)
+      .map((module) => module.id);
+
+    if (missingModuleIds.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void Promise.all(
+      missingModuleIds.map(async (moduleId) => ({
+        moduleId,
+        tests: await (async () => {
+          const entities = await listTestsByModule(moduleId);
+          return Promise.all(entities.map(hydrateCourseTest));
+        })(),
+      }))
+    )
+      .then((results) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setTestsByModule((prev) => ({
+          ...prev,
+          ...Object.fromEntries(results.map(({ moduleId, tests }) => [moduleId, tests])),
+        }));
+        setMessage("");
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          if (error instanceof Error && error.message.trim()) {
+            setMessage(error.message);
+          } else {
+            setMessage("Unable to load tests.");
+          }
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [modules, testsByModule]);
+
+  const persistCourseDraft = async () => {
+    if (!isBasicsComplete) return null;
     try {
       if (currentCourseId) {
         await updateCourse(currentCourseId, {
           title: courseTitle.trim(),
           description: courseDescription.trim() || null,
+          thumbnail_path: courseThumbnailPath,
         });
+        await fetchCourses();
+        setMessage("");
+        return currentCourseId;
       } else {
         const teacherId = await getCurrentTeacherId();
         const course = await createCourse({
           teacher_id: teacherId,
           title: courseTitle.trim(),
           description: courseDescription.trim() || null,
+          thumbnail_path: courseThumbnailPath,
           is_published: false,
         });
         setCurrentCourseId(course.id);
+        await fetchCourses();
+        setMessage("");
+        return course.id;
       }
-      await fetchCourses();
-      setMessage("");
-      return true;
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
-        return false;
+        return null;
       }
       setMessage(currentCourseId ? "Unable to update course." : "Unable to create course.");
-      return false;
+      return null;
+    }
+  };
+
+  const handleSaveDraft = async () => {
+    const courseId = await persistCourseDraft();
+    return Boolean(courseId);
+  };
+
+  const handleCourseMediaUpload = async (file: File) => {
+    if (!currentCourseId && !isBasicsComplete) {
+      setMessage("Add the course title and description before uploading media.");
+      return;
+    }
+
+    let courseId = currentCourseId;
+
+    if (!courseId) {
+      const createdCourseId = await persistCourseDraft();
+      if (!createdCourseId) {
+        return;
+      }
+
+      courseId = createdCourseId;
+    }
+
+    try {
+      setIsUploadingCourseMedia(true);
+      const uploadedPath = await uploadCourseMedia(courseId, file);
+      setCourseThumbnailPath(uploadedPath);
+      await updateCourse(courseId, {
+        thumbnail_path: uploadedPath,
+      });
+      await fetchCourses();
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to upload course media.");
+      }
+    } finally {
+      setIsUploadingCourseMedia(false);
     }
   };
 
@@ -409,6 +668,10 @@ export function CourseBuilderPage() {
   const handleDeleteModule = async (moduleId: string) => {
     if (!window.confirm("Delete this module?")) return;
     try {
+      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
+      for (const test of moduleTests) {
+        await deleteTestEntity(test.id);
+      }
       await deleteModule(moduleId);
     } catch {
       setMessage("Unable to delete module.");
@@ -457,6 +720,9 @@ export function CourseBuilderPage() {
     if (nextId && !lessonsByModule[nextId]) {
       await fetchLessons(nextId);
     }
+    if (nextId && !testsByModule[nextId]) {
+      await fetchTests(nextId);
+    }
   };
 
   const closeCreateLessonModal = () => {
@@ -481,6 +747,23 @@ export function CourseBuilderPage() {
     setLessonTitle(lesson.title);
     setLessonContent(lesson.content || "");
     setLessonVideoUrl(lesson.video_url || "");
+
+    void (async () => {
+      try {
+        const blocks = await listLessonBlocksByLesson(lesson.id);
+        const richTextBlock = blocks.find((block) => block.block_type === "rich_text");
+        const html =
+          richTextBlock && typeof richTextBlock.content.html === "string"
+            ? richTextBlock.content.html
+            : null;
+
+        if (html !== null) {
+          setLessonContent(html);
+        }
+      } catch {
+        // Keep the lesson.content fallback if blocks fail to load.
+      }
+    })();
   };
 
   const handleCreateLesson = async () => {
@@ -492,18 +775,20 @@ export function CourseBuilderPage() {
       if (editingLessonId) {
         await updateLesson(editingLessonId, {
           title: lessonTitle.trim(),
-          content: lessonContent.trim() || null,
+          content: lessonContent,
           video_url: lessonVideoUrl.trim() || null,
-          content_type: "text",
+          content_type: "rich_text",
         });
+        await upsertLessonPrimaryRichTextBlock(editingLessonId, lessonContent);
       } else {
-        await createLesson({
+        const createdLesson = await createLesson({
           module_id: moduleId,
           title: lessonTitle.trim(),
-          content: lessonContent.trim() || null,
+          content: lessonContent,
           video_url: lessonVideoUrl.trim() || null,
-          content_type: "text",
+          content_type: "rich_text",
         });
+        await upsertLessonPrimaryRichTextBlock(createdLesson.id, lessonContent);
       }
       await fetchLessons(moduleId);
       closeCreateLessonModal();
@@ -523,14 +808,18 @@ export function CourseBuilderPage() {
     if (!window.confirm("Delete this lesson?")) return;
 
     try {
+      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
+      const linkedTests = moduleTests.filter((test) => test.afterLessonId === lessonId);
+
+      for (const test of linkedTests) {
+        await updateTestEntity(test.id, {
+          after_lesson_id: null,
+        });
+      }
+
       await deleteLesson(lessonId);
       await fetchLessons(moduleId);
-      setTestsByModule((prev) => ({
-        ...prev,
-        [moduleId]: (prev[moduleId] || []).map((test) =>
-          test.afterLessonId === lessonId ? { ...test, afterLessonId: null } : test
-        ),
-      }));
+      await fetchTests(moduleId);
       setExpandedLessonIds((prev) => {
         const next = { ...prev };
         delete next[lessonId];
@@ -594,45 +883,63 @@ export function CourseBuilderPage() {
     });
   };
 
-  const handleCreateTest = () => {
+  const handleCreateTest = async () => {
     if (!testEditorModuleId || !canSaveCurrentTest) return;
     const moduleId = testEditorModuleId;
 
-    setTestsByModule((prev) => {
-      const list = prev[moduleId] || [];
-      const draft: CourseTest = {
-        id: editingTestId || createId(),
-        title: testTitle.trim(),
-        description: "",
-        minScore:
-          editingTestId
-            ? list.find((test) => test.id === editingTestId)?.minScore || "70"
-            : "70",
-        afterLessonId: testAfterLessonId,
-        questions: testQuestions.map(cloneTestQuestion),
-      };
-      const nextList = editingTestId
-        ? list.map((test) => (test.id === editingTestId ? draft : test))
-        : [...list, draft];
+    try {
+      setIsSavingTest(true);
+      const existingTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
 
-      return { ...prev, [moduleId]: nextList };
-    });
+      const savedTest = editingTestId
+        ? await updateTestEntity(editingTestId, {
+            title: testTitle.trim(),
+            after_lesson_id: testAfterLessonId,
+            order:
+              existingTests.find((test) => test.id === editingTestId)?.order ??
+              existingTests.length + 1,
+          })
+        : await createTestEntity({
+            module_id: moduleId,
+            title: testTitle.trim(),
+            after_lesson_id: testAfterLessonId,
+            order: (existingTests.at(-1)?.order ?? 0) + 1,
+          });
 
-    closeCreateTestModal();
+      await persistTestQuestions(savedTest.id, testQuestions);
+      await fetchTests(moduleId);
+      closeCreateTestModal();
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage(editingTestId ? "Unable to update test." : "Unable to create test.");
+      }
+    } finally {
+      setIsSavingTest(false);
+    }
   };
 
-  const handleDeleteTest = (moduleId: string, testId: string) => {
+  const handleDeleteTest = async (moduleId: string, testId: string) => {
     if (!window.confirm("Delete this test?")) return;
 
-    setTestsByModule((prev) => ({
-      ...prev,
-      [moduleId]: (prev[moduleId] || []).filter((test) => test.id !== testId),
-    }));
-    setExpandedTestIds((prev) => {
-      const next = { ...prev };
-      delete next[testId];
-      return next;
-    });
+    try {
+      await deleteTestEntity(testId);
+      await fetchTests(moduleId);
+      setExpandedTestIds((prev) => {
+        const next = { ...prev };
+        delete next[testId];
+        return next;
+      });
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to delete test.");
+      }
+    }
   };
 
   const toggleTestPreview = (testId: string) => {
@@ -759,11 +1066,17 @@ export function CourseBuilderPage() {
 
             <div className="space-y-2">
               <label className="text-base font-semibold text-slate-900">
-                Course thumbnail
+                Course thumbnail / media
               </label>
-              <div className="flex min-h-[180px] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500">
-                Drag & drop a thumbnail or click to upload
-              </div>
+              <CourseMediaUpload
+                disabled={!currentCourseId && !isBasicsComplete}
+                isUploading={isUploadingCourseMedia}
+                mediaPath={courseThumbnailPath}
+                mediaUrl={courseThumbnailUrl}
+                onFileSelect={(file) => {
+                  void handleCourseMediaUpload(file);
+                }}
+              />
             </div>
 
             <div className="flex items-center justify-between">
@@ -903,7 +1216,9 @@ export function CourseBuilderPage() {
                           onOpenCreateTest={openCreateTestModal}
                           onToggleTest={toggleTestPreview}
                           onEditTest={openEditTestModal}
-                          onDeleteTest={handleDeleteTest}
+                          onDeleteTest={(nextModuleId, testId) => {
+                            void handleDeleteTest(nextModuleId, testId);
+                          }}
                         />
                       </div>
                     </div>
@@ -965,8 +1280,30 @@ export function CourseBuilderPage() {
 
                 <div className="mt-6 rounded-2xl border border-slate-100 bg-white p-5">
                   <div className="flex flex-col gap-5 md:flex-row md:items-center">
-                    <div className="flex h-24 w-24 items-center justify-center rounded-2xl border border-slate-100 bg-white text-slate-400">
-                      <BookOpen className="h-10 w-10" />
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-2xl border border-slate-100 bg-white text-slate-400">
+                      {courseThumbnailUrl ? (
+                        courseThumbnailKind === "image" ? (
+                          <img
+                            src={courseThumbnailUrl}
+                            alt={`${courseTitle.trim() || "Course"} media`}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : courseThumbnailKind === "video" ? (
+                          <video
+                            src={courseThumbnailUrl}
+                            className="h-full w-full bg-slate-950 object-cover"
+                          />
+                        ) : (
+                          <div className="flex flex-col items-center justify-center px-3 text-center">
+                            <BookOpen className="h-8 w-8" />
+                            <span className="mt-1 max-h-8 overflow-hidden break-all text-[10px] font-medium text-slate-500">
+                              {courseThumbnailLabel}
+                            </span>
+                          </div>
+                        )
+                      ) : (
+                        <BookOpen className="h-10 w-10" />
+                      )}
                     </div>
                     <div className="space-y-2">
                       <h4 className="text-2xl font-semibold text-slate-900">
@@ -1098,9 +1435,18 @@ export function CourseBuilderPage() {
                                         </div>
                                       </div>
 
-                                      <p className="mt-4 whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                                        {item.lesson.content?.trim() || "No lesson content yet."}
-                                      </p>
+                                      {hasLessonContent(item.lesson.content) ? (
+                                        <div
+                                          className="prose prose-sm mt-4 max-w-none text-slate-600"
+                                          dangerouslySetInnerHTML={{
+                                            __html: item.lesson.content ?? "",
+                                          }}
+                                        />
+                                      ) : (
+                                        <p className="mt-4 text-sm leading-6 text-slate-600">
+                                          No lesson content yet.
+                                        </p>
+                                      )}
 
                                       {embedUrl ? (
                                         <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
@@ -1151,6 +1497,13 @@ export function CourseBuilderPage() {
                                           <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                                             {question.questionText}
                                           </p>
+
+                                          {question.hint?.trim() ? (
+                                            <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                                              <span className="font-semibold">Hint:</span>{" "}
+                                              {question.hint.trim()}
+                                            </div>
+                                          ) : null}
 
                                           <div className="mt-4 space-y-2">
                                             {question.type === "true_false" ? (
@@ -1238,8 +1591,11 @@ export function CourseBuilderPage() {
         selectedAfterLessonId={testAfterLessonId}
         questions={testQuestions}
         canSave={canSaveCurrentTest}
+        isSaving={isSavingTest}
         onClose={closeCreateTestModal}
-        onSave={handleCreateTest}
+        onSave={() => {
+          void handleCreateTest();
+        }}
         onTitleChange={setTestTitle}
         onAfterLessonChange={setTestAfterLessonId}
         onAddQuestion={handleAddTestQuestion}

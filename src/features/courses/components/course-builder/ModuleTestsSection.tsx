@@ -1,7 +1,7 @@
-import type { Lesson } from "../../api";
+import type { Lesson, TestQuestionType } from "../../api";
 import { BadgeCheck, ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
-import type { CourseTest, TestQuestionType } from "./courseBuilderUiTypes";
+import type { CourseTest } from "./courseBuilderUiTypes";
 
 type ModuleTestsSectionProps = {
   moduleId: string;
@@ -125,6 +125,12 @@ export function ModuleTestsSection({
                           <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                             {question.questionText}
                           </p>
+
+                          {question.hint?.trim() ? (
+                            <div className="mt-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+                              <span className="font-semibold">Hint:</span> {question.hint.trim()}
+                            </div>
+                          ) : null}
 
                           <div className="mt-4 space-y-2">
                             {question.type === "true_false" ? (

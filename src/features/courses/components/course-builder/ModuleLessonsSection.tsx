@@ -3,6 +3,9 @@ import { BookOpen, ChevronDown, ChevronRight, Pencil, Play, Plus, Trash2 } from 
 import { Button } from "../../../../components/ui/Button";
 import { getYouTubeEmbedUrl } from "./youtube";
 
+const hasLessonContent = (content: string | null) =>
+  Boolean(content?.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim());
+
 type ModuleLessonsSectionProps = {
   moduleId: string;
   lessons: Lesson[];
@@ -100,9 +103,14 @@ export function ModuleLessonsSection({
                         Student Preview
                       </p>
                       <h4 className="text-lg font-semibold text-slate-900">{lesson.title}</h4>
-                      <p className="whitespace-pre-wrap text-sm leading-6 text-slate-600">
-                        {lesson.content?.trim() || "No lesson content yet."}
-                      </p>
+                      {hasLessonContent(lesson.content) ? (
+                        <div
+                          className="prose prose-sm max-w-none text-slate-600"
+                          dangerouslySetInnerHTML={{ __html: lesson.content ?? "" }}
+                        />
+                      ) : (
+                        <p className="text-sm leading-6 text-slate-600">No lesson content yet.</p>
+                      )}
                       {embedUrl ? (
                         <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-950">
                           <div className="aspect-video">

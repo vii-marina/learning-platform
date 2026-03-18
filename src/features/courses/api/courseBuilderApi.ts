@@ -111,12 +111,29 @@ async function getNextQuestionOrder(testId: string) {
   return (data?.order ?? 0) + 1;
 }
 
-function validateTestEntityTarget(input: CreateTestEntityInput) {
-  const hasLesson = Boolean(input.lesson_id);
-  const hasModule = Boolean(input.module_id);
+async function getNextTestOrder(moduleId: string) {
+  const { data, error } = await supabase
+    .from("test_entities")
+    .select("order")
+    .eq("module_id", moduleId)
+    .order("order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  if (hasLesson === hasModule) {
-    throw new Error("Test entity must target either lesson_id or module_id.");
+  if (error) {
+    throw new Error(toErrorMessage("Unable to compute next test order", error.message));
+  }
+
+  return (data?.order ?? 0) + 1;
+}
+
+function validateTestEntityTarget(input: CreateTestEntityInput) {
+  if (!input.module_id) {
+    throw new Error("Test entity must target a module.");
+  }
+
+  if (!input.title.trim()) {
+    throw new Error("Test entity must include a title.");
   }
 }
 
@@ -336,11 +353,10 @@ export async function createLesson(input: CreateLessonInput) {
     .insert({
       module_id: input.module_id,
       title: input.title.trim(),
-      content: input.content ?? null,
+      content: input.content ?? "",
       video_url: input.video_url?.trim() || null,
       content_type: input.content_type ?? null,
       order,
-      is_locked: input.is_locked ?? false,
     })
     .select("*")
     .single();
@@ -357,6 +373,8 @@ export async function updateLesson(lessonId: string, input: UpdateLessonInput) {
     .from("lessons")
     .update({
       ...input,
+      content:
+        typeof input.content === "string" ? input.content : input.content === null ? "" : undefined,
       title: typeof input.title === "string" ? input.title.trim() : input.title,
       video_url:
         typeof input.video_url === "string" ? input.video_url.trim() || null : input.video_url,
@@ -484,7 +502,7 @@ export async function listTestsByModule(moduleId: string) {
     .from("test_entities")
     .select("*")
     .eq("module_id", moduleId)
-    .order("id", { ascending: true });
+    .order("order", { ascending: true });
 
   if (error) {
     throw new Error(toErrorMessage("Unable to list module tests", error.message));
@@ -497,8 +515,8 @@ export async function listTestsByLesson(lessonId: string) {
   const { data, error } = await supabase
     .from("test_entities")
     .select("*")
-    .eq("lesson_id", lessonId)
-    .order("id", { ascending: true });
+    .eq("after_lesson_id", lessonId)
+    .order("order", { ascending: true });
 
   if (error) {
     throw new Error(toErrorMessage("Unable to list lesson tests", error.message));
@@ -509,13 +527,15 @@ export async function listTestsByLesson(lessonId: string) {
 
 export async function createTestEntity(input: CreateTestEntityInput) {
   validateTestEntityTarget(input);
+  const order = input.order ?? (await getNextTestOrder(input.module_id));
 
   const { data, error } = await supabase
     .from("test_entities")
     .insert({
-      lesson_id: input.lesson_id ?? null,
-      module_id: input.module_id ?? null,
-      passing_percentage: input.passing_percentage ?? null,
+      after_lesson_id: input.after_lesson_id ?? null,
+      module_id: input.module_id,
+      title: input.title.trim(),
+      order,
     })
     .select("*")
     .single();
@@ -528,9 +548,14 @@ export async function createTestEntity(input: CreateTestEntityInput) {
 }
 
 export async function updateTestEntity(testId: string, input: UpdateTestEntityInput) {
+  const payload: UpdateTestEntityInput = {
+    ...input,
+    title: typeof input.title === "string" ? input.title.trim() : input.title,
+  };
+
   const { data, error } = await supabase
     .from("test_entities")
-    .update(input)
+    .update(payload)
     .eq("id", testId)
     .select("*")
     .single();
@@ -543,6 +568,23 @@ export async function updateTestEntity(testId: string, input: UpdateTestEntityIn
 }
 
 export async function deleteTestEntity(testId: string) {
+  const questions = await listTestQuestions(testId);
+
+  for (const question of questions) {
+    await deleteTestQuestion(question.id);
+  }
+
+  const { error: resultDeleteError } = await supabase
+    .from("user_test_results")
+    .delete()
+    .eq("test_id", testId);
+
+  if (resultDeleteError) {
+    throw new Error(
+      toErrorMessage("Unable to delete test results", resultDeleteError.message)
+    );
+  }
+
   const { error } = await supabase.from("test_entities").delete().eq("id", testId);
 
   if (error) {
@@ -572,8 +614,9 @@ export async function createTestQuestion(input: CreateTestQuestionInput) {
     .insert({
       test_id: input.test_id,
       type: input.type,
-      question_text: input.question_text,
+      question_text: input.question_text.trim(),
       order,
+      hint: input.hint?.trim() || null,
     })
     .select("*")
     .single();
@@ -586,9 +629,18 @@ export async function createTestQuestion(input: CreateTestQuestionInput) {
 }
 
 export async function updateTestQuestion(questionId: string, input: UpdateTestQuestionInput) {
+  const payload: UpdateTestQuestionInput = {
+    ...input,
+    question_text:
+      typeof input.question_text === "string"
+        ? input.question_text.trim()
+        : input.question_text,
+    hint: typeof input.hint === "string" ? input.hint.trim() || null : input.hint,
+  };
+
   const { data, error } = await supabase
     .from("test_questions")
-    .update(input)
+    .update(payload)
     .eq("id", questionId)
     .select("*")
     .single();
@@ -601,6 +653,15 @@ export async function updateTestQuestion(questionId: string, input: UpdateTestQu
 }
 
 export async function deleteTestQuestion(questionId: string) {
+  const { error: answerDeleteError } = await supabase
+    .from("test_answers")
+    .delete()
+    .eq("question_id", questionId);
+
+  if (answerDeleteError) {
+    throw new Error(toErrorMessage("Unable to delete test answers", answerDeleteError.message));
+  }
+
   const { error } = await supabase.from("test_questions").delete().eq("id", questionId);
 
   if (error) {
@@ -613,7 +674,7 @@ export async function listTestAnswers(questionId: string) {
     .from("test_answers")
     .select("*")
     .eq("question_id", questionId)
-    .order("id", { ascending: true });
+    .order("created_at", { ascending: true });
 
   if (error) {
     throw new Error(toErrorMessage("Unable to list test answers", error.message));

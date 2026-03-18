@@ -1,6 +1,7 @@
 import { Play, X } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
 import { Input } from "../../../../components/ui/Input";
+import { RichTextEditor } from "./RichTextEditor";
 
 type LessonCreateModalProps = {
   isOpen: boolean;
@@ -62,12 +63,13 @@ export function LessonCreateModal({
 
           <div>
             <label className="text-base font-semibold text-slate-900">Lesson Content</label>
-            <textarea
-              value={content}
-              onChange={(event) => onContentChange(event.target.value)}
-              placeholder="Write your lesson content here... You can include text, instructions, and explanations."
-              className="mt-2 h-48 w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-base text-slate-700 focus:outline-none"
-            />
+            <div className="mt-2">
+              <RichTextEditor
+                value={content}
+                onChange={onContentChange}
+                placeholder="Write your lesson content here. You can include text, instructions, and explanations."
+              />
+            </div>
             <p className="mt-3 text-sm text-slate-600">
               This is the main content students will read during the lesson.
             </p>

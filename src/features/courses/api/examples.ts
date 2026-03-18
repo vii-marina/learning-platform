@@ -113,7 +113,7 @@ export async function exampleLessonBlockCrud(lessonId: string) {
 export async function exampleTestCrud(moduleId: string) {
   const createdTest = await createTestEntity({
     module_id: moduleId,
-    passing_percentage: 70,
+    title: "Module knowledge check",
   });
 
   const createdQuestion = await createTestQuestion({
@@ -133,7 +133,7 @@ export async function exampleTestCrud(moduleId: string) {
   const answers = await listTestAnswers(createdQuestion.id);
 
   const updatedTest = await updateTestEntity(createdTest.id, {
-    passing_percentage: 80,
+    title: "Module knowledge check (Updated)",
   });
 
   const updatedQuestion = await updateTestQuestion(createdQuestion.id, {
