@@ -224,11 +224,6 @@ export function LoginPage() {
         </div>
       </main>
 
-      <footer className="px-4 pb-8 text-center">
-        <p className="text-sm text-slate-400">
-          © 2024 EduPlatform Inc. All rights reserved.
-        </p>
-      </footer>
     </div>
   );
 }
