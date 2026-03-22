@@ -106,15 +106,17 @@ export function TestQuestionEditor({
   };
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6">
+    <div className="rounded-[1.5rem] border border-slate-200 bg-[#f9fbfd] p-6">
       <div className="flex items-center justify-between">
-        <h4 className="text-xl font-semibold text-slate-900">{index + 1}</h4>
+        <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-sm font-semibold text-[#14213d]">
+          {`Question ${index + 1}`}
+        </div>
         <button
           type="button"
           onClick={() => onDelete(question.id)}
           aria-label={`Delete question ${index + 1}`}
           disabled={!canDelete}
-          className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300"
+          className="rounded-xl p-1.5 text-slate-500 transition hover:bg-white hover:text-rose-600 disabled:cursor-not-allowed disabled:text-slate-300"
         >
           <Trash2 className="h-5 w-5" />
         </button>
@@ -122,7 +124,7 @@ export function TestQuestionEditor({
 
       <div className="mt-6 space-y-4">
         <div>
-          <label className="text-base font-semibold text-slate-900">Type</label>
+          <label className="text-base font-semibold text-[#14213d]">Type</label>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             {questionTypeOptions.map((option) => {
               const isActive = question.type === option.value;
@@ -132,10 +134,10 @@ export function TestQuestionEditor({
                   key={option.value}
                   type="button"
                   onClick={() => handleTypeChange(option.value)}
-                  className={`rounded-xl border px-4 py-3 text-sm font-medium transition ${
+                  className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
                     isActive
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-slate-200"
+                      ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
                   }`}
                 >
                   {option.label}
@@ -146,19 +148,19 @@ export function TestQuestionEditor({
         </div>
 
         <div>
-          <label className="text-base font-semibold text-slate-900">Text</label>
+          <label className="text-base font-semibold text-[#14213d]">Text</label>
           <textarea
             value={question.questionText}
             onChange={(event) =>
               onChange(question.id, { ...question, questionText: event.target.value })
             }
             placeholder="Enter your question here..."
-            className="mt-2 h-28 w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-base text-slate-700 focus:outline-none"
+            className="mt-2 h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-700 outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
           />
         </div>
 
         <div>
-          <label className="text-base font-semibold text-slate-900">Hint</label>
+          <label className="text-base font-semibold text-[#14213d]">Hint</label>
           <textarea
             value={question.hint ?? ""}
             onChange={(event) =>
@@ -168,13 +170,13 @@ export function TestQuestionEditor({
               })
             }
             placeholder="Optional hint students can reveal if they need help."
-            className="mt-2 h-24 w-full rounded-xl border-0 bg-slate-100 px-4 py-3 text-base text-slate-700 focus:outline-none"
+            className="mt-2 h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-700 outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
           />
         </div>
 
         {isTrueFalse ? (
           <div>
-            <label className="text-base font-semibold text-slate-900">Correct Answer</label>
+            <label className="text-base font-semibold text-[#14213d]">Correct Answer</label>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -184,7 +186,7 @@ export function TestQuestionEditor({
                     correctOptionIndexes: [0],
                   })
                 }
-                className={`rounded-xl border px-4 py-3 text-base font-semibold transition ${
+                className={`rounded-2xl border px-4 py-3 text-base font-semibold transition ${
                   question.correctOptionIndexes.includes(0)
                     ? "border-emerald-300 bg-emerald-100 text-emerald-800"
                     : "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -200,7 +202,7 @@ export function TestQuestionEditor({
                     correctOptionIndexes: [1],
                   })
                 }
-                className={`rounded-xl border px-4 py-3 text-base font-semibold transition ${
+                className={`rounded-2xl border px-4 py-3 text-base font-semibold transition ${
                   question.correctOptionIndexes.includes(1)
                     ? "border-rose-300 bg-rose-100 text-rose-800"
                     : "border-rose-200 bg-rose-50 text-rose-700"
@@ -212,7 +214,7 @@ export function TestQuestionEditor({
           </div>
         ) : (
           <div>
-            <label className="text-base font-semibold text-slate-900">Answer Options</label>
+            <label className="text-base font-semibold text-[#14213d]">Answer Options</label>
             <div className="mt-2 space-y-3">
               {question.options.map((option, optionIndex) => (
                 <div key={`${question.id}-option-${optionIndex}`} className="flex items-center gap-3">
@@ -229,14 +231,14 @@ export function TestQuestionEditor({
                       handleOptionTextChange(optionIndex, event.target.value)
                     }
                     placeholder={`Option ${optionIndex + 1}`}
-                    className="h-11 rounded-xl border-0 bg-slate-100 px-4 text-base"
+                    className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-base text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
                   />
                   <button
                     type="button"
                     onClick={() => handleRemoveOption(optionIndex)}
                     aria-label={`Remove option ${optionIndex + 1}`}
                     disabled={question.options.length <= 2}
-                    className="rounded-lg p-1 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-300"
+                    className="rounded-xl p-1.5 text-slate-500 transition hover:bg-white hover:text-rose-600 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
@@ -246,7 +248,7 @@ export function TestQuestionEditor({
             <button
               type="button"
               onClick={handleAddOption}
-              className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700"
+              className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-[#13daec]/25 bg-white px-4 py-2 text-sm font-medium text-[#08bfd4] transition hover:bg-[#13daec]/5"
             >
               <Plus className="h-4 w-4" />
               Add option

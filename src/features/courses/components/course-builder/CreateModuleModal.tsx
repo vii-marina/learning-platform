@@ -23,30 +23,35 @@ export function CreateModuleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-      <div className="w-full max-w-2xl rounded-3xl bg-white p-8 shadow-2xl">
-        <h3 className="text-2xl font-semibold text-slate-900">Edit Module</h3>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.18)]">
+        <p className="text-sm font-semibold text-slate-400">
+          Course content
+        </p>
+        <h3 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14213d]">
+          {title.trim() ? "Edit Module" : "Create Module"}
+        </h3>
 
-        <div className="mt-8">
+        <div className="mt-6">
           <Input
             value={title}
             onChange={(event) => onTitleChange(event.target.value)}
             placeholder="New Module"
             autoFocus
-            className="h-14 rounded-2xl border border-slate-200 bg-slate-100 px-5 text-lg font-medium"
+            className="h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-lg font-medium text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
           />
         </div>
 
-        <div className="mt-8 flex justify-end gap-3">
+        <div className="mt-6 flex justify-end gap-3">
           <Button
             variant="secondary"
-            className="h-12 min-w-36 rounded-2xl border-slate-300 bg-white text-lg font-semibold text-slate-900"
+            className="h-12 min-w-36 rounded-2xl border border-slate-200 bg-white text-base font-semibold text-slate-600 hover:bg-slate-50"
             onClick={onCancel}
           >
             Cancel
           </Button>
           <Button
-            className="h-12 min-w-36 rounded-2xl text-lg font-semibold"
+            className="h-12 min-w-36 rounded-2xl bg-[#13daec] text-base font-bold text-[#0f172a] hover:bg-[#10c6d7]"
             onClick={onSave}
             disabled={isSaving || !title.trim()}
           >

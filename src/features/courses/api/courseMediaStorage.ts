@@ -93,3 +93,22 @@ export async function uploadCourseMedia(courseId: string, file: File) {
 
   return data.path;
 }
+
+export async function uploadLessonContentImage(courseId: string, file: File) {
+  const safeName = normalizeFileName(file.name) || "lesson-image";
+  const path = `courses/${courseId}/lesson-content/${Date.now()}-${safeName}`;
+
+  const { data, error } = await supabase.storage
+    .from(COURSE_MEDIA_BUCKET)
+    .upload(path, file, {
+      cacheControl: "3600",
+      contentType: file.type || undefined,
+      upsert: false,
+    });
+
+  if (error) {
+    throw new Error(`Unable to upload lesson image: ${error.message}`);
+  }
+
+  return data.path;
+}

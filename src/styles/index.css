@@ -51,8 +51,8 @@
 }
 
 .rich-text-editor .rich-text-editor__content {
-  min-height: 240px;
-  padding: 12px 14px;
+  min-height: 320px;
+  padding: 16px 18px;
   outline: none;
   cursor: text;
 }
@@ -71,8 +71,39 @@
 
 .rich-text-editor .rich-text-editor__content ul,
 .rich-text-editor .rich-text-editor__content ol {
-  margin: 0;
+  margin: 0.75rem 0;
   padding-left: 1.25rem;
+}
+
+.rich-text-editor .rich-text-editor__content ul {
+  list-style: disc;
+}
+
+.rich-text-editor .rich-text-editor__content ol {
+  list-style: decimal;
+}
+
+.rich-text-editor .rich-text-editor__content li {
+  margin: 0.25rem 0;
+}
+
+.rich-text-editor .rich-text-editor__content li p {
+  margin: 0;
+}
+
+.rich-text-editor .rich-text-editor__content a {
+  color: rgb(8 191 212);
+  text-decoration: underline;
+}
+
+.rich-text-editor .rich-text-editor__content img,
+.rich-text-editor .rich-text-editor__content .rich-text-editor__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem 0;
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
 }
 
 .rich-text-editor .rich-text-editor__content p.is-editor-empty:first-child::before {
@@ -81,4 +112,51 @@
   pointer-events: none;
   float: left;
   height: 0;
+}
+
+.spoiler-reveal {
+  isolation: isolate;
+}
+
+.spoiler-reveal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 1px, transparent 1.6px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(19, 218, 236, 0.1));
+  background-size: 10px 10px, 100% 100%;
+  background-position: 0 0, 0 0;
+  opacity: 0.95;
+  mix-blend-mode: screen;
+  animation: spoiler-drift 3s linear infinite;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.spoiler-reveal[data-revealed="false"] .spoiler-reveal__body {
+  color: transparent;
+  filter: blur(9px);
+  user-select: none;
+  transition: filter 180ms ease, color 180ms ease;
+}
+
+.spoiler-reveal[data-revealed="true"]::before,
+.spoiler-reveal[data-revealed="true"] .spoiler-reveal__meta {
+  opacity: 0;
+}
+
+.spoiler-reveal[data-revealed="true"] .spoiler-reveal__body {
+  color: inherit;
+  filter: none;
+}
+
+@keyframes spoiler-drift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 30px 12px, 0 0;
+  }
 }

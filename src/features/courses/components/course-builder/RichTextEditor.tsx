@@ -1,28 +1,55 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
+import Link from "@tiptap/extension-link";
 import StarterKit from "@tiptap/starter-kit";
+import UnderlineExtension from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
-import { Redo2, Undo2 } from "lucide-react";
+import {
+  ImagePlus,
+  Link2,
+  List,
+  ListOrdered,
+  Redo2,
+  Underline,
+  Undo2,
+} from "lucide-react";
+import { LessonContentImage } from "./LessonContentImage";
+import { LessonTextColor } from "./LessonTextColor";
 
 type RichTextEditorProps = {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
+  disabled?: boolean;
+  onImageUpload?: (file: File) => Promise<string>;
 };
 
 export function RichTextEditor({
   value,
   onChange,
   placeholder = "Write content...",
+  disabled = false,
+  onImageUpload,
 }: RichTextEditorProps) {
+  const imageInputRef = useRef<HTMLInputElement | null>(null);
+  const [editorMessage, setEditorMessage] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit,
+      Link.configure({
+        openOnClick: false,
+      }),
+      UnderlineExtension,
       Placeholder.configure({
         placeholder,
       }),
+      LessonContentImage,
+      LessonTextColor,
     ],
     content: value,
+    editable: !disabled,
     editorProps: {
       attributes: {
         class: "rich-text-editor__content",
@@ -41,16 +68,31 @@ export function RichTextEditor({
     }
   }, [editor, value]);
 
+  useEffect(() => {
+    if (!editor) return;
+    editor.setEditable(!disabled);
+  }, [disabled, editor]);
+
   if (!editor) {
     return null;
   }
 
-  const toolbarButton = (label: string, onClick: () => void, isActive = false) => (
+  const toolbarButton = (
+    label: string,
+    onClick: () => void,
+    isActive = false,
+    isDisabled = false
+  ) => (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded px-2 py-1 text-xs font-medium ${
-        isActive ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-600"
+      disabled={isDisabled}
+      className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+        isDisabled
+          ? "cursor-not-allowed bg-white text-slate-300"
+          : isActive
+          ? "bg-[#13daec] text-[#0f172a]"
+          : "bg-white text-slate-600 hover:bg-[#13daec]/10 hover:text-[#08bfd4]"
       }`}
     >
       {label}
@@ -61,6 +103,7 @@ export function RichTextEditor({
     label: string,
     onClick: () => void,
     icon: ReactNode,
+    isActive = false,
     isDisabled = false
   ) => (
     <button
@@ -69,10 +112,12 @@ export function RichTextEditor({
       aria-label={label}
       title={label}
       disabled={isDisabled}
-      className={`rounded p-2 ${
-        isDisabled
-          ? "cursor-not-allowed bg-slate-100 text-slate-300"
-          : "bg-slate-100 text-slate-600 transition hover:bg-slate-200"
+      className={`rounded-xl p-2 ${
+        isActive
+          ? "bg-[#13daec] text-[#0f172a]"
+          : isDisabled
+          ? "cursor-not-allowed bg-white text-slate-300"
+          : "bg-white text-slate-600 transition hover:bg-[#13daec]/10 hover:text-[#08bfd4]"
       }`}
     >
       {icon}
@@ -81,35 +126,198 @@ export function RichTextEditor({
 
   const canUndo = editor.can().chain().focus().undo().run();
   const canRedo = editor.can().chain().focus().redo().run();
+  const hasLink = editor.isActive("link");
+  const activeTextColor = (editor.getAttributes("textColor").color as string) || "";
+
+  const handleToggleLink = () => {
+    if (disabled) {
+      return;
+    }
+
+    const currentHref =
+      typeof editor.getAttributes("link").href === "string"
+        ? (editor.getAttributes("link").href as string)
+        : "";
+
+    const nextHref = window.prompt(
+      "Paste the resource URL. Leave empty to remove the link.",
+      currentHref || "https://"
+    );
+
+    if (nextHref === null) {
+      return;
+    }
+
+    const trimmedHref = nextHref.trim();
+
+    if (!trimmedHref) {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+      setEditorMessage("");
+      return;
+    }
+
+    const normalizedHref = /^(https?:\/\/|mailto:|tel:)/i.test(trimmedHref)
+      ? trimmedHref
+      : `https://${trimmedHref}`;
+
+    editor.chain().focus().extendMarkRange("link").setLink({ href: normalizedHref }).run();
+    setEditorMessage("");
+  };
+
+  const handleImageSelect = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      setEditorMessage("Please choose an image file.");
+      return;
+    }
+
+    if (!onImageUpload) {
+      setEditorMessage("Image upload is not available right now.");
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      setEditorMessage("");
+      const imageUrl = await onImageUpload(file);
+      editor
+        .chain()
+        .focus()
+        .setLessonContentImage({
+          src: imageUrl,
+          alt: file.name,
+          title: file.name,
+        })
+        .run();
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setEditorMessage(error.message);
+      } else {
+        setEditorMessage("Unable to upload image.");
+      }
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   return (
-    <div className="rich-text-editor rounded-xl border border-slate-200 bg-white">
-      <div className="flex flex-wrap gap-2 border-b border-slate-200 px-3 py-2">
-        {toolbarButton("Bold", () => editor.chain().focus().toggleBold().run(), editor.isActive("bold"))}
+    <div className="rich-text-editor overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_14px_28px_rgba(15,23,42,0.04)]">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleImageSelect}
+      />
+
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[#f9fbfd] px-3 py-3">
+        {toolbarButton(
+          "Bold",
+          () => editor.chain().focus().toggleBold().run(),
+          editor.isActive("bold"),
+          disabled
+        )}
         {toolbarButton(
           "Italic",
           () => editor.chain().focus().toggleItalic().run(),
-          editor.isActive("italic")
+          editor.isActive("italic"),
+          disabled
         )}
         {toolbarIconButton(
-          "Undo",
-          () => editor.chain().focus().undo().run(),
-          <Undo2 className="h-4 w-4" />,
-          !canUndo
+          "Underline",
+          () => editor.chain().focus().toggleUnderline().run(),
+          <Underline className="h-4 w-4" />,
+          editor.isActive("underline"),
+          disabled
+        )}
+        <div className="h-6 w-px bg-slate-200" />
+        {toolbarIconButton(
+          "Bullet list",
+          () => editor.chain().focus().toggleBulletList().run(),
+          <List className="h-4 w-4" />,
+          editor.isActive("bulletList"),
+          disabled
         )}
         {toolbarIconButton(
-          "Redo",
-          () => editor.chain().focus().redo().run(),
-          <Redo2 className="h-4 w-4" />,
-          !canRedo
+          "Numbered list",
+          () => editor.chain().focus().toggleOrderedList().run(),
+          <ListOrdered className="h-4 w-4" />,
+          editor.isActive("orderedList"),
+          disabled
         )}
+        <div className="h-6 w-px bg-slate-200" />
+        {toolbarIconButton(
+          hasLink ? "Edit link" : "Add link",
+          handleToggleLink,
+          <Link2 className="h-4 w-4" />,
+          hasLink,
+          disabled
+        )}
+        {toolbarButton(
+          "Red",
+          () => editor.chain().focus().setTextColor("#dc2626").run(),
+          activeTextColor === "#dc2626",
+          disabled
+        )}
+        {toolbarButton(
+          "Blue",
+          () => editor.chain().focus().setTextColor("#2563eb").run(),
+          activeTextColor === "#2563eb",
+          disabled
+        )}
+        {toolbarButton(
+          "Default",
+          () => editor.chain().focus().unsetTextColor().run(),
+          !activeTextColor,
+          disabled
+        )}
+        {toolbarIconButton(
+          isUploadingImage ? "Uploading image..." : "Add image",
+          () => imageInputRef.current?.click(),
+          <ImagePlus className="h-4 w-4" />,
+          false,
+          disabled || isUploadingImage
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {toolbarIconButton(
+            "Undo",
+            () => editor.chain().focus().undo().run(),
+            <Undo2 className="h-4 w-4" />,
+            false,
+            disabled || !canUndo
+          )}
+          {toolbarIconButton(
+            "Redo",
+            () => editor.chain().focus().redo().run(),
+            <Redo2 className="h-4 w-4" />,
+            false,
+            disabled || !canRedo
+          )}
+        </div>
       </div>
+
+      {editorMessage ? (
+        <div className="border-b border-slate-200 bg-rose-50 px-4 py-2 text-xs font-medium text-rose-700">
+          {editorMessage}
+        </div>
+      ) : null}
+
       <div
         role="presentation"
-        onClick={() => editor.chain().focus().run()}
-        className="min-h-[240px] cursor-text"
+        onClick={() => {
+          if (!disabled) {
+            editor.chain().focus().run();
+          }
+        }}
+        className={`min-h-[320px] bg-white ${disabled ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
       >
-        <EditorContent editor={editor} className="text-sm text-slate-700" />
+        <EditorContent editor={editor} className="text-base text-slate-700" />
       </div>
     </div>
   );
