@@ -1,6 +1,5 @@
 import { Plus, X } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
-import { Input } from "../../../../components/ui/Input";
 import type { Lesson, Module } from "../../api";
 import type { CourseTest, CourseTestQuestion } from "./courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
@@ -16,7 +15,6 @@ type TestCreateModalProps = {
   testsByModule: Record<string, CourseTest[]>;
   activeModuleId: string | null;
   activeTestId?: string | null;
-  generatedTitle: string;
   lessons: Lesson[];
   selectedAfterLessonId: string | null;
   questions: CourseTestQuestion[];
@@ -40,7 +38,6 @@ export function TestCreateModal({
   testsByModule,
   activeModuleId,
   activeTestId = null,
-  generatedTitle,
   lessons,
   selectedAfterLessonId,
   questions,
@@ -98,59 +95,43 @@ export function TestCreateModal({
 
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-8">
-              <div className="grid gap-5 xl:grid-cols-[minmax(0,1.45fr)_minmax(18rem,0.8fr)]">
-                <div>
-                  <label className="text-sm font-semibold text-[#14213d]">
-                    Test Title
-                  </label>
-                  <Input
-                    value={generatedTitle}
-                    readOnly
-                    className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-lg font-medium text-[#14213d] opacity-100"
-                  />
-                  <p className="mt-2 text-xs font-medium text-slate-400">
-                    Generated automatically from the selected placement.
-                  </p>
-                </div>
+              <div>
+                <label className="text-sm font-semibold text-[#14213d]">
+                  Place This Test After
+                </label>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onAfterLessonChange(null)}
+                    className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                      selectedAfterLessonId === null
+                        ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
+                        : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
+                    }`}
+                    disabled={isSaving}
+                  >
+                    {modulePlacementLabel}
+                  </button>
 
-                <div className="xl:pt-[1px]">
-                  <label className="text-sm font-semibold text-[#14213d]">
-                    Place This Test After
-                  </label>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onAfterLessonChange(null)}
-                      className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                        selectedAfterLessonId === null
-                          ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
-                          : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
-                      }`}
-                      disabled={isSaving}
-                    >
-                      {modulePlacementLabel}
-                    </button>
+                  {lessons.map((lesson) => {
+                    const isActive = selectedAfterLessonId === lesson.id;
 
-                    {lessons.map((lesson) => {
-                      const isActive = selectedAfterLessonId === lesson.id;
-
-                      return (
-                        <button
-                          key={lesson.id}
-                          type="button"
-                          onClick={() => onAfterLessonChange(lesson.id)}
-                          className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                            isActive
-                              ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
-                              : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
-                          }`}
-                          disabled={isSaving}
-                        >
-                          {`${lesson.order}. ${lesson.title}`}
-                        </button>
-                      );
-                    })}
-                  </div>
+                    return (
+                      <button
+                        key={lesson.id}
+                        type="button"
+                        onClick={() => onAfterLessonChange(lesson.id)}
+                        className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                          isActive
+                            ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
+                            : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
+                        }`}
+                        disabled={isSaving}
+                      >
+                        {`${lesson.order}. ${lesson.title}`}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

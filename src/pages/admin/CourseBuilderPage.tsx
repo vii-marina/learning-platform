@@ -27,7 +27,6 @@ import {
 } from "../../features/courses/api";
 import {
   getCourseMediaKind,
-  getCourseMediaLabel,
   getCourseMediaPublicUrl,
   uploadCourseMedia,
   uploadLessonContentImage,
@@ -118,11 +117,6 @@ export function CourseBuilderPage() {
     () => (testEditorModuleId ? lessonsByModule[testEditorModuleId] || [] : []),
     [lessonsByModule, testEditorModuleId]
   );
-  const activeTestModule = useMemo(
-    () => modules.find((module) => module.id === testEditorModuleId) || null,
-    [modules, testEditorModuleId]
-  );
-
   const canSaveCurrentTest = useMemo(
     () => canSaveTestDraft(testQuestions),
     [testQuestions]
@@ -135,22 +129,6 @@ export function CourseBuilderPage() {
     () => getCourseMediaKind(courseThumbnailPath),
     [courseThumbnailPath]
   );
-  const courseThumbnailLabel = useMemo(
-    () => getCourseMediaLabel(courseThumbnailPath),
-    [courseThumbnailPath]
-  );
-  const generatedTestTitle = useMemo(
-    () =>
-      activeTestModule
-        ? getGeneratedCourseTestTitle({
-            moduleOrder: activeTestModule.order,
-            lessons: activeTestModuleLessons,
-            afterLessonId: testAfterLessonId,
-          })
-        : "",
-    [activeTestModule, activeTestModuleLessons, testAfterLessonId]
-  );
-
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
   const isLessonDirty = useMemo(
@@ -170,8 +148,6 @@ export function CourseBuilderPage() {
   const shouldGuardLessonDraft =
     isLessonDirty && (editingLessonId !== null || hasMeaningfulNewLessonDraft);
   const {
-    reviewPreviewMode,
-    setReviewPreviewMode,
     totalModules,
     totalLessons,
     totalTests,
@@ -181,8 +157,6 @@ export function CourseBuilderPage() {
     isReviewContentLoading,
     publishBlockingIssues,
     heroBackgroundStyle,
-    reviewDescription,
-    currentLessonPreviewText,
     currentLessonEmbedUrl,
     currentLessonPosition,
     currentTestLinkedLesson,
@@ -193,7 +167,6 @@ export function CourseBuilderPage() {
     modules,
     lessonsByModule,
     testsByModule,
-    courseDescription,
     courseThumbnailUrl,
     courseThumbnailKind,
   });
@@ -1049,11 +1022,7 @@ export function CourseBuilderPage() {
         ? ""
         : "Run a final pass on the structure and publish when everything is ready.";
   const canRunHeaderAction =
-    activeStep === 3
-      ? Boolean(currentCourseId) &&
-        !isReviewContentLoading &&
-        publishBlockingIssues.length === 0
-      : isBasicsComplete;
+    activeStep === 3 ? Boolean(currentCourseId) : isBasicsComplete;
 
   return (
     <div
@@ -1065,15 +1034,10 @@ export function CourseBuilderPage() {
         activeStep={activeStep}
         currentCourseName={currentCourseName}
         canRunPrimaryAction={canRunHeaderAction}
-        primaryActionLabel={activeStep === 3 ? "Publish Course" : "Save Draft"}
+        primaryActionLabel="Save Draft"
         canNavigateToStep={(step) => step === 1 || Boolean(currentCourseId)}
         onStepChange={setActiveStep}
         onPrimaryAction={() => {
-          if (activeStep === 3) {
-            void handlePublishCourse();
-            return;
-          }
-
           void handleSaveDraft();
         }}
       />
@@ -1174,15 +1138,10 @@ export function CourseBuilderPage() {
           <CourseBuilderReviewStep
             stepLabel={`Step ${activeStep} of ${courseBuilderSteps.length}`}
             title="Final Preview"
-            reviewDescription={reviewDescription}
-            reviewPreviewMode={reviewPreviewMode}
-            onReviewPreviewModeChange={setReviewPreviewMode}
-            isReviewContentLoading={isReviewContentLoading}
             publishBlockingIssues={publishBlockingIssues}
             currentCourseName={currentCourseName}
             courseThumbnailUrl={courseThumbnailUrl}
             courseThumbnailKind={courseThumbnailKind}
-            courseThumbnailLabel={courseThumbnailLabel}
             heroBackgroundStyle={heroBackgroundStyle}
             modules={modules}
             lessonsByModule={lessonsByModule}
@@ -1195,7 +1154,6 @@ export function CourseBuilderPage() {
             reviewPreviewData={reviewPreviewData}
             currentLessonEmbedUrl={currentLessonEmbedUrl}
             currentLessonPosition={currentLessonPosition}
-            currentLessonPreviewText={currentLessonPreviewText}
             currentTestLinkedLesson={currentTestLinkedLesson}
             onModuleToggle={handleReviewModuleToggle}
             onItemSelect={handleReviewItemSelect}
@@ -1255,7 +1213,6 @@ export function CourseBuilderPage() {
         testsByModule={testsByModule}
         activeModuleId={testEditorModuleId}
         activeTestId={editingTestId}
-        generatedTitle={generatedTestTitle}
         lessons={activeTestModuleLessons}
         selectedAfterLessonId={testAfterLessonId}
         questions={testQuestions}

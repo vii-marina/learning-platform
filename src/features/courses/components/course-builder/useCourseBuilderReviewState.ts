@@ -6,9 +6,7 @@ import {
   buildOrderedModuleItems,
   getFirstModuleReviewSelection,
   getFirstReviewSelection,
-  getPlainTextFromHtml,
   type BuilderStep,
-  type ReviewPreviewMode,
   type ReviewPreviewSelection,
 } from "./courseBuilderPageUtils";
 import { getYouTubeEmbedUrl } from "./youtube";
@@ -18,7 +16,6 @@ type UseCourseBuilderReviewStateArgs = {
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
-  courseDescription: string;
   courseThumbnailUrl: string | null;
   courseThumbnailKind: "image" | "video" | "file";
 };
@@ -28,12 +25,9 @@ export function useCourseBuilderReviewState({
   modules,
   lessonsByModule,
   testsByModule,
-  courseDescription,
   courseThumbnailUrl,
   courseThumbnailKind,
 }: UseCourseBuilderReviewStateArgs) {
-  const [reviewPreviewMode, setReviewPreviewMode] =
-    useState<ReviewPreviewMode>("student");
   const [reviewPreviewSelection, setReviewPreviewSelection] =
     useState<ReviewPreviewSelection | null>(null);
   const [expandedReviewModuleId, setExpandedReviewModuleId] =
@@ -150,13 +144,6 @@ export function useCourseBuilderReviewState({
           backgroundPosition: "center",
         }
       : undefined;
-  const reviewDescription =
-    courseDescription.trim() ||
-    "Review how your course appears to students before publishing it to the marketplace.";
-  const currentLessonPreviewText =
-    reviewPreviewData && reviewPreviewData.itemType === "lesson"
-      ? getPlainTextFromHtml(reviewPreviewData.lesson.content)
-      : "";
   const currentLessonEmbedUrl =
     reviewPreviewData && reviewPreviewData.itemType === "lesson"
       ? getYouTubeEmbedUrl(reviewPreviewData.lesson.video_url)
@@ -212,8 +199,6 @@ export function useCourseBuilderReviewState({
   };
 
   return {
-    reviewPreviewMode,
-    setReviewPreviewMode,
     totalModules,
     totalLessons,
     totalTests,
@@ -223,8 +208,6 @@ export function useCourseBuilderReviewState({
     isReviewContentLoading,
     publishBlockingIssues,
     heroBackgroundStyle,
-    reviewDescription,
-    currentLessonPreviewText,
     currentLessonEmbedUrl,
     currentLessonPosition,
     currentTestLinkedLesson,

@@ -8,6 +8,7 @@ type CourseStructureSidebarProps = {
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
+  variant?: "modal" | "panel";
   activeModuleId: string | null;
   activeLessonId?: string | null;
   activeTestId?: string | null;
@@ -17,6 +18,7 @@ type CourseStructureSidebarProps = {
   showModulePlacementHint?: boolean;
   isDirty?: boolean;
   onSelectLesson?: (moduleId: string, lesson: Lesson) => void;
+  onSelectTest?: (moduleId: string, test: CourseTest) => void;
   onSelectDraftLesson?: (moduleId: string) => void;
 };
 
@@ -53,6 +55,7 @@ export function CourseStructureSidebar({
   modules,
   lessonsByModule,
   testsByModule,
+  variant = "modal",
   activeModuleId,
   activeLessonId = null,
   activeTestId = null,
@@ -62,6 +65,7 @@ export function CourseStructureSidebar({
   showModulePlacementHint = false,
   isDirty = false,
   onSelectLesson,
+  onSelectTest,
   onSelectDraftLesson,
 }: CourseStructureSidebarProps) {
   const totalLessons = modules.reduce(
@@ -72,9 +76,13 @@ export function CourseStructureSidebar({
     (sum, module) => sum + (testsByModule[module.id]?.length || 0),
     0
   );
+  const containerClassName =
+    variant === "panel"
+      ? "flex w-full max-w-[24rem] flex-shrink-0 flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-[#f9fbfd] shadow-[0_18px_45px_rgba(15,23,42,0.06)]"
+      : "hidden w-[21rem] flex-shrink-0 border-r border-slate-200 bg-[#f9fbfd] lg:flex lg:flex-col";
 
   return (
-    <aside className="hidden w-[21rem] flex-shrink-0 border-r border-slate-200 bg-[#f9fbfd] lg:flex lg:flex-col">
+    <aside className={containerClassName}>
       <div className="border-b border-slate-200 px-6 py-6">
         <p className="text-sm font-semibold text-slate-400">Course Structure</p>
         <h3 className="mt-2 text-2xl font-extrabold tracking-tight text-[#14213d]">
@@ -192,26 +200,51 @@ export function CourseStructureSidebar({
                     });
 
                     return (
-                      <div
-                        key={item.test.id}
-                        className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${
-                          isActiveTest
-                            ? "border-l-4 border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
-                            : "text-slate-500"
-                        }`}
-                      >
-                        <span
-                          className={`h-2.5 w-2.5 rounded-[4px] ${
-                            isActiveTest ? "bg-[#13daec]" : "bg-slate-300"
+                      onSelectTest ? (
+                        <button
+                          key={item.test.id}
+                          type="button"
+                          onClick={() => onSelectTest(module.id, item.test)}
+                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                            isActiveTest
+                              ? "border-l-4 border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
+                              : "text-slate-500 hover:bg-slate-100 hover:text-[#14213d]"
                           }`}
-                        />
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                          Test
-                        </span>
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                          {displayTitle}
-                        </span>
-                      </div>
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 rounded-[4px] ${
+                              isActiveTest ? "bg-[#13daec]" : "bg-slate-300"
+                            }`}
+                          />
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                            Test
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                            {displayTitle}
+                          </span>
+                        </button>
+                      ) : (
+                        <div
+                          key={item.test.id}
+                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${
+                            isActiveTest
+                              ? "border-l-4 border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          <span
+                            className={`h-2.5 w-2.5 rounded-[4px] ${
+                              isActiveTest ? "bg-[#13daec]" : "bg-slate-300"
+                            }`}
+                          />
+                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                            Test
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                            {displayTitle}
+                          </span>
+                        </div>
+                      )
                     );
                   })}
 
@@ -266,9 +299,9 @@ export function CourseStructureSidebar({
                   ) : null}
 
                   {items && items.length === 0 && !showDraftRow ? (
-                    <p className="px-3 py-2 text-xs text-slate-400">
-                      No lessons or tests in this module yet.
-                    </p>
+                    <div className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                      You can always add lessons or tests to this module later.
+                    </div>
                   ) : null}
                 </div>
               </section>

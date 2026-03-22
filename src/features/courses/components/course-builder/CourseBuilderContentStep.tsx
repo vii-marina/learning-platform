@@ -176,6 +176,12 @@ export function CourseBuilderContentStep({
 
               {isExpanded ? (
                 <div className="space-y-4 px-4 py-4 md:px-5 md:py-5">
+                  {lessons.length === 0 && tests.length === 0 ? (
+                    <div className="rounded-[1.25rem] bg-[#f8fafc] px-5 py-4 text-base font-medium leading-7 text-slate-500">
+                      You can always add lessons or tests to this module later.
+                    </div>
+                  ) : null}
+
                   <ModuleLessonsSection
                     moduleId={module.id}
                     moduleOrder={module.order}
