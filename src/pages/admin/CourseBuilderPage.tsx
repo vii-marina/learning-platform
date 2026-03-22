@@ -11,7 +11,6 @@ import {
   deleteModule,
   deleteTestEntity,
   deleteTestQuestion,
-  listCourses,
   listLessonBlocksByLesson,
   listLessonsByModule,
   listModulesByCourse,
@@ -32,7 +31,6 @@ import {
   uploadLessonContentImage,
 } from "../../features/courses/api/courseMediaStorage";
 import type {
-  Course,
   Lesson,
   Module,
   TestEntity,
@@ -62,11 +60,22 @@ import {
   type LessonEditorDraft,
 } from "../../features/courses/components/course-builder/courseBuilderPageUtils";
 
+function createLocalEntityId(prefix: string) {
+  const uniqueId =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  return `${prefix}-${uniqueId}`;
+}
+
 export function CourseBuilderPage() {
-  const [courses, setCourses] = useState<Course[]>([]);
   const [message, setMessage] = useState("");
   const [activeStep, setActiveStep] = useState<BuilderStep>(1);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
+  const [isPersistingCourse, setIsPersistingCourse] = useState(false);
+  const draftCourseSessionIdRef = useRef(createLocalEntityId("draft-course"));
+  const draftCourseSessionId = draftCourseSessionIdRef.current;
 
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
@@ -108,11 +117,6 @@ export function CourseBuilderPage() {
   const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
   const lessonLoadRequestRef = useRef(0);
 
-  const selectedCourse = useMemo(
-    () => courses.find((course) => course.id === currentCourseId) || null,
-    [courses, currentCourseId]
-  );
-
   const activeTestModuleLessons = useMemo(
     () => (testEditorModuleId ? lessonsByModule[testEditorModuleId] || [] : []),
     [lessonsByModule, testEditorModuleId]
@@ -131,6 +135,10 @@ export function CourseBuilderPage() {
   );
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
+  const nextModuleOrder = useMemo(
+    () => modules.reduce((maxOrder, module) => Math.max(maxOrder, module.order), 0) + 1,
+    [modules]
+  );
   const isLessonDirty = useMemo(
     () =>
       lessonTitle !== lessonInitialDraft.title ||
@@ -170,16 +178,6 @@ export function CourseBuilderPage() {
     courseThumbnailUrl,
     courseThumbnailKind,
   });
-
-  const fetchCourses = async () => {
-    try {
-      const data = await listCourses();
-      setCourses(data);
-      setMessage("");
-    } catch {
-      setMessage("Unable to load courses.");
-    }
-  };
 
   const fetchModules = async (courseId: string) => {
     try {
@@ -242,6 +240,49 @@ export function CourseBuilderPage() {
     }
   };
 
+  const hydratePersistedCourse = async (courseId: string) => {
+    setHasFetchedModules(false);
+
+    try {
+      const persistedModules = await listModulesByCourse(courseId);
+      const moduleContent = await Promise.all(
+        persistedModules.map(async (module) => {
+          const [lessons, entities] = await Promise.all([
+            listLessonsByModule(module.id),
+            listTestsByModule(module.id),
+          ]);
+          const tests = await Promise.all(entities.map(hydrateCourseTest));
+
+          return {
+            moduleId: module.id,
+            lessons,
+            tests,
+          };
+        })
+      );
+
+      setModules(persistedModules);
+      setLessonsByModule(
+        Object.fromEntries(
+          moduleContent.map(({ moduleId, lessons }) => [moduleId, lessons])
+        )
+      );
+      setTestsByModule(
+        Object.fromEntries(moduleContent.map(({ moduleId, tests }) => [moduleId, tests]))
+      );
+      setHasFetchedModules(true);
+      setCurrentCourseId(courseId);
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return;
+      }
+
+      setMessage("Unable to reload the saved course.");
+    }
+  };
+
   const persistTestQuestions = async (testId: string, questions: CourseTestQuestion[]) => {
     const existingQuestions = await listTestQuestions(testId);
 
@@ -269,6 +310,148 @@ export function CourseBuilderPage() {
     }
   };
 
+  const createLocalModuleDraft = (title: string): Module => {
+    const timestamp = new Date().toISOString();
+
+    return {
+      id: createLocalEntityId("module"),
+      course_id: draftCourseSessionId,
+      title,
+      order: nextModuleOrder,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+  };
+
+  const createLocalLessonDraft = (moduleId: string): Lesson => {
+    const timestamp = new Date().toISOString();
+    const nextOrder =
+      (lessonsByModule[moduleId] || []).reduce(
+        (maxOrder, lesson) => Math.max(maxOrder, lesson.order),
+        0
+      ) + 1;
+
+    return {
+      id: createLocalEntityId("lesson"),
+      module_id: moduleId,
+      title: lessonTitle.trim(),
+      content: lessonContent,
+      video_url: lessonVideoUrl.trim() || null,
+      content_type: "rich_text",
+      order: nextOrder,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+  };
+
+  const persistLocalCourseContent = async (courseId: string) => {
+    const sortedModules = [...modules].sort((left, right) => left.order - right.order);
+    const lessonIdMap = new Map<string, string>();
+
+    for (const module of sortedModules) {
+      const createdModule = await createModule({
+        course_id: courseId,
+        title: module.title,
+        order: module.order,
+      });
+      const moduleLessons = [...(lessonsByModule[module.id] || [])].sort(
+        (left, right) => left.order - right.order
+      );
+
+      for (const lesson of moduleLessons) {
+        const createdLesson = await createLesson({
+          module_id: createdModule.id,
+          title: lesson.title,
+          content: lesson.content,
+          video_url: lesson.video_url,
+          content_type: lesson.content_type ?? "rich_text",
+          order: lesson.order,
+        });
+
+        lessonIdMap.set(lesson.id, createdLesson.id);
+        await upsertLessonPrimaryRichTextBlock(createdLesson.id, lesson.content ?? "");
+      }
+
+      const moduleTests = [...(testsByModule[module.id] || [])].sort(
+        (left, right) => left.order - right.order
+      );
+
+      for (const test of moduleTests) {
+        const persistedTest = await createTestEntity({
+          module_id: createdModule.id,
+          title: getGeneratedCourseTestTitle({
+            moduleOrder: module.order,
+            lessons: moduleLessons,
+            afterLessonId: test.afterLessonId,
+            fallbackTitle: test.title,
+          }),
+          after_lesson_id: test.afterLessonId
+            ? lessonIdMap.get(test.afterLessonId) ?? null
+            : null,
+          order: test.order,
+        });
+
+        await persistTestQuestions(persistedTest.id, test.questions);
+      }
+    }
+  };
+
+  const persistCourseAtFinalStep = async (action: "draft" | "publish") => {
+    if (!isBasicsComplete || isPersistingCourse) {
+      return null;
+    }
+
+    setIsPersistingCourse(true);
+
+    try {
+      if (currentCourseId) {
+        await updateCourse(currentCourseId, {
+          title: courseTitle.trim(),
+          description: courseDescription.trim() || null,
+          thumbnail_path: courseThumbnailPath,
+        });
+
+        if (action === "publish") {
+          await publishCourse(currentCourseId);
+        }
+
+        setMessage(action === "publish" ? "Course published." : "Draft saved.");
+        return currentCourseId;
+      }
+
+      const teacherId = await getCurrentTeacherId();
+      const createdCourse = await createCourse({
+        teacher_id: teacherId,
+        title: courseTitle.trim(),
+        description: courseDescription.trim() || null,
+        thumbnail_path: courseThumbnailPath,
+        is_published: false,
+      });
+
+      await persistLocalCourseContent(createdCourse.id);
+
+      if (action === "publish") {
+        await publishCourse(createdCourse.id);
+      }
+
+      await hydratePersistedCourse(createdCourse.id);
+      setMessage(action === "publish" ? "Course published." : "Draft saved.");
+      return createdCourse.id;
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+        return null;
+      }
+
+      setMessage(
+        action === "publish" ? "Unable to publish course." : "Unable to save draft."
+      );
+      return null;
+    } finally {
+      setIsPersistingCourse(false);
+    }
+  };
+
   const getCurrentTeacherId = async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
@@ -278,43 +461,26 @@ export function CourseBuilderPage() {
   };
 
   useEffect(() => {
-    queueMicrotask(() => {
-      void fetchCourses();
-    });
-  }, []);
-
-  useEffect(() => {
-    if (selectedCourse) {
+    if (!currentCourseId) {
       queueMicrotask(() => {
-        setCourseTitle(selectedCourse.title);
-        setCourseDescription(selectedCourse.description || "");
-        setCourseThumbnailPath(selectedCourse.thumbnail_path);
-      });
-    }
-  }, [selectedCourse]);
-
-  useEffect(() => {
-    if (currentCourseId) {
-      setHasFetchedModules(false);
-      queueMicrotask(() => {
-        void fetchModules(currentCourseId);
-      });
-    } else {
-      queueMicrotask(() => {
-        setModules([]);
         setHasFetchedModules(false);
-        setLessonsByModule({});
-        setTestsByModule({});
-        setCourseThumbnailPath(null);
       });
+      return;
     }
-  }, [currentCourseId]);
+
+    if (hasFetchedModules) {
+      return;
+    }
+
+    queueMicrotask(() => {
+      void fetchModules(currentCourseId);
+    });
+  }, [currentCourseId, hasFetchedModules]);
 
   useEffect(() => {
     if (
       activeStep !== 2 ||
-      !currentCourseId ||
-      !hasFetchedModules ||
+      (currentCourseId ? !hasFetchedModules : false) ||
       modules.length > 0 ||
       isNewModuleComposerOpen
     ) {
@@ -333,6 +499,10 @@ export function CourseBuilderPage() {
   ]);
 
   useEffect(() => {
+    if (!currentCourseId) {
+      return;
+    }
+
     const missingModuleIds = modules
       .filter((module) => lessonsByModule[module.id] === undefined)
       .map((module) => module.id);
@@ -369,9 +539,13 @@ export function CourseBuilderPage() {
     return () => {
       isCancelled = true;
     };
-  }, [lessonsByModule, modules]);
+  }, [currentCourseId, lessonsByModule, modules]);
 
   useEffect(() => {
+    if (!currentCourseId) {
+      return;
+    }
+
     const missingModuleIds = modules
       .filter((module) => testsByModule[module.id] === undefined)
       .map((module) => module.id);
@@ -415,74 +589,27 @@ export function CourseBuilderPage() {
     return () => {
       isCancelled = true;
     };
-  }, [modules, testsByModule]);
-
-  const persistCourseDraft = async () => {
-    if (!isBasicsComplete) return null;
-    try {
-      if (currentCourseId) {
-        await updateCourse(currentCourseId, {
-          title: courseTitle.trim(),
-          description: courseDescription.trim() || null,
-          thumbnail_path: courseThumbnailPath,
-        });
-        await fetchCourses();
-        setMessage("");
-        return currentCourseId;
-      } else {
-        const teacherId = await getCurrentTeacherId();
-        const course = await createCourse({
-          teacher_id: teacherId,
-          title: courseTitle.trim(),
-          description: courseDescription.trim() || null,
-          thumbnail_path: courseThumbnailPath,
-          is_published: false,
-        });
-        setCurrentCourseId(course.id);
-        await fetchCourses();
-        setMessage("");
-        return course.id;
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-        return null;
-      }
-      setMessage(currentCourseId ? "Unable to update course." : "Unable to create course.");
-      return null;
-    }
-  };
+  }, [currentCourseId, modules, testsByModule]);
 
   const handleSaveDraft = async () => {
-    const courseId = await persistCourseDraft();
+    const courseId = await persistCourseAtFinalStep("draft");
     return Boolean(courseId);
   };
 
   const handleCourseMediaUpload = async (file: File) => {
-    if (!currentCourseId && !isBasicsComplete) {
-      setMessage("Add the course title and description before uploading media.");
-      return;
-    }
-
-    let courseId = currentCourseId;
-
-    if (!courseId) {
-      const createdCourseId = await persistCourseDraft();
-      if (!createdCourseId) {
-        return;
-      }
-
-      courseId = createdCourseId;
-    }
+    const mediaScopeId = currentCourseId ?? draftCourseSessionId;
 
     try {
       setIsUploadingCourseMedia(true);
-      const uploadedPath = await uploadCourseMedia(courseId, file);
+      const uploadedPath = await uploadCourseMedia(mediaScopeId, file);
       setCourseThumbnailPath(uploadedPath);
-      await updateCourse(courseId, {
-        thumbnail_path: uploadedPath,
-      });
-      await fetchCourses();
+
+      if (currentCourseId) {
+        await updateCourse(currentCourseId, {
+          thumbnail_path: uploadedPath,
+        });
+      }
+
       setMessage("");
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
@@ -496,7 +623,7 @@ export function CourseBuilderPage() {
   };
 
   const openNewModuleComposer = () => {
-    if (!currentCourseId || isNewModuleComposerOpen) {
+    if (isNewModuleComposerOpen) {
       return;
     }
 
@@ -510,7 +637,18 @@ export function CourseBuilderPage() {
   };
 
   const handleSaveNewModule = async () => {
-    if (!currentCourseId || !newModuleTitle.trim()) return;
+    if (!newModuleTitle.trim()) return;
+
+    if (!currentCourseId) {
+      const module = createLocalModuleDraft(newModuleTitle.trim());
+      setModules((prev) => [...prev, module]);
+      setLessonsByModule((prev) => ({ ...prev, [module.id]: [] }));
+      setTestsByModule((prev) => ({ ...prev, [module.id]: [] }));
+      setExpandedModuleId(module.id);
+      closeNewModuleComposer();
+      setMessage("");
+      return;
+    }
 
     try {
       setIsCreatingModule(true);
@@ -518,6 +656,7 @@ export function CourseBuilderPage() {
         course_id: currentCourseId,
         title: newModuleTitle.trim(),
       });
+      setHasFetchedModules(false);
       await fetchModules(currentCourseId);
       setExpandedModuleId(module.id);
       closeNewModuleComposer();
@@ -535,13 +674,31 @@ export function CourseBuilderPage() {
 
   const handleUpdateModule = async () => {
     if (!editModuleId || !editModuleTitle.trim()) return;
+
+    if (!currentCourseId) {
+      setModules((prev) =>
+        prev.map((module) =>
+          module.id === editModuleId
+            ? {
+                ...module,
+                title: editModuleTitle.trim(),
+                updated_at: new Date().toISOString(),
+              }
+            : module
+        )
+      );
+      setEditModuleId(null);
+      setEditModuleTitle("");
+      setMessage("");
+      return;
+    }
+
     try {
       await updateModule(editModuleId, { title: editModuleTitle.trim() });
       setEditModuleId(null);
       setEditModuleTitle("");
-      if (currentCourseId) {
-        await fetchModules(currentCourseId);
-      }
+      setHasFetchedModules(false);
+      await fetchModules(currentCourseId);
       setMessage("");
     } catch {
       setMessage("Unable to update module.");
@@ -550,6 +707,47 @@ export function CourseBuilderPage() {
 
   const handleDeleteModule = async (moduleId: string) => {
     if (!window.confirm("Delete this module?")) return;
+
+    if (!currentCourseId) {
+      setModules((prev) => prev.filter((module) => module.id !== moduleId));
+      setLessonsByModule((prev) => {
+        const next = { ...prev };
+        delete next[moduleId];
+        return next;
+      });
+      setTestsByModule((prev) => {
+        const next = { ...prev };
+        delete next[moduleId];
+        return next;
+      });
+      setExpandedLessonIds((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((lessonId) => {
+          if ((lessonsByModule[moduleId] || []).some((lesson) => lesson.id === lessonId)) {
+            delete next[lessonId];
+          }
+        });
+        return next;
+      });
+      setExpandedTestIds((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((testId) => {
+          if ((testsByModule[moduleId] || []).some((test) => test.id === testId)) {
+            delete next[testId];
+          }
+        });
+        return next;
+      });
+      if (expandedModuleId === moduleId) {
+        setExpandedModuleId(null);
+      }
+      if (pendingLessonDraft?.moduleId === moduleId) {
+        setPendingLessonDraft(null);
+      }
+      setMessage("");
+      return;
+    }
+
     try {
       const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
       for (const test of moduleTests) {
@@ -591,19 +789,18 @@ export function CourseBuilderPage() {
     if (expandedModuleId === moduleId) {
       setExpandedModuleId(null);
     }
-    if (currentCourseId) {
-      await fetchModules(currentCourseId);
-    }
+    setHasFetchedModules(false);
+    await fetchModules(currentCourseId);
     setMessage("");
   };
 
   const toggleModule = async (moduleId: string) => {
     const nextId = expandedModuleId === moduleId ? null : moduleId;
     setExpandedModuleId(nextId);
-    if (nextId && !lessonsByModule[nextId]) {
+    if (currentCourseId && nextId && !lessonsByModule[nextId]) {
       await fetchLessons(nextId);
     }
-    if (nextId && !testsByModule[nextId]) {
+    if (currentCourseId && nextId && !testsByModule[nextId]) {
       await fetchTests(nextId);
     }
   };
@@ -655,6 +852,17 @@ export function CourseBuilderPage() {
   };
 
   const openEditLessonModal = async (moduleId: string, lesson: Lesson) => {
+    if (!currentCourseId) {
+      const fallbackDraft: LessonEditorDraft = {
+        title: lesson.title,
+        content: lesson.content || "",
+        videoUrl: lesson.video_url || "",
+      };
+
+      applyLessonDraft(moduleId, lesson.id, fallbackDraft);
+      return;
+    }
+
     const requestId = lessonLoadRequestRef.current + 1;
     lessonLoadRequestRef.current = requestId;
 
@@ -784,11 +992,10 @@ export function CourseBuilderPage() {
   };
 
   const handleLessonContentImageUpload = async (file: File) => {
-    if (!currentCourseId) {
-      throw new Error("Save the course before uploading lesson images.");
-    }
-
-    const imagePath = await uploadLessonContentImage(currentCourseId, file);
+    const imagePath = await uploadLessonContentImage(
+      currentCourseId ?? draftCourseSessionId,
+      file
+    );
     const imageUrl = getCourseMediaPublicUrl(imagePath);
 
     if (!imageUrl) {
@@ -801,6 +1008,37 @@ export function CourseBuilderPage() {
   const handleCreateLesson = async () => {
     if (!lessonEditorModuleId || !lessonTitle.trim()) return;
     const moduleId = lessonEditorModuleId;
+
+    if (!currentCourseId) {
+      if (editingLessonId) {
+        setLessonsByModule((prev) => ({
+          ...prev,
+          [moduleId]: (prev[moduleId] || []).map((lesson) =>
+            lesson.id === editingLessonId
+              ? {
+                  ...lesson,
+                  title: lessonTitle.trim(),
+                  content: lessonContent,
+                  video_url: lessonVideoUrl.trim() || null,
+                  content_type: "rich_text",
+                  updated_at: new Date().toISOString(),
+                }
+              : lesson
+          ),
+        }));
+      } else {
+        const createdLesson = createLocalLessonDraft(moduleId);
+        setLessonsByModule((prev) => ({
+          ...prev,
+          [moduleId]: [...(prev[moduleId] || []), createdLesson],
+        }));
+        setPendingLessonDraft(null);
+      }
+
+      closeCreateLessonModal();
+      setMessage("");
+      return;
+    }
 
     try {
       setIsCreatingLesson(true);
@@ -839,6 +1077,26 @@ export function CourseBuilderPage() {
 
   const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
     if (!window.confirm("Delete this lesson?")) return;
+
+    if (!currentCourseId) {
+      setLessonsByModule((prev) => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).filter((lesson) => lesson.id !== lessonId),
+      }));
+      setTestsByModule((prev) => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).map((test) =>
+          test.afterLessonId === lessonId ? { ...test, afterLessonId: null } : test
+        ),
+      }));
+      setExpandedLessonIds((prev) => {
+        const next = { ...prev };
+        delete next[lessonId];
+        return next;
+      });
+      setMessage("");
+      return;
+    }
 
     try {
       const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
@@ -929,6 +1187,48 @@ export function CourseBuilderPage() {
       afterLessonId: testAfterLessonId,
     });
 
+    if (!currentCourseId) {
+      const existingTests = testsByModule[moduleId] || [];
+
+      if (editingTestId) {
+        setTestsByModule((prev) => ({
+          ...prev,
+          [moduleId]: (prev[moduleId] || []).map((test) =>
+            test.id === editingTestId
+              ? {
+                  ...test,
+                  title: nextTestTitle,
+                  afterLessonId: testAfterLessonId,
+                  questions: testQuestions.map(cloneTestQuestion),
+                }
+              : test
+          ),
+        }));
+      } else {
+        setTestsByModule((prev) => ({
+          ...prev,
+          [moduleId]: [
+            ...(prev[moduleId] || []),
+            {
+              id: createLocalEntityId("test"),
+              title: nextTestTitle,
+              afterLessonId: testAfterLessonId,
+              order:
+                existingTests.reduce(
+                  (maxOrder, test) => Math.max(maxOrder, test.order),
+                  0
+                ) + 1,
+              questions: testQuestions.map(cloneTestQuestion),
+            },
+          ],
+        }));
+      }
+
+      closeCreateTestModal();
+      setMessage("");
+      return;
+    }
+
     try {
       setIsSavingTest(true);
       const existingTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
@@ -966,6 +1266,20 @@ export function CourseBuilderPage() {
   const handleDeleteTest = async (moduleId: string, testId: string) => {
     if (!window.confirm("Delete this test?")) return;
 
+    if (!currentCourseId) {
+      setTestsByModule((prev) => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).filter((test) => test.id !== testId),
+      }));
+      setExpandedTestIds((prev) => {
+        const next = { ...prev };
+        delete next[testId];
+        return next;
+      });
+      setMessage("");
+      return;
+    }
+
     try {
       await deleteTestEntity(testId);
       await fetchTests(moduleId);
@@ -989,23 +1303,12 @@ export function CourseBuilderPage() {
   };
 
   const handlePublishCourse = async () => {
-    if (!currentCourseId) {
-      setMessage("Create a draft course before publishing.");
-      return;
-    }
-
     if (publishBlockingIssues.length > 0) {
       setMessage("Resolve the blocking issues before publishing the course.");
       return;
     }
 
-    try {
-      await publishCourse(currentCourseId);
-      await fetchCourses();
-      setMessage("");
-    } catch {
-      setMessage("Unable to publish course.");
-    }
+    void persistCourseAtFinalStep("publish");
   };
 
   const currentCourseName = courseTitle.trim() || "Untitled course";
@@ -1022,7 +1325,8 @@ export function CourseBuilderPage() {
         ? ""
         : "Run a final pass on the structure and publish when everything is ready.";
   const canRunHeaderAction =
-    activeStep === 3 ? Boolean(currentCourseId) : isBasicsComplete;
+    activeStep === 3 ? isBasicsComplete && !isPersistingCourse : Boolean(currentCourseId);
+  const builderContentKey = currentCourseId ?? draftCourseSessionId;
 
   return (
     <div
@@ -1034,11 +1338,13 @@ export function CourseBuilderPage() {
         activeStep={activeStep}
         currentCourseName={currentCourseName}
         canRunPrimaryAction={canRunHeaderAction}
-        primaryActionLabel="Save Draft"
-        canNavigateToStep={(step) => step === 1 || Boolean(currentCourseId)}
+        primaryActionLabel={isPersistingCourse ? "Saving..." : "Save Draft"}
+        canNavigateToStep={(step) => step === 1 || isBasicsComplete}
         onStepChange={setActiveStep}
         onPrimaryAction={() => {
-          void handleSaveDraft();
+          if (activeStep === 3 || currentCourseId) {
+            void handleSaveDraft();
+          }
         }}
       />
 
@@ -1060,17 +1366,14 @@ export function CourseBuilderPage() {
             courseThumbnailUrl={courseThumbnailUrl}
             isBasicsComplete={isBasicsComplete}
             isUploadingCourseMedia={isUploadingCourseMedia}
-            currentCourseId={currentCourseId}
+            currentCourseId={builderContentKey}
             onCourseTitleChange={setCourseTitle}
             onCourseDescriptionChange={setCourseDescription}
             onCourseMediaSelect={(file) => {
               void handleCourseMediaUpload(file);
             }}
-            onNext={async () => {
-              const wasSaved = await handleSaveDraft();
-              if (wasSaved) {
-                setActiveStep(2);
-              }
+            onNext={() => {
+              setActiveStep(2);
             }}
           />
         ) : null}
@@ -1083,13 +1386,13 @@ export function CourseBuilderPage() {
             isCreatingModule={isCreatingModule}
             isNewModuleComposerOpen={isNewModuleComposerOpen}
             newModuleTitle={newModuleTitle}
-            nextModuleOrder={modules.length + 1}
+            nextModuleOrder={nextModuleOrder}
             lessonsByModule={lessonsByModule}
             testsByModule={testsByModule}
             expandedModuleId={expandedModuleId}
             editModuleId={editModuleId}
             editModuleTitle={editModuleTitle}
-            currentCourseId={currentCourseId}
+            currentCourseId={builderContentKey}
             expandedLessonIds={expandedLessonIds}
             expandedTestIds={expandedTestIds}
             onNewModuleTitleChange={setNewModuleTitle}
@@ -1164,8 +1467,8 @@ export function CourseBuilderPage() {
               void handlePublishCourse();
             }}
             canPublish={
-              Boolean(currentCourseId) &&
               !isReviewContentLoading &&
+              isBasicsComplete &&
               publishBlockingIssues.length === 0
             }
           />

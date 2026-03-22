@@ -1,141 +1,51 @@
-import { Footer } from "../../components/layout/Footer";
-import { Header } from "../../components/layout/Header";
-import { Sidebar } from "../../components/layout/Sidebar";
-import { UserPanel } from "../../components/layout/UserPanel";
-import { Card } from "../../components/ui/Card";
-import { Button } from "../../components/ui/Button";
-import { useState } from "react";
-import { Link } from "react-router-dom";
-
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getCurrentUser } from "../../features/auth/api/authApi";
+import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
+import { getDefaultRouteForRole } from "../../features/auth/lib/roleRouting";
+import { DashboardShell } from "../dashboards/components/DashboardShell";
 
 export function DashboardPage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function redirectToRoleDashboard() {
+      try {
+        const currentUser = await getCurrentUser();
+
+        if (!isMounted) {
+          return;
+        }
+
+        navigate(getDefaultRouteForRole(currentUser.role), { replace: true });
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        if (error instanceof BackendApiError && error.status === 401) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setMessage(getErrorMessage(error, "Unable to open your dashboard."));
+      }
+    }
+
+    void redirectToRoleDashboard();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [navigate]);
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Sidebar
-        isOpen={isSidebarOpen}
-        onToggle={() => setIsSidebarOpen((prev) => !prev)}
-      />
-      <div
-        className={`flex min-h-screen transition-[padding] duration-300 ${
-          isSidebarOpen ? "pl-64" : "pl-16"
-        }`}
-      >
-        <div className="flex w-full flex-col">
-          <Header alignLeft />
-          <div className="flex flex-1">
-            <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6 px-4 py-10">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-2xl font-semibold text-slate-900">
-                    Dashboard
-                  </h1>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Placeholder view for the MVP dashboard.
-                  </p>
-                </div>
-                <Link to="/course-builder">
-                  <Button>Створити курс</Button>
-                </Link>
-              </div>
-              <div className="flex flex-col gap-8">
-                <Card className="flex min-h-[200px] flex-col justify-between gap-6 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white">
-                  <div>
-                    <p className="text-xs uppercase tracking-wide text-slate-200">
-                      Weekly focus
-                    </p>
-                    <h2 className="mt-3 text-2xl font-semibold">
-                      Sharpen your skills with EduCat
-                    </h2>
-                    <p className="mt-2 text-sm text-slate-200">
-                      Build momentum with bite-sized lessons curated for your
-                      team.
-                    </p>
-                  </div>
-                  <div>
-                    <Button
-                      variant="secondary"
-                      className="bg-white text-slate-900 hover:bg-slate-100"
-                    >
-                      Explore pathways
-                    </Button>
-                  </div>
-                </Card>
-
-                <div className="grid gap-4 md:grid-cols-3">
-                  {[
-                    "Learning streak",
-                    "Courses completed",
-                    "Hours this week",
-                  ].map((title) => (
-                    <Card key={title}>
-                      <p className="text-xs uppercase tracking-wide text-slate-500">
-                        {title}
-                      </p>
-                      <p className="mt-3 text-sm text-slate-700">
-                        Placeholder metric for the dashboard overview.
-                      </p>
-                    </Card>
-                  ))}
-                </div>
-
-                <section className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Continue learning
-                    </h3>
-                    <span className="text-xs text-slate-500">
-                      Updated moments ago
-                    </span>
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-3">
-                    {[
-                      {
-                        title: "Designing learning paths",
-                        description:
-                          "Build a repeatable course framework in minutes.",
-                      },
-                      {
-                        title: "Feedback loops",
-                        description:
-                          "Turn learner feedback into actionable insights.",
-                      },
-                      {
-                        title: "Team onboarding",
-                        description:
-                          "Welcome new hires with clear learning goals.",
-                      },
-                    ].map((course) => (
-                      <Card key={course.title} className="flex flex-col gap-4">
-                        <div className="h-28 w-full rounded-xl bg-slate-100" />
-                        <div>
-                          <h4 className="text-sm font-semibold text-slate-900">
-                            {course.title}
-                          </h4>
-                          <p className="mt-2 text-sm text-slate-600">
-                            {course.description}
-                          </p>
-                        </div>
-                        <div>
-                          <div className="h-2 w-full rounded-full bg-slate-200">
-                            <div className="h-2 w-2/3 rounded-full bg-slate-900" />
-                          </div>
-                          <p className="mt-2 text-xs text-slate-500">
-                            66% complete
-                          </p>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </section>
-              </div>
-            </main>
-            <UserPanel />
-          </div>
-          <Footer />
-        </div>
-      </div>
-    </div>
+    <DashboardShell
+      title={message ? "Dashboard unavailable" : "Redirecting"}
+      description={message || "Opening the correct dashboard for your role."}
+    />
   );
 }
