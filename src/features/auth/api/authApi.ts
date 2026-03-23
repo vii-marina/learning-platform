@@ -15,6 +15,19 @@ type UsersResponse = {
   users: CurrentUser[];
 };
 
+let currentUserCache: CurrentUser | null = null;
+let currentUserPromise: Promise<CurrentUser> | null = null;
+
+export function clearCurrentUserCache() {
+  currentUserCache = null;
+  currentUserPromise = null;
+}
+
+export function primeCurrentUserCache(user: CurrentUser) {
+  currentUserCache = user;
+  currentUserPromise = Promise.resolve(user);
+}
+
 export async function registerProfile(input: {
   fullName: string;
   role: PublicRegistrationRole;
@@ -24,12 +37,30 @@ export async function registerProfile(input: {
     body: input,
   });
 
+  primeCurrentUserCache(response.user);
   return response.user;
 }
 
 export async function getCurrentUser() {
-  const response = await authorizedBackendRequest<SingleUserResponse>("/auth/me");
-  return response.user;
+  if (currentUserCache) {
+    return currentUserCache;
+  }
+
+  if (currentUserPromise) {
+    return currentUserPromise;
+  }
+
+  currentUserPromise = authorizedBackendRequest<SingleUserResponse>("/auth/me")
+    .then((response) => {
+      primeCurrentUserCache(response.user);
+      return response.user;
+    })
+    .catch((error) => {
+      clearCurrentUserCache();
+      throw error;
+    });
+
+  return currentUserPromise;
 }
 
 export async function listAdminUsers(role?: UserRole) {
@@ -60,6 +91,10 @@ export async function updateAdminUser(userId: string, input: UpdateAdminUserInpu
     body: input,
   });
 
+  if (currentUserCache?.id === response.user.id) {
+    primeCurrentUserCache(response.user);
+  }
+
   return response.user;
 }
 
@@ -80,5 +115,6 @@ export async function syncPendingRegistrationForEmail(email: string) {
   });
 
   clearPendingRegistration();
+  primeCurrentUserCache(user);
   return user;
 }

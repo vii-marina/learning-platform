@@ -33,5 +33,6 @@ export type AuthenticatedRequestContext = {
   role: UserRole | null;
   isAdmin: boolean;
   isSuperAdmin: boolean;
+  createdAt: string | null;
   profileExists: boolean;
 };

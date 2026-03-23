@@ -5,20 +5,20 @@ import { Card } from "../../components/ui/Card";
 import { loadAdminCoursesData } from "../../features/admin-dashboard/api/adminDashboardApi";
 import { AdminCourseCatalog } from "../../features/admin-dashboard/components/AdminCourseCatalog";
 import { getAdminCourseAuthorName } from "../../features/admin-dashboard/lib/adminCoursePreview";
-import type { AdminDashboardCourse } from "../../features/admin-dashboard/types";
+import type { AdminDashboardCourseSummary } from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
 
-function isPublishedCourse(course: AdminDashboardCourse) {
+function isPublishedCourse(course: AdminDashboardCourseSummary) {
   return course.status === "published" || course.is_published;
 }
 
-function isArchivedCourse(course: AdminDashboardCourse) {
+function isArchivedCourse(course: AdminDashboardCourseSummary) {
   return course.status === "archived";
 }
 
 export function AdminDashboardCoursesPage() {
   const location = useLocation();
-  const [courses, setCourses] = useState<AdminDashboardCourse[]>([]);
+  const [courses, setCourses] = useState<AdminDashboardCourseSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [searchValue, setSearchValue] = useState("");

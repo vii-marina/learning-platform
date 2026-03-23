@@ -34,8 +34,12 @@ export type AdminDashboardModule = Module & {
   tests: AdminDashboardTest[];
 };
 
-export type AdminDashboardCourse = Course & {
+export type AdminDashboardCourseSummary = Course & {
   teacher: CurrentUser | null;
+  moduleCount: number;
+};
+
+export type AdminDashboardCourse = AdminDashboardCourseSummary & {
   modules: AdminDashboardModule[];
   totalLessons: number;
   totalBlocks: number;

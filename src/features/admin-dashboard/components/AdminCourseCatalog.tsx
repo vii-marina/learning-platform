@@ -1,9 +1,9 @@
 import { Card } from "../../../components/ui/Card";
-import type { AdminDashboardCourse } from "../types";
+import type { AdminDashboardCourseSummary } from "../types";
 import { AdminCourseCard } from "./AdminCourseCard";
 
 type AdminCourseCatalogProps = {
-  courses: AdminDashboardCourse[];
+  courses: AdminDashboardCourseSummary[];
   title?: string;
   emptyMessage?: string;
   sectionId?: string;

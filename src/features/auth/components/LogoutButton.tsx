@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
 import { Button } from "../../../components/ui/Button";
+import { clearAdminDashboardCache } from "../../admin-dashboard/api/adminDashboardApi";
+import { clearCurrentUserCache } from "../api/authApi";
 
 type LogoutButtonProps = {
   containerClassName?: string;
@@ -35,6 +37,8 @@ export function LogoutButton({
       return;
     }
 
+    clearCurrentUserCache();
+    clearAdminDashboardCache();
     navigate("/login", { replace: true });
   };
 

@@ -353,7 +353,22 @@ function computeCourseTotals(modules: Array<{ lessons: Array<{ blocks: LessonBlo
 
 export async function listAdminDashboardCourses() {
   const courses = await listCourses();
-  return hydrateCourses(courses);
+  const courseIds = courses.map((course) => course.id);
+  const teacherIds = [...new Set(courses.map((course) => course.teacher_id).filter(isUuidValue))];
+  const [teachersById, modules] = await Promise.all([
+    listProfilesByIds(teacherIds),
+    listModules(courseIds),
+  ]);
+  const modulesByCourseId = groupBy(modules, (module) => module.course_id);
+
+  return courses.map((course) => ({
+    ...course,
+    teacher:
+      course.teacher_id && isUuidValue(course.teacher_id)
+        ? teachersById.get(course.teacher_id) ?? null
+        : null,
+    moduleCount: modulesByCourseId.get(course.id)?.length ?? 0,
+  }));
 }
 
 async function hydrateCourses(courses: CourseRow[]) {
@@ -412,6 +427,7 @@ async function hydrateCourses(courses: CourseRow[]) {
     return {
       ...course,
       teacher,
+      moduleCount: courseModules.length,
       modules: courseModules,
       totalLessons: totals.lessons,
       totalBlocks: totals.blocks,

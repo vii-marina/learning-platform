@@ -26,7 +26,7 @@ export async function registerProfileHandler(req: Request, res: Response) {
 
 export async function getMeHandler(req: Request, res: Response) {
   const auth = getAuthenticatedUser(req);
-  const user = await getMe(auth.userId, auth.email);
+  const user = await getMe(auth);
 
   res.status(200).json({ user });
 }
