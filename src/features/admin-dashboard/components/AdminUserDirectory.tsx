@@ -29,40 +29,40 @@ export function AdminUserDirectory({
   emptyMessage,
 }: AdminUserDirectoryProps) {
   return (
-    <Card className="rounded-[1.75rem] border-cyan-100 p-0 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-      <div className="border-b border-slate-100 px-6 py-5">
+    <Card className="rounded-[1.5rem] border-cyan-100 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
+      <div className="border-b border-slate-100 px-5 py-4">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-black tracking-tight text-slate-900">{title}</h2>
+            <h2 className="text-xl font-black tracking-tight text-slate-900">{title}</h2>
           </div>
-          <span className="rounded-full bg-cyan-50 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-cyan-700">
+          <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
             {users.length}
           </span>
         </div>
       </div>
 
       {users.length === 0 ? (
-        <div className="px-6 py-10 text-sm text-slate-500">{emptyMessage}</div>
+        <div className="px-5 py-8 text-sm text-slate-500">{emptyMessage}</div>
       ) : (
-        <div className="grid gap-4 p-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
           {users.map((user) => (
             <article
               key={user.id}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+              className="rounded-[1rem] border border-slate-200 bg-slate-50 p-4"
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-bold text-slate-900">
+                  <h3 className="text-sm font-bold text-slate-900">
                     {formatUserName(user)}
                   </h3>
                   <p className="mt-1 break-all text-sm text-slate-500">{user.email}</p>
                 </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-slate-600">
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
                   {user.role}
                 </span>
               </div>
 
-              <dl className="mt-5 space-y-2 text-sm text-slate-600">
+              <dl className="mt-4 space-y-2 text-sm text-slate-600">
                 <div className="flex items-center justify-between gap-4">
                   <dt>User ID</dt>
                   <dd className="truncate font-medium text-slate-900">{user.id}</dd>

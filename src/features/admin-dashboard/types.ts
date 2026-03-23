@@ -59,6 +59,23 @@ export type AdminDashboardTotals = {
 
 export type AdminDashboardOverviewData = {
   totals: AdminDashboardTotals;
+  courseStatuses: {
+    total: number;
+    draft: number;
+    published: number;
+    archived: number;
+  };
+};
+
+export type AdminTeacher = CurrentUser & {
+  assignedStudents: CurrentUser[];
+  courseCount: number;
+  publishedCourseCount: number;
+  draftCourseCount: number;
+};
+
+export type AdminTeacherProfileInput = {
+  fullName: string;
 };
 
 export type AdminDashboardSettingsData = {

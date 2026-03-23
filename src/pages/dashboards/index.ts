@@ -1,8 +1,10 @@
 export { AdminDashboardLayout } from "./AdminDashboardLayout";
 export { AdminDashboardPage } from "./AdminDashboardPage";
+export { AdminTeacherDetailsPage } from "./AdminTeacherDetailsPage";
 export { AdminDashboardTeachersPage } from "./AdminDashboardTeachersPage";
 export { AdminDashboardStudentsPage } from "./AdminDashboardStudentsPage";
 export { AdminDashboardCoursesPage } from "./AdminDashboardCoursesPage";
+export { AdminCoursePreviewPage } from "./AdminCoursePreviewPage";
 export { AdminDashboardSettingsPage } from "./AdminDashboardSettingsPage";
 export { TeacherDashboardPage } from "./TeacherDashboardPage";
 export { StudentDashboardPage } from "./StudentDashboardPage";

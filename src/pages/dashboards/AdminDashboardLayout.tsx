@@ -66,11 +66,16 @@ export function AdminDashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f4fbfd] text-slate-900">
+    <div
+      className="min-h-screen bg-[#f4fbfd] text-slate-900"
+      style={{ fontFamily: '"Lexend", sans-serif' }}
+    >
       <div className="mx-auto grid min-h-screen max-w-[1720px] lg:grid-cols-[18rem_minmax(0,1fr)]">
         <AdminDashboardSidebar />
 
         <main className="min-w-0 px-4 py-6 md:px-8 md:py-8 xl:px-10">
+          
+
           {message ? (
             <Card className="rounded-[1.75rem] border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-none">
               <p className="text-sm font-medium">{message}</p>

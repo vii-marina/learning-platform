@@ -46,9 +46,9 @@ export function AdminDashboardSettingsPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
-      <Card className="rounded-[2rem] border-cyan-100 bg-white/90 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.06)]">
-        <h1 className="mt-2 text-4xl font-black tracking-tight text-slate-900">
+    <div className="space-y-5">
+      <Card className="rounded-[1.75rem] border-cyan-100 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+        <h1 className="text-3xl font-black tracking-tight text-slate-900">
           Platform settings
         </h1>
       </Card>
@@ -67,7 +67,7 @@ export function AdminDashboardSettingsPage() {
         <Card className="rounded-[1.75rem] border-cyan-100 p-6 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-sm leading-6 text-slate-500">
                 Current role
               </p>
               <p className="mt-2 text-lg font-black tracking-tight text-slate-900">
@@ -75,7 +75,7 @@ export function AdminDashboardSettingsPage() {
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-sm leading-6 text-slate-500">
                 Super-admin
               </p>
               <p className="mt-2 text-lg font-black tracking-tight text-slate-900">
@@ -83,7 +83,7 @@ export function AdminDashboardSettingsPage() {
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-400">
+              <p className="text-sm leading-6 text-slate-500">
                 Admin users
               </p>
               <p className="mt-2 text-lg font-black tracking-tight text-slate-900">

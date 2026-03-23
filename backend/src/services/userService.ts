@@ -265,6 +265,35 @@ export async function listManagedUsers(): Promise<NormalizedUser[]> {
   });
 }
 
+export async function listProfileUsersByRole(role: "teacher" | "student"): Promise<NormalizedUser[]> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select(profileSelect)
+    .eq("role", role)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "PROFILES_LIST_FAILED",
+      `Unable to list ${role} profiles`,
+      error
+    );
+  }
+
+  const profiles = (data ?? []) as UserProfileRow[];
+
+  return profiles.map((profile) => ({
+    id: profile.id,
+    email: profile.email,
+    fullName: profile.full_name,
+    role: profile.role,
+    isAdmin: false,
+    isSuperAdmin: false,
+    createdAt: profile.created_at,
+  }));
+}
+
 async function listAllAuthUsers(): Promise<Map<string, { email: string | null }>> {
   const authUsers = new Map<string, { email: string | null }>();
   let page = 1;

@@ -19,7 +19,7 @@ type SidebarItem = {
 };
 
 const primaryItems: SidebarItem[] = [
-  { label: "Overview", icon: LayoutGrid, to: "/admin/dashboard", end: true },
+  { label: "Dashboard", icon: LayoutGrid, to: "/admin/dashboard", end: true },
   { label: "Teachers", icon: GraduationCap, to: "/admin/dashboard/teachers" },
   { label: "Students", icon: Users, to: "/admin/dashboard/students" },
   { label: "Courses", icon: BookOpen, to: "/admin/dashboard/courses" },
@@ -39,8 +39,8 @@ function SidebarLink({ item }: { item: SidebarItem }) {
       className={({ isActive }) =>
         `flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
           isActive
-            ? "bg-cyan-50 text-cyan-700 shadow-[inset_0_0_0_1px_rgba(6,182,212,0.14)]"
-            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            ? "bg-[#13daec]/14 text-[#14213d] shadow-[inset_0_0_0_1px_rgba(19,218,236,0.32)]"
+            : "text-slate-500 hover:bg-[#13daec]/8 hover:text-[#14213d]"
         }`
       }
     >
@@ -52,12 +52,18 @@ function SidebarLink({ item }: { item: SidebarItem }) {
 
 export function AdminDashboardSidebar() {
   return (
-    <aside className="border-r border-cyan-100 bg-white px-5 py-6 lg:sticky lg:top-0 lg:h-screen lg:px-7 lg:py-8">
+    <aside
+      className="border-r border-cyan-100 bg-white px-5 py-6 lg:sticky lg:top-0 lg:h-screen lg:px-7 lg:py-8"
+      style={{ fontFamily: '"Lexend", sans-serif' }}
+    >
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-4">
           <div>
-            <p className="text-[1.65rem] font-black tracking-tight text-slate-900">
-              Admin Console
+            <p className="text-[1.45rem] font-black tracking-tight text-[#14213d]">
+              Learning Platform
+            </p>
+            <p className="mt-1 text-sm leading-6 text-slate-500">
+              Admin Panel
             </p>
           </div>
         </div>
@@ -72,7 +78,7 @@ export function AdminDashboardSidebar() {
           <div className="space-y-3 pt-10">
             <Link
               to="/course-builder"
-              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-4 text-sm font-extrabold text-white shadow-[0_16px_32px_rgba(6,182,212,0.28)] transition hover:bg-cyan-600"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#13daec] px-4 text-sm font-extrabold text-[#14213d] shadow-[0_16px_32px_rgba(19,218,236,0.24)] transition hover:bg-[#10c6d7]"
             >
               <Plus className="h-4 w-4" />
               <span>New Course</span>

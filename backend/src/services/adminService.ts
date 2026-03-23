@@ -1,5 +1,14 @@
 import { AppError } from "../lib/appError";
-import { getNormalizedUserById, saveAdminRecord, saveProfile, ensureTeacherProfile, listManagedUsers, removeAdminRecord, getAuthUserById } from "./userService";
+import {
+  ensureTeacherProfile,
+  getAuthUserById,
+  getNormalizedUserById,
+  listManagedUsers,
+  listProfileUsersByRole,
+  removeAdminRecord,
+  saveAdminRecord,
+  saveProfile,
+} from "./userService";
 import type { NormalizedUser, UserRole } from "../types/auth";
 
 type UpdateUserInput = {
@@ -8,6 +17,10 @@ type UpdateUserInput = {
 };
 
 export async function listUsers(role?: UserRole): Promise<NormalizedUser[]> {
+  if (role === "teacher" || role === "student") {
+    return listProfileUsersByRole(role);
+  }
+
   const users = await listManagedUsers();
 
   if (!role) {

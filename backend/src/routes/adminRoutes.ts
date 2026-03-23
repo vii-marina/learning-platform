@@ -1,5 +1,14 @@
 import { Router } from "express";
 import {
+  getAdminDashboardOverviewHandler,
+  getAdminDashboardTeacherHandler,
+  listAdminDashboardTeachersHandler,
+} from "../controllers/adminDashboardController";
+import {
+  getAdminDashboardCourseHandler,
+  listAdminDashboardCoursesHandler,
+} from "../controllers/adminDashboardCoursesController";
+import {
   listStudentsHandler,
   listTeachersHandler,
   listUsersHandler,
@@ -12,6 +21,11 @@ const router = Router();
 
 router.use(requireAuth);
 
+router.get("/dashboard/overview", requireAdmin, getAdminDashboardOverviewHandler);
+router.get("/dashboard/courses", requireAdmin, listAdminDashboardCoursesHandler);
+router.get("/dashboard/courses/:id", requireAdmin, getAdminDashboardCourseHandler);
+router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandler);
+router.get("/dashboard/teachers/:id", requireAdmin, getAdminDashboardTeacherHandler);
 router.get("/users", requireAdmin, listUsersHandler);
 router.get("/teachers", requireAdmin, listTeachersHandler);
 router.get("/students", requireAdmin, listStudentsHandler);
