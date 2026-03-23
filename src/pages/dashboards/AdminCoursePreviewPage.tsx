@@ -2,21 +2,27 @@ import { ArrowLeft, BookOpen, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
-import { loadAdminCourseDetailData } from "../../features/admin-dashboard/api/adminDashboardApi";
+import {
+  loadAdminCourseDetailData,
+  primeAdminCourseDetailCache,
+} from "../../features/admin-dashboard/api/adminDashboardApi";
 import {
   getAdminCourseAuthorName,
   mapAdminDashboardCourseToPreview,
 } from "../../features/admin-dashboard/lib/adminCoursePreview";
-import type { AdminDashboardCourse } from "../../features/admin-dashboard/types";
+import type {
+  AdminDashboardCourse,
+  AdminDashboardCourseSummary,
+} from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
 import { StudentCoursePreview } from "../../features/courses/components/course-builder/StudentCoursePreview";
 import { useCourseBuilderReviewState } from "../../features/courses/components/course-builder/useCourseBuilderReviewState";
 
 type CoursePreviewLocationState = {
-  course?: AdminDashboardCourse;
+  course?: AdminDashboardCourseSummary;
 };
 
-function getStatusLabel(course: AdminDashboardCourse) {
+function getStatusLabel(course: AdminDashboardCourseSummary) {
   if (course.status === "archived") {
     return "Archived";
   }
@@ -28,7 +34,7 @@ function getStatusLabel(course: AdminDashboardCourse) {
   return "Draft";
 }
 
-function getStatusTone(course: AdminDashboardCourse) {
+function getStatusTone(course: AdminDashboardCourseSummary) {
   if (course.status === "archived") {
     return "bg-slate-900 text-white";
   }
@@ -45,10 +51,10 @@ export function AdminCoursePreviewPage() {
   const location = useLocation();
   const locationState = location.state as CoursePreviewLocationState | null;
   const stateCourse = locationState?.course ?? null;
-  const initialCourse = stateCourse && stateCourse.id === courseId ? stateCourse : null;
+  const initialCourseSummary = stateCourse && stateCourse.id === courseId ? stateCourse : null;
 
-  const [course, setCourse] = useState<AdminDashboardCourse | null>(initialCourse);
-  const [isLoading, setIsLoading] = useState(initialCourse === null);
+  const [course, setCourse] = useState<AdminDashboardCourse | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -60,13 +66,6 @@ export function AdminCoursePreviewPage() {
 
     const resolvedCourseId = courseId;
 
-    if (initialCourse) {
-      setCourse(initialCourse);
-      setIsLoading(false);
-      setMessage("");
-      return;
-    }
-
     async function hydrateCourse() {
       try {
         const nextCourse = await loadAdminCourseDetailData(resolvedCourseId);
@@ -75,6 +74,7 @@ export function AdminCoursePreviewPage() {
           return;
         }
 
+        primeAdminCourseDetailCache(nextCourse);
         setCourse(nextCourse);
         setMessage("");
       } catch (error) {
@@ -95,7 +95,7 @@ export function AdminCoursePreviewPage() {
     return () => {
       isMounted = false;
     };
-  }, [courseId, initialCourse]);
+  }, [courseId]);
 
   const previewData = useMemo(
     () => (course ? mapAdminDashboardCourseToPreview(course) : null),
@@ -127,6 +127,8 @@ export function AdminCoursePreviewPage() {
     return <Navigate to="/admin/dashboard/courses" replace />;
   }
 
+  const resolvedCourseSummary = course ?? initialCourseSummary;
+
   return (
     <div className="space-y-5">
       <div className="space-y-2">
@@ -146,6 +148,35 @@ export function AdminCoursePreviewPage() {
         </Card>
       ) : null}
 
+      {resolvedCourseSummary ? (
+        <Card className="rounded-[1.75rem] border-cyan-100 bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+          <div className="flex flex-wrap items-center gap-3">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(resolvedCourseSummary)}`}
+            >
+              {getStatusLabel(resolvedCourseSummary)}
+            </span>
+            <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
+              <UserRound className="h-4 w-4 text-slate-400" />
+              <span>{getAdminCourseAuthorName(resolvedCourseSummary)}</span>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
+              <BookOpen className="h-4 w-4 text-slate-400" />
+              <span>{resolvedCourseSummary.moduleCount} modules</span>
+            </div>
+          </div>
+
+          <h1 className="mt-4 text-[2rem] font-black tracking-tight text-[#14213d]">
+            {resolvedCourseSummary.title}
+          </h1>
+          {resolvedCourseSummary.description?.trim() ? (
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
+              {resolvedCourseSummary.description}
+            </p>
+          ) : null}
+        </Card>
+      ) : null}
+
       {isLoading ? (
         <Card className="rounded-[1.5rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
           Loading course preview...
@@ -156,33 +187,6 @@ export function AdminCoursePreviewPage() {
         </Card>
       ) : (
         <>
-          <Card className="rounded-[1.75rem] border-cyan-100 bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-            <div className="flex flex-wrap items-center gap-3">
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(course)}`}
-              >
-                {getStatusLabel(course)}
-              </span>
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                <UserRound className="h-4 w-4 text-slate-400" />
-                <span>{getAdminCourseAuthorName(course)}</span>
-              </div>
-              <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
-                <BookOpen className="h-4 w-4 text-slate-400" />
-                <span>{course.modules.length} modules</span>
-              </div>
-            </div>
-
-            <h1 className="mt-4 text-[2rem] font-black tracking-tight text-[#14213d]">
-              {course.title}
-            </h1>
-            {course.description?.trim() ? (
-              <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-500">
-                {course.description}
-              </p>
-            ) : null}
-          </Card>
-
           <StudentCoursePreview
             currentCourseName={course.title}
             courseThumbnailUrl={previewData.courseThumbnailUrl}

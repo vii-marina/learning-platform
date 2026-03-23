@@ -11,14 +11,21 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { useEffect, useState } from "react";
-import { Link, Navigate, useParams } from "react-router-dom";
+import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
-import { loadAdminTeacherDetailData, saveAdminTeacherProfile } from "../../features/admin-dashboard/api/adminDashboardApi";
+import {
+  loadAdminTeacherDetailData,
+  primeAdminTeacherDetailCache,
+  saveAdminTeacherProfile,
+} from "../../features/admin-dashboard/api/adminDashboardApi";
 import { AdminTeacherAvatar } from "../../features/admin-dashboard/components/AdminTeacherAvatar";
 import type { AdminTeacher, AdminTeacherProfileInput } from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
 
 type TeacherDetailTab = "contact" | "students";
+type TeacherDetailLocationState = {
+  teacher?: AdminTeacher;
+};
 
 function getTeacherDisplayName(teacher: AdminTeacher) {
   return teacher.fullName?.trim() || teacher.email;
@@ -100,18 +107,33 @@ function DetailField({
 
 export function AdminTeacherDetailsPage() {
   const { teacherId } = useParams<{ teacherId: string }>();
-  const [teacher, setTeacher] = useState<AdminTeacher | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const location = useLocation();
+  const locationState = location.state as TeacherDetailLocationState | null;
+  const stateTeacher = locationState?.teacher ?? null;
+  const initialTeacher = stateTeacher && stateTeacher.id === teacherId ? stateTeacher : null;
+  const [teacher, setTeacher] = useState<AdminTeacher | null>(initialTeacher);
+  const [isLoading, setIsLoading] = useState(initialTeacher === null);
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<TeacherDetailTab>("contact");
   const [message, setMessage] = useState("");
-  const [formState, setFormState] = useState<AdminTeacherProfileInput | null>(null);
+  const [formState, setFormState] = useState<AdminTeacherProfileInput | null>(
+    initialTeacher ? toInputState(initialTeacher) : null
+  );
 
   useEffect(() => {
     let isMounted = true;
 
     async function hydrateTeacher() {
       if (!teacherId) {
+        return;
+      }
+
+      if (initialTeacher) {
+        primeAdminTeacherDetailCache(initialTeacher);
+        setTeacher(initialTeacher);
+        setFormState(toInputState(initialTeacher));
+        setIsLoading(false);
+        setMessage("");
         return;
       }
 
@@ -143,7 +165,7 @@ export function AdminTeacherDetailsPage() {
     return () => {
       isMounted = false;
     };
-  }, [teacherId]);
+  }, [initialTeacher, teacherId]);
 
   if (!teacherId) {
     return <Navigate to="/admin/dashboard/teachers" replace />;

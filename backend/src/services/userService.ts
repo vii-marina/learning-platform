@@ -201,6 +201,7 @@ export async function getRequestAuthContext(
     role,
     isAdmin: isAdminRole(role),
     isSuperAdmin: role === "super-admin",
+    createdAt: profile?.created_at ?? adminRecord?.created_at ?? null,
     profileExists: Boolean(profile),
   };
 }

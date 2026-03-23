@@ -5,7 +5,11 @@ import {
   getCourseMediaPublicUrl,
 } from "../../courses/api/courseMediaStorage";
 import type { Lesson, Module } from "../../courses/api";
-import type { AdminDashboardCourse, AdminDashboardTest } from "../types";
+import type {
+  AdminDashboardCourse,
+  AdminDashboardCourseSummary,
+  AdminDashboardTest,
+} from "../types";
 
 function mapAdminTestToCourseTest(test: AdminDashboardTest): CourseTest {
   return {
@@ -19,7 +23,7 @@ function mapAdminTestToCourseTest(test: AdminDashboardTest): CourseTest {
   };
 }
 
-export function getAdminCourseAuthorName(course: AdminDashboardCourse) {
+export function getAdminCourseAuthorName(course: AdminDashboardCourseSummary) {
   return course.teacher?.fullName?.trim() || course.teacher?.email || "No instructor assigned";
 }
 

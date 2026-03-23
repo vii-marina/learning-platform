@@ -1,6 +1,6 @@
 import { BookOpen, FileVideo, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
-import type { AdminDashboardCourse } from "../types";
+import type { AdminDashboardCourseSummary } from "../types";
 import { getAdminCourseAuthorName } from "../lib/adminCoursePreview";
 import {
   getCourseMediaKind,
@@ -8,10 +8,10 @@ import {
 } from "../../courses/api/courseMediaStorage";
 
 type AdminCourseCardProps = {
-  course: AdminDashboardCourse;
+  course: AdminDashboardCourseSummary;
 };
 
-function getStatusLabel(course: AdminDashboardCourse) {
+function getStatusLabel(course: AdminDashboardCourseSummary) {
   if (course.status === "archived") {
     return "Archived";
   }
@@ -23,7 +23,7 @@ function getStatusLabel(course: AdminDashboardCourse) {
   return "Draft";
 }
 
-function getStatusTone(course: AdminDashboardCourse) {
+function getStatusTone(course: AdminDashboardCourseSummary) {
   if (course.status === "archived") {
     return "bg-slate-900/82 text-white";
   }
@@ -94,7 +94,7 @@ export function AdminCourseCard({ course }: AdminCourseCardProps) {
         <div className="mt-auto pt-5">
           <div className="flex items-center justify-between border-t border-slate-100 pt-4">
             <span className="text-sm font-medium text-slate-400">Modules</span>
-            <span className="text-sm font-bold text-[#14213d]">{course.modules.length}</span>
+            <span className="text-sm font-bold text-[#14213d]">{course.moduleCount}</span>
           </div>
         </div>
       </div>

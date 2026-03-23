@@ -5,7 +5,11 @@ import {
   getNormalizedUserById,
   saveProfile,
 } from "./userService";
-import type { PublicRegistrationRole, NormalizedUser } from "../types/auth";
+import type {
+  AuthenticatedRequestContext,
+  NormalizedUser,
+  PublicRegistrationRole,
+} from "../types/auth";
 
 type RegisterProfileInput = {
   userId: string;
@@ -38,12 +42,18 @@ export async function registerProfile(input: RegisterProfileInput): Promise<Norm
   return updatedUser;
 }
 
-export async function getMe(userId: string, email: string): Promise<NormalizedUser> {
-  const currentUser = await getNormalizedUserById(userId, email);
-
-  if (!currentUser) {
+export async function getMe(auth: AuthenticatedRequestContext): Promise<NormalizedUser> {
+  if (!auth.role) {
     throw new AppError(404, "Profile not found for the current user.", "PROFILE_NOT_FOUND");
   }
 
-  return currentUser;
+  return {
+    id: auth.userId,
+    email: auth.email,
+    fullName: auth.fullName,
+    role: auth.role,
+    isAdmin: auth.isAdmin,
+    isSuperAdmin: auth.isSuperAdmin,
+    createdAt: auth.createdAt,
+  };
 }

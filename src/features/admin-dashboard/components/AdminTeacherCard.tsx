@@ -70,6 +70,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
       <div className="mt-6 flex gap-3">
         <Link
           to={`/admin/dashboard/teachers/${teacher.id}`}
+          state={{ teacher }}
           className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[1rem] border border-slate-200 bg-white text-sm font-semibold text-[#14213d] transition hover:border-[#13daec] hover:bg-[#13daec]/6"
         >
           <Pencil className="h-4 w-4" />
