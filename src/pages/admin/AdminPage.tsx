@@ -241,8 +241,7 @@ export function AdminPage() {
               </div>
               {currentUser ? (
                 <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white">
-                  <p className="text-xs uppercase tracking-wide text-slate-300">Signed in as</p>
-                  <p className="mt-2 text-sm font-semibold">{formatUserName(currentUser)}</p>
+\                 <p className="mt-2 text-sm font-semibold">{formatUserName(currentUser)}</p>
                   <p className="mt-1 text-xs text-slate-300">{currentUser.role}</p>
                 </div>
               ) : null}
