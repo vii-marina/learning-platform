@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   getAdminDashboardOverviewHandler,
   getAdminDashboardTeacherHandler,
+  listAdminDashboardStudentsHandler,
   listAdminDashboardTeachersHandler,
 } from "../controllers/adminDashboardController";
 import {
@@ -24,6 +25,7 @@ router.use(requireAuth);
 router.get("/dashboard/overview", requireAdmin, getAdminDashboardOverviewHandler);
 router.get("/dashboard/courses", requireAdmin, listAdminDashboardCoursesHandler);
 router.get("/dashboard/courses/:id", requireAdmin, getAdminDashboardCourseHandler);
+router.get("/dashboard/students", requireAdmin, listAdminDashboardStudentsHandler);
 router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandler);
 router.get("/dashboard/teachers/:id", requireAdmin, getAdminDashboardTeacherHandler);
 router.get("/users", requireAdmin, listUsersHandler);

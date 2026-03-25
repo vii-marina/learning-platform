@@ -11,30 +11,6 @@ type AdminCourseCardProps = {
   course: AdminDashboardCourseSummary;
 };
 
-function getStatusLabel(course: AdminDashboardCourseSummary) {
-  if (course.status === "archived") {
-    return "Archived";
-  }
-
-  if (course.status === "published" || course.is_published) {
-    return "Published";
-  }
-
-  return "Draft";
-}
-
-function getStatusTone(course: AdminDashboardCourseSummary) {
-  if (course.status === "archived") {
-    return "bg-slate-900/82 text-white";
-  }
-
-  if (course.status === "published" || course.is_published) {
-    return "bg-emerald-500 text-white";
-  }
-
-  return "bg-amber-400 text-[#14213d]";
-}
-
 function ThumbnailPlaceholder({
   mediaKind,
 }: {
@@ -67,13 +43,7 @@ export function AdminCourseCard({ course }: AdminCourseCardProps) {
       state={{ course }}
       className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_16px_36px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_24px_50px_rgba(15,23,42,0.1)]"
     >
-      <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
-        <div
-          className={`absolute left-3 top-3 z-10 rounded-full px-3 py-1 text-xs font-bold ${getStatusTone(course)}`}
-        >
-          {getStatusLabel(course)}
-        </div>
-
+      <div className="aspect-[16/10] overflow-hidden bg-slate-100">
         {thumbnailUrl && thumbnailKind === "image" ? (
           <img
             src={thumbnailUrl}

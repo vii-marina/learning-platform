@@ -110,12 +110,17 @@ export function AdminDashboardCoursesPage() {
 
   return (
     <div className="space-y-5">
-      <Card className="rounded-[1.75rem] border-cyan-100 bg-white/90 p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-        <h1 className="text-[2rem] font-black tracking-tight text-slate-900">
-          Course Management
-        </h1>
-        
-      </Card>
+      <div className="flex flex-wrap items-start justify-between gap-4 px-1 py-1">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-slate-900">
+            Course Management
+          </h1>
+          
+        </div>
+        <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
+          Total courses: {courses.length}
+        </div>
+      </div>
 
       {message ? (
         <Card className="rounded-[1.75rem] border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-none">
@@ -152,6 +157,7 @@ export function AdminDashboardCoursesPage() {
               title="Published Courses"
               courses={publishedCourses}
               emptyMessage="No published courses found."
+              tone="published"
             />
           ) : null}
           {draftCourses.length > 0 ? (
@@ -160,6 +166,7 @@ export function AdminDashboardCoursesPage() {
               title="Draft Courses"
               courses={draftCourses}
               emptyMessage="No draft courses found."
+              tone="draft"
             />
           ) : null}
           {archivedCourses.length > 0 ? (
@@ -168,6 +175,7 @@ export function AdminDashboardCoursesPage() {
               title="Archived Courses"
               courses={archivedCourses}
               emptyMessage="No archived courses found."
+              tone="archived"
             />
           ) : null}
         </div>

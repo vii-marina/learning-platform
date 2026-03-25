@@ -1,89 +1,124 @@
 import { Card } from "../../../components/ui/Card";
-import type { CurrentUser } from "../../auth/types";
+import type { AdminDashboardStudent } from "../types";
+import { AdminTeacherAvatar } from "./AdminTeacherAvatar";
 
 type AdminUserDirectoryProps = {
   title: string;
-  users: CurrentUser[];
+  students: AdminDashboardStudent[];
   emptyMessage: string;
 };
 
-function formatUserName(user: CurrentUser) {
-  return user.fullName?.trim() || "Unnamed user";
+function getStudentDisplayName(student: AdminDashboardStudent) {
+  return student.fullName?.trim() || student.email;
 }
 
-function formatDate(value: string | null) {
-  if (!value) {
-    return "Unknown";
+function renderCourseList(courses: string[], emptyLabel: string) {
+  if (courses.length === 0) {
+    return <p className="text-sm text-slate-400">{emptyLabel}</p>;
   }
 
-  return new Intl.DateTimeFormat("uk-UA", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(new Date(value));
+  return (
+    <div className="space-y-2">
+      {courses.map((course) => (
+        <div
+          key={course}
+          className="rounded-[0.95rem] border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
+        >
+          {course}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export function AdminUserDirectory({
   title,
-  users,
+  students,
   emptyMessage,
 }: AdminUserDirectoryProps) {
   return (
     <Card className="rounded-[1.5rem] border-cyan-100 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
       <div className="border-b border-slate-100 px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-black tracking-tight text-slate-900">{title}</h2>
-          </div>
-          <span className="rounded-full bg-cyan-50 px-2.5 py-1 text-xs font-semibold text-cyan-700">
-            {users.length}
-          </span>
-        </div>
+        <h2 className="text-xl font-black tracking-tight text-slate-900">{title}</h2>
       </div>
 
-      {users.length === 0 ? (
+      {students.length === 0 ? (
         <div className="px-5 py-8 text-sm text-slate-500">{emptyMessage}</div>
       ) : (
-        <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
-          {users.map((user) => (
-            <article
-              key={user.id}
-              className="rounded-[1rem] border border-slate-200 bg-slate-50 p-4"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">
-                    {formatUserName(user)}
-                  </h3>
-                  <p className="mt-1 break-all text-sm text-slate-500">{user.email}</p>
-                </div>
-                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-600">
-                  {user.role}
-                </span>
-              </div>
+        <div className="overflow-x-auto">
+          <table className="min-w-[1080px] w-full table-fixed">
+            <thead className="bg-slate-50/80 text-sm text-slate-500">
+              <tr className="border-b border-slate-100">
+                <th className="w-[20rem] px-5 py-4 text-left font-medium">
+                  Full Name
+                </th>
+                <th className="w-[18rem] px-5 py-4 text-left font-medium">
+                  Email
+                </th>
+                <th className="w-[7rem] px-5 py-4 text-left font-medium">
+                  Age
+                </th>
+                <th className="w-[22rem] px-5 py-4 text-left font-medium">
+                  Enrolled Courses
+                </th>
+                <th className="w-[22rem] px-5 py-4 text-left font-medium">
+                  Completed Courses
+                </th>
+              </tr>
+            </thead>
 
-              <dl className="mt-4 space-y-2 text-sm text-slate-600">
-                <div className="flex items-center justify-between gap-4">
-                  <dt>User ID</dt>
-                  <dd className="truncate font-medium text-slate-900">{user.id}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Created</dt>
-                  <dd className="font-medium text-slate-900">{formatDate(user.createdAt)}</dd>
-                </div>
-                <div className="flex items-center justify-between gap-4">
-                  <dt>Access</dt>
-                  <dd className="font-medium text-slate-900">
-                    {user.isSuperAdmin
-                      ? "Super-admin"
-                      : user.isAdmin
-                        ? "Admin"
-                        : "Standard"}
-                  </dd>
-                </div>
-              </dl>
-            </article>
-          ))}
+            <tbody>
+              {students.map((student) => {
+                const displayName = getStudentDisplayName(student);
+
+                return (
+                  <tr
+                    key={student.id}
+                    className="border-b border-slate-100 transition hover:bg-cyan-50/40 last:border-b-0"
+                  >
+                    <td className="px-5 py-4 align-middle">
+                      <div className="flex items-center gap-3">
+                        <AdminTeacherAvatar
+                          name={displayName}
+                          imageUrl={student.avatarUrl}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <p className="break-words text-sm font-bold text-slate-900">
+                            {displayName}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+
+                    <td className="px-5 py-4 align-middle">
+                      <p className="break-all text-sm text-slate-600">{student.email}</p>
+                    </td>
+
+                    <td className="px-5 py-4 align-middle">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {student.age ?? "-"}
+                      </p>
+                    </td>
+
+                    <td className="px-5 py-4 align-middle">
+                      {renderCourseList(
+                        student.enrolledCourses,
+                        "No enrolled courses yet"
+                      )}
+                    </td>
+
+                    <td className="px-5 py-4 align-middle">
+                      {renderCourseList(
+                        student.completedCourses,
+                        "No completed courses yet"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </Card>

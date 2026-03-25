@@ -78,6 +78,13 @@ export type AdminTeacher = CurrentUser & {
   draftCourseCount: number;
 };
 
+export type AdminDashboardStudent = CurrentUser & {
+  avatarUrl: string | null;
+  age: number | null;
+  enrolledCourses: string[];
+  completedCourses: string[];
+};
+
 export type AdminTeacherProfileInput = {
   fullName: string;
 };

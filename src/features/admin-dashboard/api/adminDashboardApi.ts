@@ -1,10 +1,11 @@
-import { listAdminUsers, listStudents, updateAdminUser } from "../../auth/api/authApi";
+import { listAdminUsers, updateAdminUser } from "../../auth/api/authApi";
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
 import type {
   AdminDashboardCourse,
   AdminDashboardCourseSummary,
   AdminDashboardOverviewData,
   AdminDashboardSettingsData,
+  AdminDashboardStudent,
   AdminTeacher,
   AdminTeacherProfileInput,
 } from "../types";
@@ -15,6 +16,10 @@ type AdminOverviewResponse = {
 
 type AdminTeachersResponse = {
   teachers: AdminTeacher[];
+};
+
+type AdminStudentsResponse = {
+  students: AdminDashboardStudent[];
 };
 
 type AdminTeacherResponse = {
@@ -139,8 +144,16 @@ export async function loadAdminTeachersData() {
   return response.teachers;
 }
 
-export async function loadAdminStudentsData() {
-  return loadCachedDashboardValue("students:list", () => listStudents());
+export async function loadAdminStudentsData(): Promise<AdminDashboardStudent[]> {
+  const response = await loadCachedDashboardValue(
+    "students:list",
+    () =>
+      authorizedBackendRequest<AdminStudentsResponse>(
+        "/admin/dashboard/students"
+      )
+  );
+
+  return response.students;
 }
 
 export async function loadAdminTeacherDetailData(teacherId: string) {

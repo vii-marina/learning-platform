@@ -1,6 +1,7 @@
 type AdminTeacherAvatarProps = {
   name: string;
   size?: "sm" | "md" | "lg";
+  imageUrl?: string | null;
 };
 
 const sizeClasses = {
@@ -26,15 +27,22 @@ function getInitials(name: string) {
 export function AdminTeacherAvatar({
   name,
   size = "md",
+  imageUrl = null,
 }: AdminTeacherAvatarProps) {
   const classes = sizeClasses[size];
 
   return (
     <div
-      className={`flex items-center justify-center rounded-full border-4 border-[#dbeafe] bg-[linear-gradient(135deg,#13daec_0%,#7c3aed_100%)] font-black text-white ${classes}`}
+      className={`overflow-hidden rounded-full border-4 border-[#dbeafe] bg-[linear-gradient(135deg,#13daec_0%,#7c3aed_100%)] ${classes}`}
       aria-hidden="true"
     >
-      {getInitials(name)}
+      {imageUrl ? (
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center font-black text-white">
+          {getInitials(name)}
+        </div>
+      )}
     </div>
   );
 }

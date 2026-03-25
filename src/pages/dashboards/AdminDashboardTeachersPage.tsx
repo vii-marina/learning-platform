@@ -74,12 +74,15 @@ export function AdminDashboardTeachersPage() {
 
   return (
     <div className="space-y-5">
-      <Card className="rounded-[1.75rem] border-cyan-100  p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-        <h1 className="text-3xl font-black tracking-tight text-[#14213d]">Teachers</h1>
-        <p className="mt-2 text-sm leading-6 text-slate-500">
-          Showing {filteredTeachers.length} of {teachers.length} teachers
-        </p>
-      </Card>
+      <div className="flex flex-wrap items-start justify-between gap-4 px-1 py-1">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight text-[#14213d]">Teachers</h1>
+          
+        </div>
+        <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
+          Total teachers: {teachers.length}
+        </div>
+      </div>
 
       {message ? (
         <Card className="rounded-[1.75rem] border-amber-200 bg-amber-50 p-6 text-amber-800 shadow-none">
