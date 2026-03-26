@@ -10,6 +10,7 @@ import {
   AdminTeacherDetailsPage,
   CourseBuilderWorkspacePage,
   DashboardPage,
+  EmailConfirmedPage,
   LandingPage,
   LoginPage,
   RegisterPage,
@@ -22,6 +23,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/email-confirmed" element={<EmailConfirmedPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />

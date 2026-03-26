@@ -1,5 +1,5 @@
 export { LandingPage } from "./landing";
-export { LoginPage, RegisterPage } from "./auth";
+export { EmailConfirmedPage, LoginPage, RegisterPage } from "./auth";
 export { DashboardPage } from "./dashboard";
 export {
   AdminCoursePreviewPage,

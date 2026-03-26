@@ -64,6 +64,12 @@ export function RegisterPage() {
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
+        options: {
+          emailRedirectTo: new URL(
+            "/email-confirmed",
+            window.location.origin
+          ).toString(),
+        },
       });
 
       if (error) {
@@ -180,7 +186,7 @@ export function RegisterPage() {
               <School className="h-4 w-4" />
             </span>
             <span className="text-xl font-extrabold tracking-tight md:text-2xl">
-              EduPlatform
+              Learning Platform
             </span>
           </Link>
           <div className="flex items-center gap-4">

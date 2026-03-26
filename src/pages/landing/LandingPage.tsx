@@ -40,8 +40,7 @@ export function LandingPage() {
                       </a>
                     </div>
                   </div>
-                </Card>
-
+            </Card>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             {[

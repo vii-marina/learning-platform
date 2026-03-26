@@ -97,7 +97,7 @@ export function LoginPage() {
               <School className="h-4 w-4" />
             </span>
             <span className="text-xl font-extrabold tracking-tight md:text-2xl">
-              EduPlatform
+              Learning Platform
             </span>
           </Link>
           <nav className="flex items-center gap-5">
