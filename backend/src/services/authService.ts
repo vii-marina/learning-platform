@@ -2,6 +2,7 @@ import { AppError } from "../lib/appError";
 import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import {
+  ensureStudentProfile,
   ensureTeacherProfile,
   getNormalizedUserById,
   saveProfile,
@@ -20,7 +21,6 @@ type RegisterProfileInput = {
 };
 
 type TeacherProfileFields = {
-  fullName: string | null;
   headline: string | null;
   bio: string | null;
   specialization: string | null;
@@ -33,15 +33,28 @@ type TeacherProfileFields = {
   githubUrl: string | null;
 };
 
-type CurrentAuthenticatedUser = NormalizedUser & Partial<TeacherProfileFields>;
+type StudentProfileFields = {
+  avatarPath: string | null;
+  githubUrl: string | null;
+  linkedinUrl: string | null;
+  educationPlace: string | null;
+  bio: string | null;
+  birthDate: string | null;
+};
+
+type CurrentAuthenticatedUser = NormalizedUser &
+  Partial<TeacherProfileFields> &
+  Partial<StudentProfileFields>;
 
 type UpdateCurrentUserProfileInput = {
+  email?: string;
   fullName?: string;
   headline?: string | null;
   bio?: string | null;
   specialization?: string | null;
   experienceYears?: number | null;
   education?: string | null;
+  educationPlace?: string | null;
   gender?: "male" | "female" | "other" | null;
   birthDate?: string | null;
   avatarPath?: string | null;
@@ -107,6 +120,56 @@ function pickNumberValue(record: Record<string, unknown> | null | undefined, key
   return null;
 }
 
+function normalizeEmailValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isDuplicateEmailError(error: BackendError) {
+  const message = error.message.toLowerCase();
+
+  return (
+    message.includes("already been registered") ||
+    message.includes("already exists") ||
+    message.includes("already in use") ||
+    message.includes("email exists")
+  );
+}
+
+async function updateAuthUserEmail(userId: string, email: string) {
+  const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    email,
+  });
+
+  if (!error) {
+    return;
+  }
+
+  if (isDuplicateEmailError(error)) {
+    throw new AppError(
+      400,
+      "This email is already in use.",
+      "EMAIL_ALREADY_IN_USE",
+      {
+        formErrors: ["Use a different email address and try again."],
+        fieldErrors: {
+          email: ["This email is already in use."],
+        },
+      }
+    );
+  }
+
+  throw new AppError(
+    500,
+    `Unable to update email: ${error.message}`,
+    "AUTH_EMAIL_UPDATE_FAILED",
+    {
+      fieldErrors: {
+        email: [error.message],
+      },
+    }
+  );
+}
+
 async function getTeacherProfileRecord(userId: string) {
   const { data, error } = await supabaseAdmin
     .from("teacher_profiles")
@@ -129,11 +192,32 @@ async function getTeacherProfileRecord(userId: string) {
   return (data as Record<string, unknown> | null) ?? null;
 }
 
+async function getStudentProfileRecord(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("student_profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingOptionalRelationError(error, "student_profiles")) {
+      return null;
+    }
+
+    throw new AppError(
+      500,
+      `Unable to load student profile: ${error.message}`,
+      "STUDENT_PROFILE_FETCH_FAILED"
+    );
+  }
+
+  return (data as Record<string, unknown> | null) ?? null;
+}
+
 function getTeacherProfileFields(
   teacherProfile: Record<string, unknown> | null
 ): TeacherProfileFields {
   return {
-    fullName: pickStringValue(teacherProfile, ["full_name", "fullName"]),
     headline: pickStringValue(teacherProfile, ["headline"]),
     bio: pickStringValue(teacherProfile, ["bio"]),
     specialization: pickStringValue(teacherProfile, ["specialization"]),
@@ -150,8 +234,28 @@ function getTeacherProfileFields(
   };
 }
 
+function getStudentProfileFields(
+  studentProfile: Record<string, unknown> | null
+): StudentProfileFields {
+  return {
+    avatarPath: pickStringValue(studentProfile, ["avatar_path", "avatarPath"]),
+    githubUrl: pickStringValue(studentProfile, ["github_url", "githubUrl"]),
+    linkedinUrl: pickStringValue(studentProfile, ["linkedin_url", "linkedinUrl"]),
+    educationPlace: pickStringValue(studentProfile, [
+      "education_place",
+      "educationPlace",
+    ]),
+    bio: pickStringValue(studentProfile, ["bio"]),
+    birthDate: pickStringValue(studentProfile, ["birth_date", "birthDate"]),
+  };
+}
+
 function assertTeacherProfileRequirements(input: UpdateCurrentUserProfileInput) {
   const fieldErrors: Record<string, string[]> = {};
+
+  if (!input.email?.trim()) {
+    fieldErrors.email = ["Email is required."];
+  }
 
   if (!input.fullName?.trim()) {
     fieldErrors.fullName = ["Full name is required."];
@@ -186,6 +290,30 @@ function assertTeacherProfileRequirements(input: UpdateCurrentUserProfileInput) 
   }
 }
 
+function assertStudentProfileRequirements(input: UpdateCurrentUserProfileInput) {
+  const fieldErrors: Record<string, string[]> = {};
+
+  if (!input.email?.trim()) {
+    fieldErrors.email = ["Email is required."];
+  }
+
+  if (!input.fullName?.trim()) {
+    fieldErrors.fullName = ["Full name is required."];
+  }
+
+  if (Object.keys(fieldErrors).length > 0) {
+    throw new AppError(
+      400,
+      "Complete all required fields before saving.",
+      "STUDENT_PROFILE_REQUIRED_FIELDS",
+      {
+        formErrors: ["Complete all required fields before saving."],
+        fieldErrors,
+      }
+    );
+  }
+}
+
 async function patchTeacherProfile(
   userId: string,
   input: Partial<UpdateCurrentUserProfileInput>
@@ -193,10 +321,6 @@ async function patchTeacherProfile(
   await ensureTeacherProfile(userId);
 
   const payload: Record<string, string | number | null> = {};
-
-  if ("fullName" in input) {
-    payload.full_name = input.fullName?.trim() ?? null;
-  }
 
   if ("headline" in input) {
     payload.headline = input.headline?.trim() ?? null;
@@ -256,6 +380,56 @@ async function patchTeacherProfile(
   }
 }
 
+async function patchStudentProfile(
+  userId: string,
+  input: Partial<UpdateCurrentUserProfileInput>
+) {
+  await ensureStudentProfile(userId);
+
+  const payload: Record<string, string | null> = {};
+
+  if ("bio" in input) {
+    payload.bio = input.bio?.trim() ?? null;
+  }
+
+  if ("educationPlace" in input) {
+    payload.education_place = input.educationPlace?.trim() ?? null;
+  }
+
+  if ("birthDate" in input) {
+    payload.birth_date = input.birthDate?.trim() ?? null;
+  }
+
+  if ("avatarPath" in input) {
+    payload.avatar_path = input.avatarPath?.trim() ?? null;
+  }
+
+  if ("linkedinUrl" in input) {
+    payload.linkedin_url = input.linkedinUrl?.trim() ?? null;
+  }
+
+  if ("githubUrl" in input) {
+    payload.github_url = input.githubUrl?.trim() ?? null;
+  }
+
+  if (Object.keys(payload).length === 0) {
+    return;
+  }
+
+  const { error } = await supabaseAdmin
+    .from("student_profiles")
+    .update(payload)
+    .eq("id", userId);
+
+  if (error) {
+    throw new AppError(
+      500,
+      `Unable to update student profile: ${error.message}`,
+      "STUDENT_PROFILE_UPDATE_FAILED"
+    );
+  }
+}
+
 export async function registerProfile(input: RegisterProfileInput): Promise<NormalizedUser> {
   const existingUser = await getNormalizedUserById(input.userId, input.email);
   const nextRole = existingUser && isAdminRole(existingUser.role) ? existingUser.role : input.role;
@@ -268,7 +442,9 @@ export async function registerProfile(input: RegisterProfileInput): Promise<Norm
   });
 
   if (nextRole === "teacher") {
-    await patchTeacherProfile(input.userId, { fullName: input.fullName });
+    await ensureTeacherProfile(input.userId);
+  } else if (nextRole === "student") {
+    await ensureStudentProfile(input.userId);
   }
 
   const updatedUser = await getNormalizedUserById(input.userId, input.email);
@@ -287,20 +463,26 @@ export async function getMe(
     throw new AppError(404, "Profile not found for the current user.", "PROFILE_NOT_FOUND");
   }
 
+  const currentUser = await getNormalizedUserById(auth.userId, auth.email);
+
+  if (!currentUser) {
+    throw new AppError(404, "Profile not found for the current user.", "PROFILE_NOT_FOUND");
+  }
+
   const teacherProfile =
-    auth.role === "teacher" ? await getTeacherProfileRecord(auth.userId) : null;
+    currentUser.role === "teacher" ? await getTeacherProfileRecord(auth.userId) : null;
   const teacherProfileFields =
-    auth.role === "teacher" ? getTeacherProfileFields(teacherProfile) : null;
+    currentUser.role === "teacher" ? getTeacherProfileFields(teacherProfile) : null;
+  const studentProfile =
+    currentUser.role === "student" ? await getStudentProfileRecord(auth.userId) : null;
+  const studentProfileFields =
+    currentUser.role === "student" ? getStudentProfileFields(studentProfile) : null;
 
   return {
-    id: auth.userId,
-    email: auth.email,
-    fullName: auth.fullName ?? teacherProfileFields?.fullName ?? null,
-    role: auth.role,
-    isAdmin: auth.isAdmin,
-    isSuperAdmin: auth.isSuperAdmin,
-    createdAt: auth.createdAt,
+    ...currentUser,
+    fullName: currentUser.fullName ?? null,
     ...(teacherProfileFields ?? {}),
+    ...(studentProfileFields ?? {}),
   };
 }
 
@@ -312,14 +494,25 @@ export async function updateCurrentUserProfile(
     throw new AppError(404, "Profile not found for the current user.", "PROFILE_NOT_FOUND");
   }
 
-  const teacherProfile =
-    auth.role === "teacher" ? await getTeacherProfileRecord(auth.userId) : null;
-  const teacherProfileFields =
-    auth.role === "teacher" ? getTeacherProfileFields(teacherProfile) : null;
+  const currentUser = await getNormalizedUserById(auth.userId, auth.email);
 
-  if (auth.role === "teacher") {
+  if (!currentUser) {
+    throw new AppError(404, "Profile not found for the current user.", "PROFILE_NOT_FOUND");
+  }
+
+  const teacherProfile =
+    currentUser.role === "teacher" ? await getTeacherProfileRecord(auth.userId) : null;
+  const teacherProfileFields =
+    currentUser.role === "teacher" ? getTeacherProfileFields(teacherProfile) : null;
+  const studentProfile =
+    currentUser.role === "student" ? await getStudentProfileRecord(auth.userId) : null;
+  const studentProfileFields =
+    currentUser.role === "student" ? getStudentProfileFields(studentProfile) : null;
+
+  if (currentUser.role === "teacher") {
     assertTeacherProfileRequirements({
-      fullName: input.fullName ?? auth.fullName ?? teacherProfileFields?.fullName ?? undefined,
+      email: input.email ?? currentUser.email ?? undefined,
+      fullName: input.fullName ?? currentUser.fullName ?? undefined,
       headline: input.headline ?? teacherProfileFields?.headline ?? undefined,
       bio: input.bio ?? teacherProfileFields?.bio ?? undefined,
       specialization: input.specialization ?? teacherProfileFields?.specialization ?? undefined,
@@ -332,26 +525,50 @@ export async function updateCurrentUserProfile(
       linkedinUrl: input.linkedinUrl ?? teacherProfileFields?.linkedinUrl ?? undefined,
       githubUrl: input.githubUrl ?? teacherProfileFields?.githubUrl ?? undefined,
     });
+  } else if (currentUser.role === "student") {
+    assertStudentProfileRequirements({
+      email: input.email ?? currentUser.email ?? undefined,
+      fullName: input.fullName ?? currentUser.fullName ?? undefined,
+      bio: input.bio ?? studentProfileFields?.bio ?? undefined,
+      educationPlace: input.educationPlace ?? studentProfileFields?.educationPlace ?? undefined,
+      birthDate: input.birthDate ?? studentProfileFields?.birthDate ?? undefined,
+      avatarPath: input.avatarPath ?? studentProfileFields?.avatarPath ?? undefined,
+      linkedinUrl: input.linkedinUrl ?? studentProfileFields?.linkedinUrl ?? undefined,
+      githubUrl: input.githubUrl ?? studentProfileFields?.githubUrl ?? undefined,
+    });
   }
 
+  const nextEmail =
+    input.email === undefined ? currentUser.email : normalizeEmailValue(input.email);
   const nextFullName =
-    input.fullName === undefined ? auth.fullName : input.fullName.trim();
+    input.fullName === undefined ? currentUser.fullName : input.fullName.trim();
+
+  if (nextEmail !== currentUser.email) {
+    await updateAuthUserEmail(auth.userId, nextEmail);
+  }
 
   await saveProfile({
     id: auth.userId,
-    email: auth.email,
+    email: nextEmail,
     full_name: nextFullName ?? null,
-    role: auth.role,
+    role: currentUser.role,
   });
 
-  if (auth.role === "teacher") {
+  if (currentUser.role === "teacher") {
     await patchTeacherProfile(auth.userId, {
       ...input,
+      email: nextEmail,
+      fullName: nextFullName ?? undefined,
+    });
+  } else if (currentUser.role === "student") {
+    await patchStudentProfile(auth.userId, {
+      ...input,
+      email: nextEmail,
       fullName: nextFullName ?? undefined,
     });
   }
 
-  const updatedUser = await getNormalizedUserById(auth.userId, auth.email);
+  const updatedUser = await getNormalizedUserById(auth.userId, nextEmail);
 
   if (!updatedUser) {
     throw new AppError(
@@ -365,10 +582,15 @@ export async function updateCurrentUserProfile(
     updatedUser.role === "teacher" ? await getTeacherProfileRecord(updatedUser.id) : null;
   const updatedTeacherProfileFields =
     updatedUser.role === "teacher" ? getTeacherProfileFields(updatedTeacherProfile) : null;
+  const updatedStudentProfile =
+    updatedUser.role === "student" ? await getStudentProfileRecord(updatedUser.id) : null;
+  const updatedStudentProfileFields =
+    updatedUser.role === "student" ? getStudentProfileFields(updatedStudentProfile) : null;
 
   return {
     ...updatedUser,
-    fullName: updatedUser.fullName ?? updatedTeacherProfileFields?.fullName ?? null,
+    fullName: updatedUser.fullName ?? null,
     ...(updatedTeacherProfileFields ?? {}),
+    ...(updatedStudentProfileFields ?? {}),
   };
 }

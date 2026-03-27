@@ -9,6 +9,7 @@ export {
   AdminDashboardSettingsPage,
   AdminDashboardStudentsPage,
   AdminDashboardTeachersPage,
+  AdminStudentDetailsPage,
   AdminTeacherDetailsPage,
   StudentDashboardPage,
   TeacherDashboardPage,

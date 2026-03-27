@@ -1,28 +1,21 @@
 import {
-  Briefcase,
+  BookOpen,
   Camera,
   Mail,
-  Mars,
   Pencil,
   RotateCcw,
   UserRound,
-  Venus,
-  VenusAndMars,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
-import type {
-  CurrentUser,
-  TeacherProfileGender,
-  UpdateCurrentUserProfileInput,
-} from "../../auth/types";
-import { getTeacherAvatarPublicUrl } from "../api/teacherProfileStorage";
+import type { CurrentUser, UpdateCurrentUserProfileInput } from "../../auth/types";
+import { getStudentAvatarPublicUrl } from "../api/studentProfileStorage";
 
-type TeacherDashboardProfileProps = {
-  teacher: CurrentUser;
+type StudentDashboardProfileProps = {
+  student: CurrentUser;
   isSaving: boolean;
   onSave: (
     input: UpdateCurrentUserProfileInput,
@@ -36,16 +29,12 @@ type TeacherDashboardProfileProps = {
   onClearSaveMessage: () => void;
 };
 
-type TeacherProfileFormState = {
+type StudentProfileFormState = {
   email: string;
   fullName: string;
-  headline: string;
-  bio: string;
-  specialization: string;
-  experienceYears: string;
-  education: string;
-  gender: TeacherProfileGender | "";
+  educationPlace: string;
   birthDate: string;
+  bio: string;
   avatarPath: string;
   linkedinUrl: string;
   githubUrl: string;
@@ -58,8 +47,8 @@ type FlattenedErrorDetails = {
   fieldErrors: Record<string, string[]>;
 };
 
-function getTeacherDisplayName(teacher: CurrentUser) {
-  return teacher.fullName?.trim() || teacher.email;
+function getStudentDisplayName(student: CurrentUser) {
+  return student.fullName?.trim() || student.email;
 }
 
 function normalizeOptionalText(value: string) {
@@ -67,34 +56,16 @@ function normalizeOptionalText(value: string) {
   return trimmed ? trimmed : null;
 }
 
-function normalizeExperienceYears(value: string) {
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return null;
-  }
-
-  const parsed = Number(trimmed);
-  return Number.isInteger(parsed) && parsed >= 0 ? parsed : null;
-}
-
-function toFormState(teacher: CurrentUser): TeacherProfileFormState {
+function toFormState(student: CurrentUser): StudentProfileFormState {
   return {
-    email: teacher.email,
-    fullName: teacher.fullName ?? "",
-    headline: teacher.headline ?? "",
-    bio: teacher.bio ?? "",
-    specialization: teacher.specialization ?? "",
-    experienceYears:
-      teacher.experienceYears === null || teacher.experienceYears === undefined
-        ? ""
-        : String(teacher.experienceYears),
-    education: teacher.education ?? "",
-    gender: teacher.gender ?? "",
-    birthDate: teacher.birthDate ?? "",
-    avatarPath: teacher.avatarPath ?? "",
-    linkedinUrl: teacher.linkedinUrl ?? "",
-    githubUrl: teacher.githubUrl ?? "",
+    email: student.email,
+    fullName: student.fullName ?? "",
+    educationPlace: student.educationPlace ?? "",
+    birthDate: student.birthDate ?? "",
+    bio: student.bio ?? "",
+    avatarPath: student.avatarPath ?? "",
+    linkedinUrl: student.linkedinUrl ?? "",
+    githubUrl: student.githubUrl ?? "",
   };
 }
 
@@ -157,14 +128,6 @@ function getUrlStatus(value: string): FieldStatus {
   }
 
   return isValidUrlValue(value.trim()) ? "valid" : "invalid";
-}
-
-function getExperienceStatus(value: string): FieldStatus {
-  if (!value.trim()) {
-    return "neutral";
-  }
-
-  return normalizeExperienceYears(value) !== null ? "valid" : "invalid";
 }
 
 function getFieldFrameClasses(status: FieldStatus) {
@@ -257,7 +220,7 @@ function FieldLabel({
     <div className="mb-1.5 flex items-center gap-2">
       <label className="text-sm font-bold text-[#14213d]">{label}</label>
       <span
-        className={`rounded-full px-2 py-0.5 text-[12px]  tracking-[0.16em] ${
+        className={`rounded-full px-2 py-0.5 text-[12px] font-bold tracking-[0.16em] ${
           required
             ? "bg-[#13daec]/10 text-[#08bfd4]"
             : "bg-slate-100 text-slate-500"
@@ -285,7 +248,6 @@ function TextField({
   placeholder,
   status,
   type = "text",
-  min,
   icon: Icon = Pencil,
 }: {
   label: string;
@@ -294,8 +256,7 @@ function TextField({
   onChange: (value: string) => void;
   placeholder: string;
   status: FieldStatus;
-  type?: "text" | "url" | "number" | "date" | "email";
-  min?: number;
+  type?: "text" | "url" | "date" | "email";
   icon?: LucideIcon;
 }) {
   return (
@@ -309,7 +270,6 @@ function TextField({
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          min={min}
           className="h-10 w-full bg-transparent px-3 pr-10 text-sm font-medium text-[#14213d] outline-none placeholder:text-slate-400"
         />
         <Icon
@@ -347,77 +307,30 @@ function TextAreaField({
           placeholder={placeholder}
           className="min-h-10 w-full resize-y bg-transparent px-3 py-2.5 pr-10 text-sm font-medium text-[#14213d] outline-none placeholder:text-slate-400"
         />
-        
       </div>
     </FieldShell>
   );
 }
 
-function GenderField({
-  value,
-  onChange,
-}: {
-  value: TeacherProfileGender | "";
-  onChange: (value: TeacherProfileGender | "") => void;
-}) {
-  const options: Array<{
-    value: TeacherProfileGender;
-    label: string;
-    icon: LucideIcon;
-  }> = [
-    { value: "male", label: "Male", icon: Mars },
-    { value: "female", label: "Female", icon: Venus },
-    { value: "other", label: "Other", icon: VenusAndMars },
-  ];
-
-  return (
-    <FieldShell>
-      <FieldLabel label="Gender" required />
-      <div className="grid grid-cols-3 gap-2">
-        {options.map((option) => {
-          const Icon = option.icon;
-          const isActive = value === option.value;
-
-          return (
-            <button
-              key={option.value}
-              type="button"
-              onClick={() => onChange(option.value)}
-              className={`flex h-10 items-center justify-center gap-2 rounded-[0.9rem] border text-sm font-semibold transition ${
-                isActive
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.08)]"
-                  : "border-slate-200 bg-transparent text-slate-500 hover:border-[#13daec]/40 hover:text-[#14213d]"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              <span>{option.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </FieldShell>
-  );
-}
-
-export function TeacherDashboardProfile({
-  teacher,
+export function StudentDashboardProfile({
+  student,
   isSaving,
   onSave,
   saveMessage,
   onClearSaveMessage,
-}: TeacherDashboardProfileProps) {
-  const [formState, setFormState] = useState<TeacherProfileFormState>(() =>
-    toFormState(teacher)
+}: StudentDashboardProfileProps) {
+  const [formState, setFormState] = useState<StudentProfileFormState>(() =>
+    toFormState(student)
   );
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState("");
 
   useEffect(() => {
-    setFormState(toFormState(teacher));
+    setFormState(toFormState(student));
     setAvatarFile(null);
     setAvatarError("");
-  }, [teacher]);
+  }, [student]);
 
   useEffect(() => {
     if (!avatarFile) {
@@ -434,80 +347,57 @@ export function TeacherDashboardProfile({
   }, [avatarFile]);
 
   const avatarImageUrl =
-    avatarPreviewUrl ?? getTeacherAvatarPublicUrl(formState.avatarPath);
+    avatarPreviewUrl ?? getStudentAvatarPublicUrl(formState.avatarPath);
 
   const emailStatus = getEmailStatus(formState.email);
   const fullNameStatus = getRequiredTextStatus(formState.fullName);
-  const educationStatus = getRequiredTextStatus(formState.education);
+  const educationPlaceStatus = getOptionalTextStatus(formState.educationPlace);
   const birthDateStatus = getDateStatus(formState.birthDate);
-  const headlineStatus = getRequiredTextStatus(formState.headline);
   const bioStatus = getOptionalTextStatus(formState.bio);
-  const specializationStatus = getOptionalTextStatus(formState.specialization);
-  const experienceStatus = getExperienceStatus(formState.experienceYears);
   const linkedinStatus = getUrlStatus(formState.linkedinUrl);
   const githubStatus = getUrlStatus(formState.githubUrl);
-  const genderStatus: FieldStatus = formState.gender ? "valid" : "neutral";
 
   const normalizedInput: UpdateCurrentUserProfileInput = {
     email: formState.email.trim(),
     fullName: formState.fullName.trim(),
-    headline: formState.headline.trim(),
-    bio: normalizeOptionalText(formState.bio),
-    specialization: normalizeOptionalText(formState.specialization),
-    experienceYears: normalizeExperienceYears(formState.experienceYears),
-    education: formState.education.trim(),
-    gender: formState.gender || null,
+    educationPlace: normalizeOptionalText(formState.educationPlace),
     birthDate: formState.birthDate || null,
-    avatarPath: teacher.avatarPath ?? null,
+    bio: normalizeOptionalText(formState.bio),
+    avatarPath: student.avatarPath ?? null,
     linkedinUrl: normalizeOptionalText(formState.linkedinUrl),
     githubUrl: normalizeOptionalText(formState.githubUrl),
   };
 
   const hasRequiredFields =
     emailStatus === "valid" &&
-    fullNameStatus === "valid" &&
-    educationStatus === "valid" &&
-    genderStatus === "valid" &&
-    birthDateStatus === "valid" &&
-    headlineStatus === "valid";
-
+    fullNameStatus === "valid";
   const hasValidationErrors =
     emailStatus === "invalid" ||
     birthDateStatus === "invalid" ||
-    experienceStatus === "invalid" ||
     linkedinStatus === "invalid" ||
     githubStatus === "invalid";
 
   const missingRequiredFields = [
     ...(emailStatus === "valid" ? [] : ["Email"]),
     ...(fullNameStatus === "valid" ? [] : ["Full name"]),
-    ...(educationStatus === "valid" ? [] : ["Education"]),
-    ...(genderStatus === "valid" ? [] : ["Gender"]),
-    ...(birthDateStatus === "valid" ? [] : ["Birth date"]),
-    ...(headlineStatus === "valid" ? [] : ["Headline"]),
   ];
 
   const invalidFields = [
     ...(emailStatus === "invalid" ? ["Email"] : []),
     ...(birthDateStatus === "invalid" ? ["Birth date"] : []),
-    ...(experienceStatus === "invalid" ? ["Experience years"] : []),
     ...(linkedinStatus === "invalid" ? ["LinkedIn URL"] : []),
     ...(githubStatus === "invalid" ? ["GitHub URL"] : []),
   ];
 
   const hasChanges =
     avatarFile !== null ||
-    normalizedInput.email !== teacher.email ||
-    normalizedInput.fullName !== (teacher.fullName?.trim() ?? "") ||
-    normalizedInput.headline !== (teacher.headline?.trim() ?? "") ||
-    normalizedInput.bio !== (teacher.bio ?? null) ||
-    normalizedInput.specialization !== (teacher.specialization ?? null) ||
-    normalizedInput.experienceYears !== (teacher.experienceYears ?? null) ||
-    normalizedInput.education !== (teacher.education?.trim() ?? "") ||
-    normalizedInput.gender !== (teacher.gender ?? null) ||
-    normalizedInput.birthDate !== (teacher.birthDate ?? null) ||
-    normalizedInput.linkedinUrl !== (teacher.linkedinUrl ?? null) ||
-    normalizedInput.githubUrl !== (teacher.githubUrl ?? null);
+    normalizedInput.email !== student.email ||
+    normalizedInput.fullName !== (student.fullName?.trim() ?? "") ||
+    normalizedInput.educationPlace !== (student.educationPlace ?? null) ||
+    normalizedInput.birthDate !== (student.birthDate ?? null) ||
+    normalizedInput.bio !== (student.bio ?? null) ||
+    normalizedInput.linkedinUrl !== (student.linkedinUrl ?? null) ||
+    normalizedInput.githubUrl !== (student.githubUrl ?? null);
 
   const saveMessageDetails = getFlattenedErrorDetails(saveMessage?.details);
   const saveMessageExtraLines = [
@@ -521,9 +411,9 @@ export function TeacherDashboardProfile({
     return messages.indexOf(message) === index;
   });
 
-  function updateField<K extends keyof TeacherProfileFormState>(
+  function updateField<K extends keyof StudentProfileFormState>(
     key: K,
-    value: TeacherProfileFormState[K]
+    value: StudentProfileFormState[K]
   ) {
     onClearSaveMessage();
     setFormState((prev) => ({ ...prev, [key]: value }));
@@ -531,7 +421,7 @@ export function TeacherDashboardProfile({
 
   function resetDraft() {
     onClearSaveMessage();
-    setFormState(toFormState(teacher));
+    setFormState(toFormState(student));
     setAvatarFile(null);
     setAvatarError("");
   }
@@ -543,24 +433,24 @@ export function TeacherDashboardProfile({
           Profile Settings
         </h1>
         <p className="max-w-3xl text-sm leading-6 text-slate-500">
-          Manage your public identity and professional information for the
-          learning platform.
+          Manage your public identity and student information for the learning
+          platform.
         </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[15.5rem_minmax(0,1fr)]">
-        <Card className=" p-4 shadow-none">
+        <Card className="p-4 shadow-none">
           <div className="flex flex-col items-center text-center">
             <AdminTeacherAvatar
-              name={getTeacherDisplayName(teacher)}
+              name={getStudentDisplayName(student)}
               imageUrl={avatarImageUrl}
               size="lg"
             />
             <h2 className="mt-4 text-[2rem] font-black tracking-tight text-[#14213d]">
-              {formState.fullName.trim() || getTeacherDisplayName(teacher)}
+              {formState.fullName.trim() || getStudentDisplayName(student)}
             </h2>
-            <p className="mt-1 text-m font-bold   text-[#08bfd4]">
-              {formState.headline.trim() || "Teacher"}
+            <p className="mt-1 text-sm font-bold text-[#08bfd4]">
+              {formState.educationPlace.trim() || "Student"}
             </p>
 
             <label className="mt-5 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-[1rem] bg-[#13daec] px-4 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(19,218,236,0.2)] transition hover:bg-[#10c6d7]">
@@ -602,7 +492,9 @@ export function TeacherDashboardProfile({
             ) : null}
 
             {avatarError ? (
-              <p className="mt-2 text-sm font-medium text-rose-600">{avatarError}</p>
+              <p className="mt-2 text-sm font-medium text-rose-600">
+                {avatarError}
+              </p>
             ) : null}
           </div>
         </Card>
@@ -619,16 +511,6 @@ export function TeacherDashboardProfile({
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              
-
-              <TextField
-                label="Full name"
-                required
-                value={formState.fullName}
-                onChange={(value) => updateField("fullName", value)}
-                placeholder="Enter full name"
-                status={fullNameStatus}
-              />
               <TextField
                 label="Email"
                 required
@@ -640,23 +522,27 @@ export function TeacherDashboardProfile({
                 icon={Mail}
               />
 
-              <GenderField
-                value={formState.gender}
-                onChange={(value) => updateField("gender", value)}
+              <TextField
+                label="Full name"
+                required
+                value={formState.fullName}
+                onChange={(value) => updateField("fullName", value)}
+                placeholder="Enter full name"
+                status={fullNameStatus}
               />
 
               <TextField
-                label="Education"
-                required
-                value={formState.education}
-                onChange={(value) => updateField("education", value)}
-                placeholder="Enter education or institution"
-                status={educationStatus}
+                label="Education place"
+                required={false}
+                value={formState.educationPlace}
+                onChange={(value) => updateField("educationPlace", value)}
+                placeholder="University, school, or course"
+                status={educationPlaceStatus}
               />
 
               <TextField
                 label="Birth date"
-                required
+                required={false}
                 value={formState.birthDate}
                 onChange={(value) => updateField("birthDate", value)}
                 placeholder="Select birth date"
@@ -669,26 +555,16 @@ export function TeacherDashboardProfile({
           <Card className="rounded-[1.5rem] border-[#d8f5f7] bg-white p-5 shadow-[0_16px_32px_rgba(15,23,42,0.05)]">
             <div className="flex items-center gap-3">
               <div className="rounded-xl p-2 text-[#08bfd4]">
-                <Briefcase className="h-5 w-5" />
+                <BookOpen className="h-5 w-5" />
               </div>
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-[#14213d]">
-                  Professional Information
+                  Additional Information
                 </h2>
-                
               </div>
             </div>
 
             <div className="mt-5 space-y-4">
-              <TextField
-                label="Headline"
-                required
-                value={formState.headline}
-                onChange={(value) => updateField("headline", value)}
-                placeholder="Python Developer, Web Instructor"
-                status={headlineStatus}
-              />
-
               <TextAreaField
                 label="Biography"
                 required={false}
@@ -699,26 +575,6 @@ export function TeacherDashboardProfile({
               />
 
               <div className="grid gap-4 md:grid-cols-2">
-                <TextField
-                  label="Specialization"
-                  required={false}
-                  value={formState.specialization}
-                  onChange={(value) => updateField("specialization", value)}
-                  placeholder="Python, Web Development, Data Science"
-                  status={specializationStatus}
-                />
-
-                <TextField
-                  label="Experience years"
-                  required={false}
-                  value={formState.experienceYears}
-                  onChange={(value) => updateField("experienceYears", value)}
-                  placeholder="Enter years of experience"
-                  type="number"
-                  min={0}
-                  status={experienceStatus}
-                />
-
                 <TextField
                   label="LinkedIn URL"
                   required={false}

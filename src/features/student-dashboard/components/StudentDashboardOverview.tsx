@@ -97,14 +97,7 @@ export function StudentDashboardOverview({
               <div className="rounded-2xl bg-white/16 p-3">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <div className="space-y-1">
-                <h2 className="text-2xl font-black tracking-tight text-white">
-                  {allStudentCourses.length}
-                </h2>
-                <p className="text-sm leading-6 text-white/80">
-                  total courses on your dashboard
-                </p>
-              </div>
+              
             </div>
           </div>
         </div>

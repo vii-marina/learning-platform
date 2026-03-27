@@ -9,7 +9,10 @@ import {
   Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import { LogoutButton } from "../../auth/components/LogoutButton";
+import type { CurrentUser } from "../../auth/types";
+import { getStudentAvatarPublicUrl } from "../api/studentProfileStorage";
 import type { StudentDashboardSectionId } from "../types";
 
 type SidebarItem = {
@@ -34,8 +37,18 @@ const secondaryItems: SidebarItem[] = [
 type StudentDashboardSidebarProps = {
   activeSection: StudentDashboardSectionId;
   onSectionChange: (section: StudentDashboardSectionId) => void;
+  currentUser: CurrentUser | null;
+  onOpenProfile: () => void;
   compactOnDesktop?: boolean;
 };
+
+function getProfileDisplayName(user: CurrentUser | null) {
+  return user?.fullName?.trim() || "Student profile";
+}
+
+function getAvatarName(user: CurrentUser | null) {
+  return user?.fullName?.trim() || user?.email || "Student";
+}
 
 function SidebarLabel({
   compactOnDesktop,
@@ -97,8 +110,12 @@ function SidebarButton({
 export function StudentDashboardSidebar({
   activeSection,
   onSectionChange,
+  currentUser,
+  onOpenProfile,
   compactOnDesktop = false,
 }: StudentDashboardSidebarProps) {
+  const avatarImageUrl = getStudentAvatarPublicUrl(currentUser?.avatarPath);
+
   return (
     <aside
       className={`group border-r border-cyan-100 bg-white px-5 py-6 transition-[width,padding] duration-300 lg:sticky lg:top-0 lg:h-screen lg:py-8 ${
@@ -109,19 +126,37 @@ export function StudentDashboardSidebar({
       style={{ fontFamily: '"Lexend", sans-serif' }}
     >
       <div className="flex h-full flex-col">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-[#14213d] text-white">
-            <BookOpen className="h-5 w-5" />
-          </div>
-          <div className={compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}>
-            <p className="text-[1.45rem] font-black tracking-tight text-[#14213d]">
-              Learning Platform
+        <button
+          type="button"
+          title={compactOnDesktop ? "My Profile" : undefined}
+          onClick={onOpenProfile}
+          aria-current={activeSection === "profile" ? "page" : undefined}
+          className={`flex w-full items-center gap-3 rounded-[1.5rem] border px-3 py-3 text-left transition ${
+            compactOnDesktop
+              ? "lg:justify-center lg:px-2 lg:group-hover:justify-start lg:group-hover:px-3"
+              : ""
+          } ${
+            activeSection === "profile"
+              ? "border-[#a7edf3] bg-[#f8feff] shadow-[0_18px_30px_rgba(19,218,236,0.14)]"
+              : "border-cyan-100 bg-white hover:border-[#a7edf3] hover:bg-[#f8feff]"
+          }`}
+        >
+          <AdminTeacherAvatar
+            name={getAvatarName(currentUser)}
+            imageUrl={avatarImageUrl}
+            size="sm"
+          />
+          <div
+            className={`min-w-0 ${compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}`}
+          >
+            <p className="truncate text-sm font-black text-[#14213d]">
+              {getProfileDisplayName(currentUser)}
             </p>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
-              Student Panel
+            <p className="mt-1 truncate text-xs text-slate-500">
+              {currentUser?.email ?? "Loading profile..."}
             </p>
           </div>
-        </div>
+        </button>
 
         <nav className="mt-10 flex flex-1 flex-col justify-between">
           <div className="space-y-2">

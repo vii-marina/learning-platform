@@ -1,6 +1,8 @@
 import { AppError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, UserRole } from "../types/auth";
+import { updateCurrentUserProfile } from "./authService";
+import { deleteStudentAccount, getRequestAuthContext } from "./userService";
 
 type StudentProfileRow = {
   id: string;
@@ -25,10 +27,27 @@ type BackendError = {
 };
 
 export type AdminDashboardStudent = NormalizedUser & {
+  avatarPath?: string | null;
+  githubUrl?: string | null;
+  linkedinUrl?: string | null;
+  educationPlace?: string | null;
+  bio?: string | null;
+  birthDate?: string | null;
   avatarUrl: string | null;
   age: number | null;
   enrolledCourses: string[];
   completedCourses: string[];
+};
+
+type AdminDashboardStudentProfileInput = {
+  email?: string;
+  fullName?: string;
+  bio?: string | null;
+  educationPlace?: string | null;
+  birthDate?: string | null;
+  avatarPath?: string | null;
+  linkedinUrl?: string | null;
+  githubUrl?: string | null;
 };
 
 function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: BackendError) {
@@ -319,6 +338,15 @@ function buildStudentRecord(
     isAdmin: false,
     isSuperAdmin: false,
     createdAt: profile.created_at,
+    avatarPath: pickStringValue(records, ["avatar_path", "avatarPath"]),
+    githubUrl: pickStringValue(records, ["github_url", "githubUrl"]),
+    linkedinUrl: pickStringValue(records, ["linkedin_url", "linkedinUrl"]),
+    educationPlace: pickStringValue(records, [
+      "education_place",
+      "educationPlace",
+    ]),
+    bio: pickStringValue(records, ["bio"]),
+    birthDate: pickStringValue(records, ["birth_date", "birthDate"]),
     avatarUrl: pickStringValue(records, [
       "avatar_url",
       "avatarUrl",
@@ -378,6 +406,29 @@ async function listOptionalStudentProfiles(studentIds: string[]) {
   return new Map(rows.map((row) => [row.id, row]));
 }
 
+async function getOptionalStudentProfile(studentId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("student_profiles")
+    .select("*")
+    .eq("id", studentId)
+    .maybeSingle();
+
+  if (error) {
+    if (isMissingOptionalRelationError(error, "student_profiles")) {
+      return null;
+    }
+
+    throw toServiceError(
+      500,
+      "STUDENT_PROFILE_FETCH_FAILED",
+      "Unable to load student profile",
+      error
+    );
+  }
+
+  return (data as StudentExtraProfileRow | null) ?? null;
+}
+
 async function listCourseTitlesById() {
   const { data, error } = await supabaseAdmin
     .from("courses")
@@ -410,4 +461,48 @@ export async function listAdminDashboardStudents(): Promise<AdminDashboardStuden
       courseTitlesById
     )
   );
+}
+
+export async function getAdminDashboardStudent(studentId: string): Promise<AdminDashboardStudent> {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("id", studentId)
+    .eq("role", "student")
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(500, "STUDENT_FETCH_FAILED", "Unable to load student", error);
+  }
+
+  if (!data) {
+    throw new AppError(404, "Student not found.", "STUDENT_NOT_FOUND");
+  }
+
+  const [studentProfile, courseTitlesById] = await Promise.all([
+    getOptionalStudentProfile(studentId),
+    listCourseTitlesById(),
+  ]);
+
+  return buildStudentRecord(data as StudentProfileRow, studentProfile, courseTitlesById);
+}
+
+export async function saveAdminDashboardStudentProfile(
+  studentId: string,
+  input: AdminDashboardStudentProfileInput
+): Promise<AdminDashboardStudent> {
+  const student = await getAdminDashboardStudent(studentId);
+  const authContext = await getRequestAuthContext(studentId, student.email, student.fullName);
+
+  if (authContext.role !== "student") {
+    throw new AppError(404, "Student not found.", "STUDENT_NOT_FOUND");
+  }
+
+  await updateCurrentUserProfile(authContext, input);
+  return getAdminDashboardStudent(studentId);
+}
+
+export async function deleteAdminDashboardStudent(studentId: string): Promise<void> {
+  await getAdminDashboardStudent(studentId);
+  await deleteStudentAccount(studentId);
 }

@@ -1,9 +1,13 @@
 import { Router } from "express";
 import {
+  deleteAdminDashboardStudentHandler,
+  deleteAdminDashboardTeacherHandler,
   getAdminDashboardOverviewHandler,
+  getAdminDashboardStudentHandler,
   getAdminDashboardTeacherHandler,
   listAdminDashboardStudentsHandler,
   listAdminDashboardTeachersHandler,
+  updateAdminDashboardStudentHandler,
   updateAdminDashboardTeacherHandler,
 } from "../controllers/adminDashboardController";
 import {
@@ -27,9 +31,13 @@ router.get("/dashboard/overview", requireAdmin, getAdminDashboardOverviewHandler
 router.get("/dashboard/courses", requireAdmin, listAdminDashboardCoursesHandler);
 router.get("/dashboard/courses/:id", requireAdmin, getAdminDashboardCourseHandler);
 router.get("/dashboard/students", requireAdmin, listAdminDashboardStudentsHandler);
+router.get("/dashboard/students/:id", requireAdmin, getAdminDashboardStudentHandler);
+router.patch("/dashboard/students/:id", requireAdmin, updateAdminDashboardStudentHandler);
+router.delete("/dashboard/students/:id", requireAdmin, deleteAdminDashboardStudentHandler);
 router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandler);
 router.get("/dashboard/teachers/:id", requireAdmin, getAdminDashboardTeacherHandler);
 router.patch("/dashboard/teachers/:id", requireAdmin, updateAdminDashboardTeacherHandler);
+router.delete("/dashboard/teachers/:id", requireAdmin, deleteAdminDashboardTeacherHandler);
 router.get("/users", requireAdmin, listUsersHandler);
 router.get("/teachers", requireAdmin, listTeachersHandler);
 router.get("/students", requireAdmin, listStudentsHandler);

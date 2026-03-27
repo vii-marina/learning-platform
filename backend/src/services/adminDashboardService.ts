@@ -3,7 +3,11 @@ import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, UserProfileRow } from "../types/auth";
 import { updateCurrentUserProfile } from "./authService";
-import { getRequestAuthContext, listProfileUsersByRole } from "./userService";
+import {
+  deleteTeacherAccount,
+  getRequestAuthContext,
+  listProfileUsersByRole,
+} from "./userService";
 
 type CountedTable =
   | "modules"
@@ -62,12 +66,14 @@ type AdminDashboardTeacher = NormalizedUser & {
 };
 
 type AdminDashboardTeacherProfileInput = {
+  email?: string;
   fullName?: string;
   headline?: string | null;
   bio?: string | null;
   specialization?: string | null;
   experienceYears?: number | null;
   education?: string | null;
+  educationPlace?: string | null;
   gender?: "male" | "female" | "other" | null;
   birthDate?: string | null;
   avatarPath?: string | null;
@@ -347,10 +353,7 @@ function buildTeacherRecord(
 
   return {
     ...teacher,
-    fullName:
-      teacher.fullName ??
-      pickStringValue(teacherProfile, ["full_name", "fullName"]) ??
-      null,
+    fullName: teacher.fullName ?? null,
     headline: pickStringValue(teacherProfile, ["headline"]),
     bio: pickStringValue(teacherProfile, ["bio"]),
     specialization: pickStringValue(teacherProfile, ["specialization"]),
@@ -498,4 +501,9 @@ export async function saveAdminDashboardTeacherProfile(
 
   await updateCurrentUserProfile(authContext, input);
   return getAdminDashboardTeacher(teacherId);
+}
+
+export async function deleteAdminDashboardTeacher(teacherId: string): Promise<void> {
+  await getAdminDashboardTeacher(teacherId);
+  await deleteTeacherAccount(teacherId);
 }

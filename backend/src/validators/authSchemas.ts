@@ -10,12 +10,20 @@ const optionalTrimmedString = (max: number) =>
 
 export const updateCurrentUserSchema = z
   .object({
+    email: z
+      .string()
+      .trim()
+      .min(1, "Email is required.")
+      .email("Email must be valid.")
+      .max(320)
+      .optional(),
     fullName: z.string().trim().min(1, "Full name is required.").max(120).optional(),
     headline: z.string().trim().min(1, "Headline is required.").max(160).nullable().optional(),
     bio: optionalTrimmedString(3000),
     specialization: optionalTrimmedString(160),
     experienceYears: z.number().int().min(0).max(80).nullable().optional(),
     education: z.string().trim().min(1, "Education is required.").max(200).nullable().optional(),
+    educationPlace: optionalTrimmedString(200),
     gender: z.enum(["male", "female", "other"]).nullable().optional(),
     birthDate: z
       .string()

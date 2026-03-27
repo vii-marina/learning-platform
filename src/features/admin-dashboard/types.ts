@@ -87,6 +87,8 @@ export type AdminDashboardStudent = CurrentUser & {
 
 export type AdminTeacherProfileInput = UpdateCurrentUserProfileInput;
 
+export type AdminStudentProfileInput = UpdateCurrentUserProfileInput;
+
 export type AdminDashboardSettingsData = {
   users: CurrentUser[];
 };

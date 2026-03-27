@@ -7,6 +7,7 @@ import {
   AdminDashboardSettingsPage,
   AdminDashboardStudentsPage,
   AdminDashboardTeachersPage,
+  AdminStudentDetailsPage,
   AdminTeacherDetailsPage,
   CourseBuilderWorkspacePage,
   DashboardPage,
@@ -32,6 +33,7 @@ function App() {
           <Route path="teachers" element={<AdminDashboardTeachersPage />} />
           <Route path="teachers/:teacherId" element={<AdminTeacherDetailsPage />} />
           <Route path="students" element={<AdminDashboardStudentsPage />} />
+          <Route path="students/:studentId" element={<AdminStudentDetailsPage />} />
           <Route path="courses/:courseId" element={<AdminCoursePreviewPage />} />
           <Route path="courses" element={<AdminDashboardCoursesPage />} />
           <Route path="settings" element={<AdminDashboardSettingsPage />} />

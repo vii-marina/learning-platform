@@ -13,6 +13,7 @@ export type CurrentUser = {
   specialization?: string | null;
   experienceYears?: number | null;
   education?: string | null;
+  educationPlace?: string | null;
   gender?: TeacherProfileGender | null;
   birthDate?: string | null;
   avatarPath?: string | null;
@@ -36,15 +37,17 @@ export type UpdateAdminUserInput = {
 };
 
 export type UpdateCurrentUserProfileInput = {
-  fullName: string;
-  headline: string;
-  bio: string | null;
-  specialization: string | null;
-  experienceYears: number | null;
-  education: string;
-  gender: TeacherProfileGender | null;
-  birthDate: string | null;
-  avatarPath: string | null;
-  linkedinUrl: string | null;
-  githubUrl: string | null;
+  email?: string;
+  fullName?: string;
+  headline?: string | null;
+  bio?: string | null;
+  specialization?: string | null;
+  experienceYears?: number | null;
+  education?: string | null;
+  educationPlace?: string | null;
+  gender?: TeacherProfileGender | null;
+  birthDate?: string | null;
+  avatarPath?: string | null;
+  linkedinUrl?: string | null;
+  githubUrl?: string | null;
 };

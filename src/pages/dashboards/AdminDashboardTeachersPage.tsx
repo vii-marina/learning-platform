@@ -1,7 +1,11 @@
 import { Search } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/Card";
-import { loadAdminTeachersData } from "../../features/admin-dashboard/api/adminDashboardApi";
+import {
+  deleteAdminTeacher,
+  loadAdminTeachersData,
+} from "../../features/admin-dashboard/api/adminDashboardApi";
+import { AdminDeleteWarningModal } from "../../features/admin-dashboard/components/AdminDeleteWarningModal";
 import { AdminTeacherCard } from "../../features/admin-dashboard/components/AdminTeacherCard";
 import type { AdminTeacher } from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
@@ -14,7 +18,10 @@ export function AdminDashboardTeachersPage() {
   const [teachers, setTeachers] = useState<AdminTeacher[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [messageTone, setMessageTone] = useState<"success" | "error">("error");
   const [searchValue, setSearchValue] = useState("");
+  const [teacherPendingDelete, setTeacherPendingDelete] = useState<AdminTeacher | null>(null);
+  const [isDeletingTeacher, setIsDeletingTeacher] = useState(false);
   const deferredSearchValue = useDeferredValue(searchValue);
 
   useEffect(() => {
@@ -30,11 +37,13 @@ export function AdminDashboardTeachersPage() {
 
         setTeachers(nextTeachers);
         setMessage("");
+        setMessageTone("error");
       } catch (error) {
         if (!isMounted) {
           return;
         }
 
+        setMessageTone("error");
         setMessage(getErrorMessage(error, "Unable to load teachers."));
       } finally {
         if (isMounted) {
@@ -72,6 +81,31 @@ export function AdminDashboardTeachersPage() {
       );
   }, [deferredSearchValue, teachers]);
 
+  async function handleTeacherDeleteConfirm() {
+    if (!teacherPendingDelete || isDeletingTeacher) {
+      return;
+    }
+
+    const teacherToDelete = teacherPendingDelete;
+    setIsDeletingTeacher(true);
+
+    try {
+      await deleteAdminTeacher(teacherToDelete.id);
+      setTeachers((currentTeachers) =>
+        currentTeachers.filter((teacher) => teacher.id !== teacherToDelete.id)
+      );
+      setMessageTone("success");
+      setMessage("Teacher deleted successfully.");
+      setTeacherPendingDelete(null);
+    } catch (error) {
+      setMessageTone("error");
+      setMessage(getErrorMessage(error, "Unable to delete teacher."));
+      setTeacherPendingDelete(null);
+    } finally {
+      setIsDeletingTeacher(false);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4 px-1 py-1">
@@ -85,7 +119,13 @@ export function AdminDashboardTeachersPage() {
       </div>
 
       {message ? (
-        <Card className="rounded-[1.75rem] border-amber-200 bg-amber-50 p-6 text-amber-800 shadow-none">
+        <Card
+          className={
+            messageTone === "success"
+              ? "rounded-[1.75rem] border-emerald-200 bg-emerald-50 p-6 text-emerald-800 shadow-none"
+              : "rounded-[1.75rem] border-amber-200 bg-amber-50 p-6 text-amber-800 shadow-none"
+          }
+        >
           <p className="text-sm font-medium">{message}</p>
         </Card>
       ) : null}
@@ -115,13 +155,41 @@ export function AdminDashboardTeachersPage() {
             <AdminTeacherCard
               key={teacher.id}
               teacher={teacher}
-              onDeleteClick={() => {
-                setMessage("Teacher deletion is not supported by the current backend yet.");
+              onDeleteClick={(selectedTeacher) => {
+                setTeacherPendingDelete(selectedTeacher);
               }}
             />
           ))}
         </div>
       )}
+
+      <AdminDeleteWarningModal
+        isOpen={teacherPendingDelete !== null}
+        entityLabel="Teacher"
+        entityName={teacherPendingDelete ? getTeacherDisplayName(teacherPendingDelete) : ""}
+        entityEmail={teacherPendingDelete?.email ?? ""}
+        impactItems={
+          teacherPendingDelete
+            ? [
+                "Teacher profile information may be removed.",
+                `${teacherPendingDelete.courseCount} linked courses may lose their teacher reference.`,
+                `${teacherPendingDelete.publishedCourseCount} published courses may be affected.`,
+                `${teacherPendingDelete.draftCourseCount} draft courses may be affected.`,
+                `${teacherPendingDelete.assignedStudents.length} assigned student links may be lost.`,
+              ]
+            : []
+        }
+        confirmLabel="Delete Teacher"
+        isSubmitting={isDeletingTeacher}
+        onClose={() => {
+          if (!isDeletingTeacher) {
+            setTeacherPendingDelete(null);
+          }
+        }}
+        onConfirm={() => {
+          void handleTeacherDeleteConfirm();
+        }}
+      />
     </div>
   );
 }

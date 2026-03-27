@@ -35,12 +35,14 @@ export async function updateMeHandler(req: Request, res: Response) {
   const auth = getAuthenticatedUser(req);
   const input = updateCurrentUserSchema.parse(req.body);
   const user = await updateCurrentUserProfile(auth, {
+    email: input.email,
     fullName: input.fullName,
     headline: input.headline,
     bio: input.bio,
     specialization: input.specialization,
     experienceYears: input.experienceYears,
     education: input.education,
+    educationPlace: input.educationPlace,
     gender: input.gender,
     birthDate: input.birthDate,
     avatarPath: input.avatarPath,
