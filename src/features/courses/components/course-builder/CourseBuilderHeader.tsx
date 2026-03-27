@@ -1,4 +1,3 @@
-import { Sparkles } from "lucide-react";
 import type { BuilderStep } from "./courseBuilderPageUtils";
 
 type CourseBuilderHeaderProps = {
@@ -10,6 +9,7 @@ type CourseBuilderHeaderProps = {
   canNavigateToStep: (step: BuilderStep) => boolean;
   onStepChange: (step: BuilderStep) => void;
   onPrimaryAction: () => void;
+  embedded?: boolean;
 };
 
 export function CourseBuilderHeader({
@@ -20,21 +20,16 @@ export function CourseBuilderHeader({
   canNavigateToStep,
   onStepChange,
   onPrimaryAction,
+  embedded = false,
 }: CourseBuilderHeaderProps) {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-[92rem] items-center justify-between gap-4 px-6 py-4 lg:px-10">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#13daec]/15 text-[#08bfd4]">
-            <Sparkles className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-lg font-extrabold tracking-tight text-[#14213d]">
-              Course Builder
-            </p>
-            <p className="text-xs text-slate-400">Instructor workflow</p>
-          </div>
-        </div>
+      <div
+        className={`flex w-full items-center justify-between gap-4 px-6 py-4 ${
+          embedded ? "xl:px-8" : "mx-auto max-w-[92rem] lg:px-10"
+        }`}
+      >
+        
 
         <nav className="hidden flex-1 items-center justify-center xl:flex">
           <ol className="flex items-center gap-3">

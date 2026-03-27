@@ -109,12 +109,6 @@ export function ModuleTestsSection({
                         {question.questionText}
                       </p>
 
-                      {question.hint?.trim() ? (
-                        <div className="mt-3">
-                          <SpoilerText text={question.hint.trim()} />
-                        </div>
-                      ) : null}
-
                       <div className="mt-4 space-y-2">
                         {question.type === "true_false" ? (
                           <div className="grid gap-3 sm:grid-cols-2">
@@ -143,6 +137,12 @@ export function ModuleTestsSection({
                           ))
                         )}
                       </div>
+
+                      {question.hint?.trim() ? (
+                        <div className="mt-4">
+                          <SpoilerText text={question.hint.trim()} />
+                        </div>
+                      ) : null}
                     </div>
                   ))}
                 </div>

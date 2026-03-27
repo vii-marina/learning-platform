@@ -1,4 +1,5 @@
 import { supabase } from "../../../lib/supabase";
+import { authorizedBackendRequest } from "../../auth/api/backendClient";
 import type {
   Course,
   CourseAccessType,
@@ -29,6 +30,22 @@ function toErrorMessage(scope: string, details: string) {
   return `${scope}: ${details}`;
 }
 
+type LessonResponse = {
+  lesson: Lesson;
+};
+
+type LessonsResponse = {
+  lessons: Lesson[];
+};
+
+type LessonBlockResponse = {
+  lessonBlock: LessonBlock;
+};
+
+type LessonBlocksResponse = {
+  lessonBlocks: LessonBlock[];
+};
+
 function normalizeCourseSlug(value: string) {
   return value
     .trim()
@@ -58,38 +75,6 @@ async function getNextModuleOrder(courseId: string) {
 
   if (error) {
     throw new Error(toErrorMessage("Unable to compute next module order", error.message));
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-async function getNextLessonOrder(moduleId: string) {
-  const { data, error } = await supabase
-    .from("lessons")
-    .select("order")
-    .eq("module_id", moduleId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to compute next lesson order", error.message));
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-async function getNextLessonBlockOrder(lessonId: string) {
-  const { data, error } = await supabase
-    .from("lesson_blocks")
-    .select("order")
-    .eq("lesson_id", lessonId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to compute next lesson block order", error.message));
   }
 
   return (data?.order ?? 0) + 1;
@@ -332,70 +317,54 @@ export async function swapModuleOrder(first: Module, second: Module) {
 }
 
 export async function listLessonsByModule(moduleId: string) {
-  const { data, error } = await supabase
-    .from("lessons")
-    .select("*")
-    .eq("module_id", moduleId)
-    .order("order", { ascending: true });
+  const response = await authorizedBackendRequest<LessonsResponse>(
+    `/auth/course-builder/modules/${moduleId}/lessons`
+  );
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list lessons", error.message));
-  }
-
-  return (data ?? []) as Lesson[];
+  return response.lessons;
 }
 
 export async function createLesson(input: CreateLessonInput) {
-  const order = input.order ?? (await getNextLessonOrder(input.module_id));
+  const response = await authorizedBackendRequest<LessonResponse>(
+    `/auth/course-builder/modules/${input.module_id}/lessons`,
+    {
+      method: "POST",
+      body: {
+        title: input.title.trim(),
+        content: input.content ?? "",
+        videoUrl: input.video_url?.trim() || null,
+        contentType: input.content_type ?? null,
+        order: input.order,
+      },
+    }
+  );
 
-  const { data, error } = await supabase
-    .from("lessons")
-    .insert({
-      module_id: input.module_id,
-      title: input.title.trim(),
-      content: input.content ?? "",
-      video_url: input.video_url?.trim() || null,
-      content_type: input.content_type ?? null,
-      order,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create lesson", error.message));
-  }
-
-  return data as Lesson;
+  return response.lesson;
 }
 
 export async function updateLesson(lessonId: string, input: UpdateLessonInput) {
-  const { data, error } = await supabase
-    .from("lessons")
-    .update({
-      ...input,
-      content:
-        typeof input.content === "string" ? input.content : input.content === null ? "" : undefined,
-      title: typeof input.title === "string" ? input.title.trim() : input.title,
-      video_url:
-        typeof input.video_url === "string" ? input.video_url.trim() || null : input.video_url,
-    })
-    .eq("id", lessonId)
-    .select("*")
-    .single();
+  const response = await authorizedBackendRequest<LessonResponse>(
+    `/auth/course-builder/lessons/${lessonId}`,
+    {
+      method: "PATCH",
+      body: {
+        title: typeof input.title === "string" ? input.title.trim() : input.title,
+        content: input.content,
+        videoUrl:
+          typeof input.video_url === "string" ? input.video_url.trim() || null : input.video_url,
+        contentType: input.content_type,
+        order: input.order,
+      },
+    }
+  );
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update lesson", error.message));
-  }
-
-  return data as Lesson;
+  return response.lesson;
 }
 
 export async function deleteLesson(lessonId: string) {
-  const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete lesson", error.message));
-  }
+  await authorizedBackendRequest<void>(`/auth/course-builder/lessons/${lessonId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function swapLessonOrder(first: Lesson, second: Lesson) {
@@ -410,61 +379,49 @@ export async function swapLessonOrder(first: Lesson, second: Lesson) {
 }
 
 export async function listLessonBlocksByLesson(lessonId: string) {
-  const { data, error } = await supabase
-    .from("lesson_blocks")
-    .select("*")
-    .eq("lesson_id", lessonId)
-    .order("order", { ascending: true });
+  const response = await authorizedBackendRequest<LessonBlocksResponse>(
+    `/auth/course-builder/lessons/${lessonId}/blocks`
+  );
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list lesson blocks", error.message));
-  }
-
-  return (data ?? []) as LessonBlock[];
+  return response.lessonBlocks;
 }
 
 export async function createLessonBlock(input: CreateLessonBlockInput) {
-  const order = input.order ?? (await getNextLessonBlockOrder(input.lesson_id));
+  const response = await authorizedBackendRequest<LessonBlockResponse>(
+    `/auth/course-builder/lessons/${input.lesson_id}/blocks`,
+    {
+      method: "POST",
+      body: {
+        blockType: input.block_type,
+        content: input.content,
+        order: input.order,
+      },
+    }
+  );
 
-  const { data, error } = await supabase
-    .from("lesson_blocks")
-    .insert({
-      lesson_id: input.lesson_id,
-      block_type: input.block_type,
-      content: input.content,
-      order,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create lesson block", error.message));
-  }
-
-  return data as LessonBlock;
+  return response.lessonBlock;
 }
 
 export async function updateLessonBlock(lessonBlockId: string, input: UpdateLessonBlockInput) {
-  const { data, error } = await supabase
-    .from("lesson_blocks")
-    .update(input)
-    .eq("id", lessonBlockId)
-    .select("*")
-    .single();
+  const response = await authorizedBackendRequest<LessonBlockResponse>(
+    `/auth/course-builder/lesson-blocks/${lessonBlockId}`,
+    {
+      method: "PATCH",
+      body: {
+        blockType: input.block_type,
+        content: input.content,
+        order: input.order,
+      },
+    }
+  );
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update lesson block", error.message));
-  }
-
-  return data as LessonBlock;
+  return response.lessonBlock;
 }
 
 export async function deleteLessonBlock(lessonBlockId: string) {
-  const { error } = await supabase.from("lesson_blocks").delete().eq("id", lessonBlockId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete lesson block", error.message));
-  }
+  await authorizedBackendRequest<void>(`/auth/course-builder/lesson-blocks/${lessonBlockId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function upsertLessonPrimaryRichTextBlock(lessonId: string, html: string) {

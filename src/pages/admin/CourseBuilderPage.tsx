@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Card } from "../../components/ui/Card";
 import { supabase } from "../../lib/supabase";
 import {
   createCourse,
@@ -11,6 +19,7 @@ import {
   deleteModule,
   deleteTestEntity,
   deleteTestQuestion,
+  getCourseById,
   listLessonBlocksByLesson,
   listLessonsByModule,
   listModulesByCourse,
@@ -69,11 +78,105 @@ function createLocalEntityId(prefix: string) {
   return `${prefix}-${uniqueId}`;
 }
 
-export function CourseBuilderPage() {
+type SavedCourseSnapshot = {
+  title: string;
+  description: string;
+  thumbnailPath: string | null;
+};
+
+type TestEditorDraft = {
+  afterLessonId: string | null;
+  questions: CourseTestQuestion[];
+};
+
+export type CourseBuilderPageHandle = {
+  hasUnsavedChanges: boolean;
+  canSaveDraft: boolean;
+  isSavingDraft: boolean;
+  saveDraft: () => Promise<boolean>;
+};
+
+function createEmptyTestEditorDraft(): TestEditorDraft {
+  return {
+    afterLessonId: null,
+    questions: [createEmptyTestQuestion()],
+  };
+}
+
+function areQuestionArraysEqual(
+  leftQuestions: CourseTestQuestion[],
+  rightQuestions: CourseTestQuestion[]
+) {
+  if (leftQuestions.length !== rightQuestions.length) {
+    return false;
+  }
+
+  return leftQuestions.every((leftQuestion, index) => {
+    const rightQuestion = rightQuestions[index];
+
+    if (!rightQuestion) {
+      return false;
+    }
+
+    if (
+      leftQuestion.type !== rightQuestion.type ||
+      leftQuestion.questionText !== rightQuestion.questionText ||
+      (leftQuestion.hint ?? null) !== (rightQuestion.hint ?? null)
+    ) {
+      return false;
+    }
+
+    if (leftQuestion.options.length !== rightQuestion.options.length) {
+      return false;
+    }
+
+    if (
+      leftQuestion.options.some((option, optionIndex) => option !== rightQuestion.options[optionIndex])
+    ) {
+      return false;
+    }
+
+    if (leftQuestion.correctOptionIndexes.length !== rightQuestion.correctOptionIndexes.length) {
+      return false;
+    }
+
+    return leftQuestion.correctOptionIndexes.every(
+      (optionIndex, correctIndex) =>
+        optionIndex === rightQuestion.correctOptionIndexes[correctIndex]
+    );
+  });
+}
+
+function areTestDraftsEqual(leftDraft: TestEditorDraft, rightDraft: TestEditorDraft) {
+  return (
+    leftDraft.afterLessonId === rightDraft.afterLessonId &&
+    areQuestionArraysEqual(leftDraft.questions, rightDraft.questions)
+  );
+}
+
+export const CourseBuilderPage = forwardRef<
+  CourseBuilderPageHandle,
+  {
+    embedded?: boolean;
+    initialCourseId?: string | null;
+  }
+>(function CourseBuilderPage(
+  {
+    embedded = false,
+    initialCourseId = null,
+  }: {
+    embedded?: boolean;
+    initialCourseId?: string | null;
+  },
+  ref
+) {
   const [message, setMessage] = useState("");
   const [activeStep, setActiveStep] = useState<BuilderStep>(1);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
   const [isPersistingCourse, setIsPersistingCourse] = useState(false);
+  const [isHydratingCourse, setIsHydratingCourse] = useState(Boolean(initialCourseId));
+  const [savedCourseSnapshot, setSavedCourseSnapshot] =
+    useState<SavedCourseSnapshot | null>(null);
   const draftCourseSessionIdRef = useRef(createLocalEntityId("draft-course"));
   const draftCourseSessionId = draftCourseSessionIdRef.current;
 
@@ -114,6 +217,7 @@ export function CourseBuilderPage() {
   const [isSavingTest, setIsSavingTest] = useState(false);
   const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
   const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
+  const [testInitialDraft, setTestInitialDraft] = useState<TestEditorDraft | null>(null);
   const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
   const lessonLoadRequestRef = useRef(0);
 
@@ -155,6 +259,66 @@ export function CourseBuilderPage() {
   );
   const shouldGuardLessonDraft =
     isLessonDirty && (editingLessonId !== null || hasMeaningfulNewLessonDraft);
+  const currentCourseSnapshot = useMemo<SavedCourseSnapshot>(
+    () => ({
+      title: courseTitle.trim(),
+      description: courseDescription.trim(),
+      thumbnailPath: courseThumbnailPath,
+    }),
+    [courseDescription, courseThumbnailPath, courseTitle]
+  );
+  const isNewModuleComposerDirty =
+    isNewModuleComposerOpen && newModuleTitle.trim().length > 0;
+  const isModuleEditDirty = useMemo(() => {
+    if (!editModuleId) {
+      return false;
+    }
+
+    const activeModule = modules.find((module) => module.id === editModuleId);
+
+    if (!activeModule) {
+      return false;
+    }
+
+    return editModuleTitle.trim() !== activeModule.title.trim();
+  }, [editModuleId, editModuleTitle, modules]);
+  const isTestDirty = useMemo(() => {
+    if (!testInitialDraft || testEditorModuleId === null) {
+      return false;
+    }
+
+    return !areTestDraftsEqual(testInitialDraft, {
+      afterLessonId: testAfterLessonId,
+      questions: testQuestions,
+    });
+  }, [testAfterLessonId, testEditorModuleId, testInitialDraft, testQuestions]);
+  const hasStartedCourseDraft = useMemo(
+    () =>
+      currentCourseSnapshot.title.length > 0 ||
+      currentCourseSnapshot.description.length > 0 ||
+      Boolean(currentCourseSnapshot.thumbnailPath) ||
+      modules.length > 0 ||
+      Object.values(lessonsByModule).some((lessons) => lessons.length > 0) ||
+      Object.values(testsByModule).some((tests) => tests.length > 0),
+    [currentCourseSnapshot, lessonsByModule, modules.length, testsByModule]
+  );
+  const hasUnsavedCourseBasics =
+    currentCourseId === null
+      ? hasStartedCourseDraft
+      : savedCourseSnapshot !== null &&
+        (savedCourseSnapshot.title !== currentCourseSnapshot.title ||
+          savedCourseSnapshot.description !== currentCourseSnapshot.description ||
+          savedCourseSnapshot.thumbnailPath !== currentCourseSnapshot.thumbnailPath);
+  const hasUnsavedChanges =
+    hasUnsavedCourseBasics ||
+    isNewModuleComposerDirty ||
+    isModuleEditDirty ||
+    shouldGuardLessonDraft ||
+    isTestDirty;
+  const canSaveDraft =
+    !isPersistingCourse &&
+    !isHydratingCourse &&
+    (hasStartedCourseDraft || currentCourseId !== null);
   const {
     totalModules,
     totalLessons,
@@ -240,7 +404,10 @@ export function CourseBuilderPage() {
     }
   };
 
-  const hydratePersistedCourse = async (courseId: string) => {
+  const hydratePersistedCourse = async (
+    courseId: string,
+    courseSnapshot?: SavedCourseSnapshot
+  ) => {
     setHasFetchedModules(false);
 
     try {
@@ -272,6 +439,7 @@ export function CourseBuilderPage() {
       );
       setHasFetchedModules(true);
       setCurrentCourseId(courseId);
+      setSavedCourseSnapshot(courseSnapshot ?? currentCourseSnapshot);
       setMessage("");
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
@@ -397,17 +565,28 @@ export function CourseBuilderPage() {
   };
 
   const persistCourseAtFinalStep = async (action: "draft" | "publish") => {
-    if (!isBasicsComplete || isPersistingCourse) {
+    if (isPersistingCourse) {
+      return null;
+    }
+
+    if (action === "publish" && !isBasicsComplete) {
+      return null;
+    }
+
+    if (action === "draft" && !canSaveDraft) {
       return null;
     }
 
     setIsPersistingCourse(true);
 
     try {
+      const normalizedDraftTitle = courseTitle.trim() || "Untitled course";
+      const normalizedDescription = courseDescription.trim() || null;
+
       if (currentCourseId) {
         await updateCourse(currentCourseId, {
-          title: courseTitle.trim(),
-          description: courseDescription.trim() || null,
+          title: action === "draft" ? normalizedDraftTitle : courseTitle.trim(),
+          description: normalizedDescription,
           thumbnail_path: courseThumbnailPath,
         });
 
@@ -415,6 +594,7 @@ export function CourseBuilderPage() {
           await publishCourse(currentCourseId);
         }
 
+        setSavedCourseSnapshot(currentCourseSnapshot);
         setMessage(action === "publish" ? "Course published." : "Draft saved.");
         return currentCourseId;
       }
@@ -422,8 +602,8 @@ export function CourseBuilderPage() {
       const teacherId = await getCurrentTeacherId();
       const createdCourse = await createCourse({
         teacher_id: teacherId,
-        title: courseTitle.trim(),
-        description: courseDescription.trim() || null,
+        title: action === "draft" ? normalizedDraftTitle : courseTitle.trim(),
+        description: normalizedDescription,
         thumbnail_path: courseThumbnailPath,
         is_published: false,
       });
@@ -435,6 +615,7 @@ export function CourseBuilderPage() {
       }
 
       await hydratePersistedCourse(createdCourse.id);
+      setSavedCourseSnapshot(currentCourseSnapshot);
       setMessage(action === "publish" ? "Course published." : "Draft saved.");
       return createdCourse.id;
     } catch (error) {
@@ -459,6 +640,86 @@ export function CourseBuilderPage() {
     }
     return data.user.id;
   };
+
+  useEffect(() => {
+    if (!initialCourseId) {
+      setIsHydratingCourse(false);
+      return;
+    }
+
+    let isCancelled = false;
+    const courseSnapshotFromDb = async () => {
+      setIsHydratingCourse(true);
+      setMessage("");
+      setActiveStep(1);
+
+      try {
+        const course = await getCourseById(initialCourseId);
+        const snapshot: SavedCourseSnapshot = {
+          title: course.title ?? "",
+          description: course.description ?? "",
+          thumbnailPath: course.thumbnail_path,
+        };
+
+        if (isCancelled) {
+          return;
+        }
+
+        setCourseTitle(snapshot.title);
+        setCourseDescription(snapshot.description);
+        setCourseThumbnailPath(snapshot.thumbnailPath);
+        await hydratePersistedCourse(initialCourseId, snapshot);
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        if (error instanceof Error && error.message.trim()) {
+          setMessage(error.message);
+        } else {
+          setMessage("Unable to load the selected course.");
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsHydratingCourse(false);
+        }
+      }
+    };
+
+    void courseSnapshotFromDb();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [initialCourseId]);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) {
+      return undefined;
+    }
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [hasUnsavedChanges]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      hasUnsavedChanges,
+      canSaveDraft,
+      isSavingDraft: isPersistingCourse,
+      saveDraft: handleSaveDraft,
+    }),
+    [canSaveDraft, hasUnsavedChanges, isPersistingCourse]
+  );
 
   useEffect(() => {
     if (!currentCourseId) {
@@ -608,6 +869,17 @@ export function CourseBuilderPage() {
         await updateCourse(currentCourseId, {
           thumbnail_path: uploadedPath,
         });
+        setSavedCourseSnapshot((previousSnapshot) =>
+          previousSnapshot
+            ? {
+                ...previousSnapshot,
+                thumbnailPath: uploadedPath,
+              }
+            : {
+                ...currentCourseSnapshot,
+                thumbnailPath: uploadedPath,
+              }
+        );
       }
 
       setMessage("");
@@ -1135,20 +1407,31 @@ export function CourseBuilderPage() {
     setEditingTestId(null);
     setTestAfterLessonId(null);
     setTestQuestions([]);
+    setTestInitialDraft(null);
   };
 
   const openCreateTestModal = (moduleId: string) => {
+    const nextDraft = createEmptyTestEditorDraft();
     setTestEditorModuleId(moduleId);
     setEditingTestId(null);
-    setTestAfterLessonId(null);
-    setTestQuestions([createEmptyTestQuestion()]);
+    setTestAfterLessonId(nextDraft.afterLessonId);
+    setTestQuestions(nextDraft.questions);
+    setTestInitialDraft({
+      afterLessonId: nextDraft.afterLessonId,
+      questions: nextDraft.questions.map(cloneTestQuestion),
+    });
   };
 
   const openEditTestModal = (moduleId: string, test: CourseTest) => {
+    const nextQuestions = test.questions.map(cloneTestQuestion);
     setTestEditorModuleId(moduleId);
     setEditingTestId(test.id);
     setTestAfterLessonId(test.afterLessonId);
-    setTestQuestions(test.questions.map(cloneTestQuestion));
+    setTestQuestions(nextQuestions);
+    setTestInitialDraft({
+      afterLessonId: test.afterLessonId,
+      questions: nextQuestions.map(cloneTestQuestion),
+    });
   };
 
   const handleAddTestQuestion = () => {
@@ -1314,7 +1597,9 @@ export function CourseBuilderPage() {
   const currentCourseName = courseTitle.trim() || "Untitled course";
   const currentStepTitle =
     activeStep === 1
-      ? "Create Your Course"
+      ? initialCourseId || currentCourseId
+        ? "Edit Course"
+        : "Create Your Course"
       : activeStep === 2
         ? "Course Content"
         : "Review & Publish";
@@ -1325,12 +1610,12 @@ export function CourseBuilderPage() {
         ? ""
         : "Run a final pass on the structure and publish when everything is ready.";
   const canRunHeaderAction =
-    activeStep === 3 ? isBasicsComplete && !isPersistingCourse : Boolean(currentCourseId);
+    canSaveDraft;
   const builderContentKey = currentCourseId ?? draftCourseSessionId;
 
   return (
     <div
-      className="min-h-screen bg-[#f6f8f8] text-[#0f172a]"
+      className={`${embedded ? "min-h-0 bg-transparent" : "min-h-screen bg-[#f6f8f8]"} text-[#0f172a]`}
       style={{ fontFamily: '"Lexend", sans-serif' }}
     >
       <CourseBuilderHeader
@@ -1342,20 +1627,29 @@ export function CourseBuilderPage() {
         canNavigateToStep={(step) => step === 1 || isBasicsComplete}
         onStepChange={setActiveStep}
         onPrimaryAction={() => {
-          if (activeStep === 3 || currentCourseId) {
-            void handleSaveDraft();
-          }
+          void handleSaveDraft();
         }}
+        embedded={embedded}
       />
 
-      <main className="mx-auto flex w-full max-w-[92rem] flex-col gap-8 px-6 py-8 lg:px-10">
+      <main
+        className={`flex w-full flex-col gap-8 ${
+          embedded
+            ? "px-4 py-6 md:px-6 md:py-8 xl:px-8"
+            : "mx-auto max-w-[92rem] px-6 py-8 lg:px-10"
+        }`}
+      >
         {message ? (
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             {message}
           </div>
         ) : null}
 
-        {activeStep === 1 ? (
+        {isHydratingCourse ? (
+          <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
+            Loading course...
+          </Card>
+        ) : activeStep === 1 ? (
           <CourseBuilderCourseInfoStep
             stepLabel={`Step ${activeStep} of ${courseBuilderSteps.length}`}
             title={currentStepTitle}
@@ -1532,4 +1826,6 @@ export function CourseBuilderPage() {
       />
     </div>
   );
-}
+});
+
+CourseBuilderPage.displayName = "CourseBuilderPage";

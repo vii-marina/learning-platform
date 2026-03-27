@@ -10,9 +10,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { Link } from "react-router-dom";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
-import { LogoutButton } from "../../auth/components/LogoutButton";
 import type { CurrentUser } from "../../auth/types";
 import { getTeacherAvatarPublicUrl } from "../api/teacherProfileStorage";
 import type { TeacherDashboardSectionId } from "../types";
@@ -41,6 +39,10 @@ type TeacherDashboardSidebarProps = {
   onSectionChange: (section: TeacherDashboardSectionId) => void;
   currentUser: CurrentUser | null;
   onOpenProfile: () => void;
+  onOpenCourseBuilder: () => void;
+  onLogout: () => void;
+  isLoggingOut?: boolean;
+  logoutMessage?: string | null;
   compactOnDesktop?: boolean;
 };
 
@@ -108,6 +110,10 @@ export function TeacherDashboardSidebar({
   onSectionChange,
   currentUser,
   onOpenProfile,
+  onOpenCourseBuilder,
+  onLogout,
+  isLoggingOut = false,
+  logoutMessage = null,
   compactOnDesktop = false,
 }: TeacherDashboardSidebarProps) {
   const avatarImageUrl = getTeacherAvatarPublicUrl(currentUser?.avatarPath);
@@ -127,7 +133,7 @@ export function TeacherDashboardSidebar({
           title={compactOnDesktop ? "My Profile" : undefined}
           onClick={onOpenProfile}
           aria-current={activeSection === "profile" ? "page" : undefined}
-          className={`flex w-full items-center gap-3 rounded-[1.5rem] border px-3 py-3 text-left transition ${
+          className={`flex w-full items-center gap-3 rounded-[1.5rem]  px-3 text-left transition ${
             compactOnDesktop
               ? "lg:justify-center lg:px-2 lg:group-hover:justify-start lg:group-hover:px-3"
               : ""
@@ -168,9 +174,14 @@ export function TeacherDashboardSidebar({
           </div>
 
           <div className="space-y-3 pt-10">
-            <Link
-              to="/course-builder"
-              className={`flex h-12 w-full items-center gap-2 rounded-2xl bg-[#13daec] text-sm font-extrabold text-[#14213d] shadow-[0_16px_32px_rgba(19,218,236,0.24)] transition hover:bg-[#10c6d7] ${
+            <button
+              type="button"
+              onClick={onOpenCourseBuilder}
+              className={`flex h-12 w-full items-center gap-2 rounded-2xl text-sm font-extrabold text-[#14213d] shadow-[0_16px_32px_rgba(19,218,236,0.24)] transition ${
+                activeSection === "builder"
+                  ? "bg-[#10c6d7]"
+                  : "bg-[#13daec] hover:bg-[#10c6d7]"
+              } ${
                 compactOnDesktop
                   ? "justify-center px-0 lg:group-hover:justify-center lg:group-hover:px-4"
                   : "justify-center px-4"
@@ -181,7 +192,7 @@ export function TeacherDashboardSidebar({
               <SidebarLabel compactOnDesktop={compactOnDesktop}>
                 New Course
               </SidebarLabel>
-            </Link>
+            </button>
 
             {secondaryItems.map((item) => (
               <SidebarButton
@@ -193,26 +204,32 @@ export function TeacherDashboardSidebar({
               />
             ))}
 
-            <LogoutButton
-              containerClassName="flex flex-col items-stretch gap-2"
-              buttonVariant="secondary"
-              buttonClassName={`h-12 w-full rounded-2xl border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 ${
-                compactOnDesktop ? "lg:px-0 lg:group-hover:px-4" : ""
-              }`}
-              contentClassName={`flex items-center gap-3 text-slate-700 ${
-                compactOnDesktop
-                  ? "justify-center lg:group-hover:justify-start"
-                  : "justify-center"
-              }`}
-              content={
-                <>
+            <div className="flex flex-col items-stretch gap-2">
+              <button
+                type="button"
+                onClick={onLogout}
+                disabled={isLoggingOut}
+                className={`h-12 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 ${
+                  compactOnDesktop ? "lg:px-0 lg:group-hover:px-4" : ""
+                }`}
+              >
+                <span
+                  className={`flex items-center gap-3 text-slate-700 ${
+                    compactOnDesktop
+                      ? "justify-center lg:group-hover:justify-start"
+                      : "justify-center"
+                  }`}
+                >
                   <LogOut className="h-4 w-4" />
                   <SidebarLabel compactOnDesktop={compactOnDesktop}>
-                    Logout
+                    {isLoggingOut ? "Logging out..." : "Logout"}
                   </SidebarLabel>
-                </>
-              }
-            />
+                </span>
+              </button>
+              {logoutMessage ? (
+                <p className="px-1 text-sm text-rose-600">{logoutMessage}</p>
+              ) : null}
+            </div>
           </div>
         </nav>
       </div>

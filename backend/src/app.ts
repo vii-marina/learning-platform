@@ -8,6 +8,7 @@ import { notFoundHandler } from "./middleware/notFound";
 import { adminRoutes } from "./routes/adminRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { healthRoutes } from "./routes/healthRoutes";
+import aiRoutes from "./routes/aiRoutes";
 
 function isAllowedOrigin(origin: string | undefined): boolean {
   if (!origin) {
@@ -42,7 +43,7 @@ export function createApp() {
   app.use(healthRoutes);
   app.use("/auth", authRoutes);
   app.use("/admin", adminRoutes);
-
+  app.use("/api/ai", aiRoutes);
   app.use(notFoundHandler);
   app.use(errorHandler);
 

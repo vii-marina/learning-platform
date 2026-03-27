@@ -1,8 +1,10 @@
 import { Plus } from "lucide-react";
 
-import { Link } from "react-router-dom";
-
-export function TeacherDashboardOverview() {
+export function TeacherDashboardOverview({
+  onOpenCourseBuilder,
+}: {
+  onOpenCourseBuilder: () => void;
+}) {
   return (
     <div className="space-y-6">
       <section
@@ -22,13 +24,14 @@ export function TeacherDashboardOverview() {
               prepare materials for your students in the builder workspace.
             </p>
             <div className="flex flex-wrap items-center gap-3">
-              <Link
-                to="/course-builder"
+              <button
+                type="button"
+                onClick={onOpenCourseBuilder}
                 className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17338f] transition hover:bg-slate-100"
               >
                 <Plus className="h-4 w-4" />
                 <span>Open course builder</span>
-              </Link>
+              </button>
               
             </div>
           </div>

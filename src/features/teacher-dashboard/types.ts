@@ -1,4 +1,5 @@
 export type TeacherDashboardSectionId =
+  | "builder"
   | "profile"
   | "overview"
   | "students"

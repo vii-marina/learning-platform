@@ -124,13 +124,12 @@
   inset: 0;
   border-radius: inherit;
   background-image:
-    radial-gradient(circle, rgba(255, 255, 255, 0.95) 0 1px, transparent 1.6px),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(19, 218, 236, 0.1));
-  background-size: 10px 10px, 100% 100%;
+    radial-gradient(circle, rgba(20, 33, 61, 0.18) 0 1px, transparent 1.8px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(19, 218, 236, 0.08));
+  background-size: 12px 12px, 100% 100%;
   background-position: 0 0, 0 0;
-  opacity: 0.95;
-  mix-blend-mode: screen;
-  animation: spoiler-drift 3s linear infinite;
+  opacity: 0.9;
+  animation: spoiler-drift 4s linear infinite;
   pointer-events: none;
   transition: opacity 180ms ease;
 }
