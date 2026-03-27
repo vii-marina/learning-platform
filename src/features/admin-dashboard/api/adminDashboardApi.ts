@@ -1,4 +1,4 @@
-import { listAdminUsers, updateAdminUser } from "../../auth/api/authApi";
+import { listAdminUsers } from "../../auth/api/authApi";
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
 import type {
   AdminDashboardCourse,
@@ -169,15 +169,19 @@ export async function loadAdminTeacherDetailData(teacherId: string) {
 }
 
 export async function saveAdminTeacherProfile(
-  teacher: AdminTeacher,
+  teacherId: string,
   input: AdminTeacherProfileInput
 ) {
-  await updateAdminUser(teacher.id, {
-    fullName: input.fullName.trim() || null,
-  });
+  const response = await authorizedBackendRequest<AdminTeacherResponse>(
+    `/admin/dashboard/teachers/${teacherId}`,
+    {
+      method: "PATCH",
+      body: input,
+    }
+  );
 
-  deleteDashboardKeys(["teachers:list", teacherDetailKey(teacher.id)]);
-  const updatedTeacher = await loadAdminTeacherDetailData(teacher.id);
+  deleteDashboardKeys(["teachers:list", teacherDetailKey(teacherId)]);
+  const updatedTeacher = response.teacher;
   primeAdminTeacherDetailCache(updatedTeacher);
   return updatedTeacher;
 }

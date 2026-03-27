@@ -3,6 +3,7 @@ import { clearPendingRegistration, getPendingRegistration } from "../lib/pending
 import type {
   CurrentUser,
   PublicRegistrationRole,
+  UpdateCurrentUserProfileInput,
   UpdateAdminUserInput,
   UserRole,
 } from "../types";
@@ -61,6 +62,16 @@ export async function getCurrentUser() {
     });
 
   return currentUserPromise;
+}
+
+export async function updateCurrentUserProfile(input: UpdateCurrentUserProfileInput) {
+  const response = await authorizedBackendRequest<SingleUserResponse>("/auth/me", {
+    method: "PATCH",
+    body: input,
+  });
+
+  primeCurrentUserCache(response.user);
+  return response.user;
 }
 
 export async function listAdminUsers(role?: UserRole) {

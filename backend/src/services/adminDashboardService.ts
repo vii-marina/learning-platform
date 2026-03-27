@@ -2,7 +2,8 @@ import { AppError } from "../lib/appError";
 import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, UserProfileRow } from "../types/auth";
-import { listProfileUsersByRole } from "./userService";
+import { updateCurrentUserProfile } from "./authService";
+import { getRequestAuthContext, listProfileUsersByRole } from "./userService";
 
 type CountedTable =
   | "modules"
@@ -44,10 +45,34 @@ type AdminDashboardOverviewData = {
 };
 
 type AdminDashboardTeacher = NormalizedUser & {
+  headline?: string | null;
+  bio?: string | null;
+  specialization?: string | null;
+  experienceYears?: number | null;
+  education?: string | null;
+  gender?: "male" | "female" | "other" | null;
+  birthDate?: string | null;
+  avatarPath?: string | null;
+  linkedinUrl?: string | null;
+  githubUrl?: string | null;
   assignedStudents: NormalizedUser[];
   courseCount: number;
   publishedCourseCount: number;
   draftCourseCount: number;
+};
+
+type AdminDashboardTeacherProfileInput = {
+  fullName?: string;
+  headline?: string | null;
+  bio?: string | null;
+  specialization?: string | null;
+  experienceYears?: number | null;
+  education?: string | null;
+  gender?: "male" | "female" | "other" | null;
+  birthDate?: string | null;
+  avatarPath?: string | null;
+  linkedinUrl?: string | null;
+  githubUrl?: string | null;
 };
 
 const profileSelect = "id,email,full_name,role,created_at";
@@ -148,6 +173,46 @@ async function getTeacherProfile(teacherId: string) {
   }
 
   return (data as TeacherProfileRow | null) ?? null;
+}
+
+function pickStringValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
+  if (!record) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
+function pickNumberValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
+  if (!record) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const value = record[key];
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+
+    if (typeof value === "string" && value.trim()) {
+      const parsed = Number(value);
+
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
 }
 
 function pickArrayValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
@@ -282,6 +347,27 @@ function buildTeacherRecord(
 
   return {
     ...teacher,
+    fullName:
+      teacher.fullName ??
+      pickStringValue(teacherProfile, ["full_name", "fullName"]) ??
+      null,
+    headline: pickStringValue(teacherProfile, ["headline"]),
+    bio: pickStringValue(teacherProfile, ["bio"]),
+    specialization: pickStringValue(teacherProfile, ["specialization"]),
+    experienceYears: pickNumberValue(teacherProfile, [
+      "experience_years",
+      "experienceYears",
+    ]),
+    education: pickStringValue(teacherProfile, ["education"]),
+    gender: pickStringValue(teacherProfile, ["gender"]) as
+      | "male"
+      | "female"
+      | "other"
+      | null,
+    birthDate: pickStringValue(teacherProfile, ["birth_date", "birthDate"]),
+    avatarPath: pickStringValue(teacherProfile, ["avatar_path", "avatarPath"]),
+    linkedinUrl: pickStringValue(teacherProfile, ["linkedin_url", "linkedinUrl"]),
+    githubUrl: pickStringValue(teacherProfile, ["github_url", "githubUrl"]),
     assignedStudents,
     courseCount: stats.courseCount,
     publishedCourseCount: stats.publishedCourseCount,
@@ -397,4 +483,19 @@ export async function getAdminDashboardTeacher(teacherId: string): Promise<Admin
   const statsByTeacherId = buildCourseStats(courseRows);
 
   return buildTeacherRecord(teacher, teacherProfile, assignedStudentsById, statsByTeacherId);
+}
+
+export async function saveAdminDashboardTeacherProfile(
+  teacherId: string,
+  input: AdminDashboardTeacherProfileInput
+): Promise<AdminDashboardTeacher> {
+  const teacher = await getAdminDashboardTeacher(teacherId);
+  const authContext = await getRequestAuthContext(teacherId, teacher.email, teacher.fullName);
+
+  if (authContext.role !== "teacher") {
+    throw new AppError(404, "Teacher not found.", "TEACHER_NOT_FOUND");
+  }
+
+  await updateCurrentUserProfile(authContext, input);
+  return getAdminDashboardTeacher(teacherId);
 }

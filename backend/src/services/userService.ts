@@ -189,7 +189,8 @@ export async function getAuthUserById(userId: string): Promise<User> {
 
 export async function getRequestAuthContext(
   userId: string,
-  email: string
+  email: string,
+  fallbackFullName?: string | null
 ): Promise<AuthenticatedRequestContext> {
   const [profile, adminRecord] = await Promise.all([getProfileById(userId), getAdminRecordById(userId)]);
   const role = normalizeUserRole(profile?.role ?? null, adminRecord);
@@ -197,7 +198,7 @@ export async function getRequestAuthContext(
   return {
     userId,
     email,
-    fullName: profile?.full_name ?? null,
+    fullName: profile?.full_name ?? fallbackFullName ?? null,
     role,
     isAdmin: isAdminRole(role),
     isSuperAdmin: role === "super-admin",

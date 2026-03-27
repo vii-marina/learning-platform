@@ -3,6 +3,25 @@ import { AppError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import { getRequestAuthContext } from "../services/userService";
 
+function getMetadataString(
+  metadata: Record<string, unknown> | null | undefined,
+  keys: string[]
+) {
+  if (!metadata) {
+    return null;
+  }
+
+  for (const key of keys) {
+    const value = metadata[key];
+
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return null;
+}
+
 function getBearerToken(headerValue?: string): string | null {
   if (!headerValue) {
     return null;
@@ -37,7 +56,12 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
       throw new AppError(400, "Authenticated user is missing an email.", "AUTH_EMAIL_MISSING");
     }
 
-    req.auth = await getRequestAuthContext(data.user.id, email);
+    const fallbackFullName = getMetadataString(
+      (data.user.user_metadata as Record<string, unknown> | undefined) ?? null,
+      ["full_name", "fullName", "name"]
+    );
+
+    req.auth = await getRequestAuthContext(data.user.id, email, fallbackFullName);
     next();
   } catch (error) {
     next(error);

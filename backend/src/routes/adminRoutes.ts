@@ -4,6 +4,7 @@ import {
   getAdminDashboardTeacherHandler,
   listAdminDashboardStudentsHandler,
   listAdminDashboardTeachersHandler,
+  updateAdminDashboardTeacherHandler,
 } from "../controllers/adminDashboardController";
 import {
   getAdminDashboardCourseHandler,
@@ -28,6 +29,7 @@ router.get("/dashboard/courses/:id", requireAdmin, getAdminDashboardCourseHandle
 router.get("/dashboard/students", requireAdmin, listAdminDashboardStudentsHandler);
 router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandler);
 router.get("/dashboard/teachers/:id", requireAdmin, getAdminDashboardTeacherHandler);
+router.patch("/dashboard/teachers/:id", requireAdmin, updateAdminDashboardTeacherHandler);
 router.get("/users", requireAdmin, listUsersHandler);
 router.get("/teachers", requireAdmin, listTeachersHandler);
 router.get("/students", requireAdmin, listStudentsHandler);

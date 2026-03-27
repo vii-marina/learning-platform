@@ -1,9 +1,11 @@
 import type { Request, Response } from "express";
 import { updateUserParamsSchema } from "../validators/adminSchemas";
+import { updateCurrentUserSchema } from "../validators/authSchemas";
 import {
   getAdminDashboardOverview,
   getAdminDashboardTeacher,
   listAdminDashboardTeachers,
+  saveAdminDashboardTeacherProfile,
 } from "../services/adminDashboardService";
 import { listAdminDashboardStudents } from "../services/adminDashboardStudentsService";
 
@@ -25,5 +27,25 @@ export async function listAdminDashboardStudentsHandler(_req: Request, res: Resp
 export async function getAdminDashboardTeacherHandler(req: Request, res: Response) {
   const params = updateUserParamsSchema.parse(req.params);
   const teacher = await getAdminDashboardTeacher(params.id);
+  res.status(200).json({ teacher });
+}
+
+export async function updateAdminDashboardTeacherHandler(req: Request, res: Response) {
+  const params = updateUserParamsSchema.parse(req.params);
+  const input = updateCurrentUserSchema.parse(req.body);
+  const teacher = await saveAdminDashboardTeacherProfile(params.id, {
+    fullName: input.fullName,
+    headline: input.headline,
+    bio: input.bio,
+    specialization: input.specialization,
+    experienceYears: input.experienceYears,
+    education: input.education,
+    gender: input.gender,
+    birthDate: input.birthDate,
+    avatarPath: input.avatarPath,
+    linkedinUrl: input.linkedinUrl,
+    githubUrl: input.githubUrl,
+  });
+
   res.status(200).json({ teacher });
 }

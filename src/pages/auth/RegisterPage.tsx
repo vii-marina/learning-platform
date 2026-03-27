@@ -69,6 +69,10 @@ export function RegisterPage() {
             "/email-confirmed",
             window.location.origin
           ).toString(),
+          data: {
+            full_name: trimmedFullName,
+            role,
+          },
         },
       });
 

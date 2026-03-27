@@ -1,14 +1,23 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
-import { getCurrentUser } from "../../features/auth/api/authApi";
+import {
+  getCurrentUser,
+  updateCurrentUserProfile,
+} from "../../features/auth/api/authApi";
 import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
 import {
   canAccessDashboardRole,
   getDefaultRouteForRole,
 } from "../../features/auth/lib/roleRouting";
+import type {
+  CurrentUser,
+  UpdateCurrentUserProfileInput,
+} from "../../features/auth/types";
+import { uploadTeacherAvatar } from "../../features/teacher-dashboard/api/teacherProfileStorage";
 import { TeacherDashboardCourses } from "../../features/teacher-dashboard/components/TeacherDashboardCourses";
 import { TeacherDashboardOverview } from "../../features/teacher-dashboard/components/TeacherDashboardOverview";
+import { TeacherDashboardProfile } from "../../features/teacher-dashboard/components/TeacherDashboardProfile";
 import { TeacherDashboardSidebar } from "../../features/teacher-dashboard/components/TeacherDashboardSidebar";
 import type { TeacherDashboardSectionId } from "../../features/teacher-dashboard/types";
 
@@ -35,7 +44,17 @@ export function TeacherDashboardPage() {
   const navigate = useNavigate();
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [pageMessage, setPageMessage] = useState<{
+    type: "error" | "success";
+    text: string;
+  } | null>(null);
+  const [profileMessage, setProfileMessage] = useState<{
+    type: "error" | "success";
+    text: string;
+    details?: unknown;
+  } | null>(null);
   const [activeSection, setActiveSection] =
     useState<TeacherDashboardSectionId>("overview");
 
@@ -55,8 +74,9 @@ export function TeacherDashboardPage() {
           return;
         }
 
+        setCurrentUser(currentUser);
         setHasAccess(true);
-        setMessage("");
+        setPageMessage(null);
       } catch (error) {
         if (!isMounted) {
           return;
@@ -67,7 +87,10 @@ export function TeacherDashboardPage() {
           return;
         }
 
-        setMessage(getErrorMessage(error, "Unable to load your dashboard."));
+        setPageMessage({
+          type: "error",
+          text: getErrorMessage(error, "Unable to load your dashboard."),
+        });
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -82,12 +105,60 @@ export function TeacherDashboardPage() {
     };
   }, [navigate]);
 
-  if (!isLoading && !hasAccess && !message) {
+  if (!isLoading && !hasAccess && !pageMessage) {
     return <Navigate to="/dashboard" replace />;
+  }
+
+  async function handleSaveProfile(
+    input: UpdateCurrentUserProfileInput,
+    avatarFile: File | null
+  ) {
+    if (!currentUser) {
+      return;
+    }
+
+    try {
+      setIsSavingProfile(true);
+      setProfileMessage(null);
+      const avatarPath = avatarFile
+        ? await uploadTeacherAvatar(currentUser.id, avatarFile)
+        : input.avatarPath;
+      const updatedUser = await updateCurrentUserProfile({
+        ...input,
+        avatarPath,
+      });
+      setCurrentUser(updatedUser);
+      setProfileMessage({
+        type: "success",
+        text: "Information updated.",
+      });
+    } catch (error) {
+      setProfileMessage({
+        type: "error",
+        text: getErrorMessage(error, "Unable to save your information."),
+        details: error instanceof BackendApiError ? error.details : undefined,
+      });
+    } finally {
+      setIsSavingProfile(false);
+    }
   }
 
   function renderTeacherSection() {
     switch (activeSection) {
+      case "profile":
+        return currentUser ? (
+          <TeacherDashboardProfile
+            teacher={currentUser}
+            isSaving={isSavingProfile}
+            onSave={handleSaveProfile}
+            saveMessage={profileMessage}
+            onClearSaveMessage={() => setProfileMessage(null)}
+          />
+        ) : (
+          <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
+            Loading profile...
+          </Card>
+        );
       case "overview":
         return <TeacherDashboardOverview />;
       case "courses":
@@ -116,13 +187,21 @@ export function TeacherDashboardPage() {
         <TeacherDashboardSidebar
           activeSection={activeSection}
           onSectionChange={setActiveSection}
+          currentUser={currentUser}
+          onOpenProfile={() => setActiveSection("profile")}
           compactOnDesktop={activeSection === "courses"}
         />
 
         <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8 xl:px-10">
-          {message ? (
-            <Card className="rounded-[1.75rem] border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-none">
-              <p className="text-sm font-medium">{message}</p>
+          {pageMessage ? (
+            <Card
+              className={`rounded-[1.75rem] p-6 shadow-none ${
+                pageMessage.type === "error"
+                  ? "border-rose-200 bg-rose-50 text-rose-700"
+                  : "border-emerald-200 bg-emerald-50 text-emerald-700"
+              }`}
+            >
+              <p className="text-sm font-medium">{pageMessage.text}</p>
             </Card>
           ) : null}
 

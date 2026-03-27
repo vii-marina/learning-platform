@@ -1,4 +1,4 @@
-import type { CurrentUser } from "../auth/types";
+import type { CurrentUser, UpdateCurrentUserProfileInput } from "../auth/types";
 import type {
   Course,
   Lesson,
@@ -85,9 +85,7 @@ export type AdminDashboardStudent = CurrentUser & {
   completedCourses: string[];
 };
 
-export type AdminTeacherProfileInput = {
-  fullName: string;
-};
+export type AdminTeacherProfileInput = UpdateCurrentUserProfileInput;
 
 export type AdminDashboardSettingsData = {
   users: CurrentUser[];
