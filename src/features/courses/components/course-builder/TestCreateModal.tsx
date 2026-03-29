@@ -1,6 +1,7 @@
-import { Plus, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
-import type { Lesson, Module } from "../../api";
+import type { AiQuestionGenerationMode, Lesson, Module } from "../../api";
 import type { CourseTest, CourseTestQuestion } from "./courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { TestQuestionEditor } from "./TestQuestionEditor";
@@ -20,13 +21,49 @@ type TestCreateModalProps = {
   questions: CourseTestQuestion[];
   canSave: boolean;
   isSaving?: boolean;
+  aiGenerationMode: AiQuestionGenerationMode;
+  aiQuestionCount: number;
+  maxAiQuestionCount: number;
+  canGenerateAi: boolean;
+  isGeneratingAi?: boolean;
   onClose: () => void;
   onSave: () => void;
+  onGenerateAi: () => Promise<boolean>;
+  onAiGenerationModeChange: (value: AiQuestionGenerationMode) => void;
+  onAiQuestionCountChange: (value: number) => void;
   onAfterLessonChange: (lessonId: string | null) => void;
   onAddQuestion: () => void;
   onQuestionChange: (questionId: string, nextQuestion: CourseTestQuestion) => void;
   onDeleteQuestion: (questionId: string) => void;
 };
+
+type TestCreateMode = "manual" | "ai" | null;
+
+const aiGenerationModeOptions: Array<{
+  value: AiQuestionGenerationMode;
+  label: string;
+}> = [
+  { value: "true_false", label: "True / False" },
+  { value: "single_choice", label: "One Correct Answer" },
+  { value: "multiple_choice", label: "Multiple Correct Answers" },
+  { value: "mixed", label: "Mixed" },
+];
+
+function hasMeaningfulQuestionDraft(question: CourseTestQuestion) {
+  if (question.questionText.trim().length > 0) {
+    return true;
+  }
+
+  if (question.correctOptionIndexes.length > 0) {
+    return true;
+  }
+
+  return question.options.some((option, index) => option.trim() !== `Option ${index + 1}`);
+}
+
+function hasMeaningfulTestQuestionDraft(questions: CourseTestQuestion[]) {
+  return questions.length > 1 || questions.some(hasMeaningfulQuestionDraft);
+}
 
 export function TestCreateModal({
   isOpen,
@@ -43,134 +80,296 @@ export function TestCreateModal({
   questions,
   canSave,
   isSaving = false,
+  aiGenerationMode,
+  aiQuestionCount,
+  maxAiQuestionCount,
+  canGenerateAi,
+  isGeneratingAi = false,
   onClose,
   onSave,
+  onGenerateAi,
+  onAiGenerationModeChange,
+  onAiQuestionCountChange,
   onAfterLessonChange,
   onAddQuestion,
   onQuestionChange,
   onDeleteQuestion,
 }: TestCreateModalProps) {
+  const [previewLessonId, setPreviewLessonId] = useState<string | null>(null);
+  const [mode, setMode] = useState<TestCreateMode>(null);
+  const [showAiQuestions, setShowAiQuestions] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setMode(null);
+      setShowAiQuestions(false);
+      return;
+    }
+
+    if (activeTestId || hasMeaningfulTestQuestionDraft(questions)) {
+      setMode("manual");
+      setShowAiQuestions(false);
+      return;
+    }
+
+    setMode(null);
+    setShowAiQuestions(false);
+  }, [activeTestId, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    if (selectedAfterLessonId) {
+      setPreviewLessonId(selectedAfterLessonId);
+      return;
+    }
+
+    setPreviewLessonId((currentValue) => {
+      if (currentValue && lessons.some((lesson) => lesson.id === currentValue)) {
+        return currentValue;
+      }
+
+      return lessons[0]?.id ?? null;
+    });
+  }, [isOpen, lessons, selectedAfterLessonId]);
+
   if (!isOpen) {
     return null;
   }
 
-  const modulePlacementLabel = "This Module";
   const activeModule = modules.find((module) => module.id === activeModuleId) || null;
+  const title =
+    mode === "ai"
+      ? "Generate Questions with AI"
+      : heading;
+
+  const handlePlacementChange = (lessonId: string | null) => {
+    onAfterLessonChange(lessonId);
+
+    if (mode === "ai") {
+      setShowAiQuestions(false);
+    }
+  };
+
+  const handleGenerateAi = async () => {
+    const didGenerate = await onGenerateAi();
+
+    if (didGenerate) {
+      setShowAiQuestions(true);
+    }
+  };
+
+  const handleAiGenerationModeChange = (value: AiQuestionGenerationMode) => {
+    onAiGenerationModeChange(value);
+    setShowAiQuestions(false);
+  };
+
+  const placementButtons = (
+    <div className="mt-4 flex flex-wrap gap-2">
+      <button
+        type="button"
+        onClick={() => handlePlacementChange(null)}
+        className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+          selectedAfterLessonId === null
+            ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
+            : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
+        }`}
+        disabled={isSaving}
+      >
+        This Module
+      </button>
+
+      {lessons.map((lesson) => {
+        const isActive = selectedAfterLessonId === lesson.id;
+
+        return (
+          <button
+            key={lesson.id}
+            type="button"
+            onClick={() => handlePlacementChange(lesson.id)}
+            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+              isActive
+                ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
+                : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
+            }`}
+            disabled={isSaving}
+          >
+            {`${lesson.order}. ${lesson.title}`}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const questionList = (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={onAddQuestion}
+          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#c4b5fd]/60 bg-white px-5 text-sm font-semibold text-[#7c3aed] transition hover:bg-[#f5f3ff]"
+          disabled={isSaving}
+        >
+          <Plus className="h-4 w-4" />
+          <span>Add Question</span>
+        </button>
+      </div>
+
+      {questions.map((question, index) => (
+        <TestQuestionEditor
+          key={question.id}
+          question={question}
+          index={index}
+          canDelete={questions.length > 1}
+          onChange={onQuestionChange}
+          onDelete={onDeleteQuestion}
+        />
+      ))}
+    </div>
+  );
+
+  const modeChoice = (
+    <div className="flex flex-wrap gap-3">
+      <button
+        type="button"
+        onClick={() => setMode("ai")}
+        className="inline-flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-[#a78bfa] via-[#8b5cf6] to-[#6d28d9] px-5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(109,40,217,0.18)] transition hover:translate-y-[-1px] hover:shadow-[0_16px_28px_rgba(109,40,217,0.24)]"
+      >
+        <Sparkles className="h-4 w-4" />
+        <span>Generate Questions with AI</span>
+      </button>
+
+      <button
+        type="button"
+        onClick={() => setMode("manual")}
+        className="inline-flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-[#14213d] transition hover:border-slate-300 hover:bg-slate-50"
+      >
+        Create Test Manually
+      </button>
+    </div>
+  );
 
   return (
     <div className="fixed inset-0 z-[90] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[92rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
+      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
         <CourseStructureSidebar
           courseTitle={courseTitle}
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
+          restrictToActiveModule
           activeModuleId={activeModuleId}
           activeTestId={activeTestId}
           selectedAfterLessonId={selectedAfterLessonId}
-          showModulePlacementHint
+          previewLessonId={previewLessonId}
+          showTestSourcePreview
+          onSelectPreviewLesson={setPreviewLessonId}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-            <div>
-              <h3 className="mt-1 text-3xl font-extrabold tracking-tight text-[#14213d]">
-                {heading}
-              </h3>
-              <p className="mt-1 text-sm text-slate-500">
-                {activeModule
-                  ? `Inside Module ${activeModule.order}: ${activeModule.title}.`
-                  : "Choose placement and build one or more questions below."}
+        <div className="relative flex min-w-0 flex-1 flex-col">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close test modal"
+            className="absolute right-6 top-6 z-10 rounded-2xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
+          >
+            <X className="h-5 w-5" />
+          </button>
+
+          <div className="border-b border-slate-200 px-8 py-6 pr-24">
+            <h3 className="text-3xl font-extrabold tracking-tight text-[#14213d]">
+              {title}
+            </h3>
+            {activeModule ? (
+              <p className="mt-2 text-sm text-slate-500">
+                {`Inside Module ${activeModule.order}: ${activeModule.title}.`}
               </p>
-            </div>
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close test modal"
-              className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
+            ) : null}
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-            <div className="space-y-8">
-              <div>
-                <label className="text-sm font-semibold text-[#14213d]">
-                  Place This Test After
-                </label>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onAfterLessonChange(null)}
-                    className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                      selectedAfterLessonId === null
-                        ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
-                        : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
-                    }`}
-                    disabled={isSaving}
-                  >
-                    {modulePlacementLabel}
-                  </button>
+          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
+            {mode === null ? (
+              modeChoice
+            ) : (
+              <div className="space-y-6">
+                <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6">
+                  <h6 className="text-2xl font-bold tracking-tight text-[#14213d]">
+                    Place this test after:
+                  </h6>
+                  {placementButtons}
+                </section>
 
-                  {lessons.map((lesson) => {
-                    const isActive = selectedAfterLessonId === lesson.id;
+                {mode === "ai" ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {aiGenerationModeOptions.map((option) => {
+                        const isActive = aiGenerationMode === option.value;
 
-                    return (
-                      <button
-                        key={lesson.id}
-                        type="button"
-                        onClick={() => onAfterLessonChange(lesson.id)}
-                        className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                          isActive
-                            ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
-                            : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
-                        }`}
-                        disabled={isSaving}
+                        return (
+                          <button
+                            key={option.value}
+                            type="button"
+                            onClick={() => handleAiGenerationModeChange(option.value)}
+                            disabled={isSaving || isGeneratingAi}
+                            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+                              isActive
+                                ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
+                                : "border-slate-200 bg-white text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
+                            }`}
+                          >
+                            {option.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                      <select
+                        value={aiQuestionCount}
+                        onChange={(event) =>
+                          onAiQuestionCountChange(Number(event.target.value))
+                        }
+                        disabled={isSaving || isGeneratingAi || maxAiQuestionCount === 0}
+                        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-[#14213d] outline-none transition focus:border-[#8b5cf6] focus:ring-4 focus:ring-[#8b5cf6]/15"
                       >
-                        {`${lesson.order}. ${lesson.title}`}
+                        {Array.from(
+                          { length: Math.max(maxAiQuestionCount, 1) },
+                          (_, index) => {
+                            const value = index + 1;
+
+                            return (
+                              <option key={value} value={value}>
+                                {`${value} question${value === 1 ? "" : "s"}`}
+                              </option>
+                            );
+                          }
+                        )}
+                      </select>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleGenerateAi();
+                        }}
+                        disabled={!canGenerateAi || isSaving || isGeneratingAi}
+                        className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#6d28d9] px-6 text-sm font-bold text-white transition hover:bg-[#5b21b6] disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {isGeneratingAi ? "Generating..." : "Generate"}
                       </button>
-                    );
-                  })}
-                </div>
+                    </div>
+
+                    {showAiQuestions ? questionList : null}
+                  </>
+                ) : (
+                  questionList
+                )}
               </div>
-
-              <section className="rounded-[1.5rem] border border-slate-200 bg-white p-5">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <h4 className="text-2xl font-bold tracking-tight text-[#14213d]">
-                      Questions
-                    </h4>
-                  </div>
-                  <Button
-                    onClick={onAddQuestion}
-                    className="h-11 rounded-2xl bg-[#13daec] px-5 text-sm font-bold text-[#0f172a] hover:bg-[#10c6d7]"
-                    disabled={isSaving}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Add Question
-                    </span>
-                  </Button>
-                </div>
-
-                <div className="mt-5 space-y-4">
-                  {questions.map((question, index) => (
-                    <TestQuestionEditor
-                      key={question.id}
-                      question={question}
-                      index={index}
-                      canDelete={questions.length > 1}
-                      onChange={onQuestionChange}
-                      onDelete={onDeleteQuestion}
-                    />
-                  ))}
-                </div>
-              </section>
-            </div>
+            )}
           </div>
 
-          <div className="border-t border-slate-200 px-6 py-5">
+          <div className="border-t border-slate-200 px-8 py-5">
             <div className="flex justify-end gap-4">
               <Button
                 variant="secondary"
@@ -182,7 +381,7 @@ export function TestCreateModal({
               <Button
                 onClick={onSave}
                 disabled={!canSave || isSaving}
-                className="h-11 rounded-2xl bg-[#13daec] px-5 text-sm font-bold text-[#0f172a] hover:bg-[#10c6d7]"
+                className="h-11 rounded-2xl bg-[#6d28d9] px-5 text-sm font-bold text-white hover:bg-[#5b21b6]"
               >
                 {isSaving ? "Saving..." : saveLabel}
               </Button>

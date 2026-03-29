@@ -1,22 +1,27 @@
 import { supabase } from "../../../lib/supabase";
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
 import type {
+  AiQuestionGenerationMode,
   Course,
   CourseAccessType,
   CourseStatus,
   CreateCourseInput,
+  CreateExerciseInput,
   CreateLessonBlockInput,
   CreateLessonInput,
   CreateModuleInput,
   CreateTestAnswerInput,
   CreateTestEntityInput,
   CreateTestQuestionInput,
+  Exercise,
   Lesson,
   LessonBlock,
   Module,
   TestAnswer,
   TestEntity,
   TestQuestion,
+  TestQuestionType,
+  UpdateExerciseInput,
   UpdateCourseInput,
   UpdateLessonBlockInput,
   UpdateLessonInput,
@@ -44,6 +49,36 @@ type LessonBlockResponse = {
 
 type LessonBlocksResponse = {
   lessonBlocks: LessonBlock[];
+};
+
+type ExerciseResponse = {
+  exercise: Exercise;
+};
+
+type ExercisesResponse = {
+  exercises: Exercise[];
+};
+
+export type GeneratedTestQuestionOption = {
+  text: string;
+  correct: boolean;
+};
+
+export type GeneratedTestQuestion = {
+  type: TestQuestionType;
+  question_text: string;
+  options: GeneratedTestQuestionOption[];
+};
+
+type GenerateTestQuestionsResponse = {
+  questions: GeneratedTestQuestion[];
+};
+
+type GenerateTestQuestionsInput = {
+  afterLessonId?: string;
+  moduleId?: string;
+  questionCount?: number;
+  generationMode?: AiQuestionGenerationMode;
 };
 
 function normalizeCourseSlug(value: string) {
@@ -440,6 +475,72 @@ export async function upsertLessonPrimaryRichTextBlock(lessonId: string, html: s
     block_type: "rich_text",
     content: { html },
     order: 1,
+  });
+}
+
+export async function generateTestQuestionsWithAi(
+  input: GenerateTestQuestionsInput
+) {
+  const response = await authorizedBackendRequest<GenerateTestQuestionsResponse>(
+    "/api/ai/generate-test-questions",
+    {
+      method: "POST",
+      body: input,
+    }
+  );
+
+  return response.questions;
+}
+
+export async function listExercisesByModule(moduleId: string) {
+  const response = await authorizedBackendRequest<ExercisesResponse>(
+    `/api/modules/${moduleId}/exercises`
+  );
+
+  return response.exercises;
+}
+
+export async function createExercise(input: CreateExerciseInput) {
+  const response = await authorizedBackendRequest<ExerciseResponse>("/api/exercises", {
+    method: "POST",
+    body: {
+      afterLessonId: input.afterLessonId,
+      moduleId: input.moduleId,
+      type: input.type,
+      title: input.title.trim(),
+      description: input.description?.trim() || null,
+      content: input.content,
+    },
+  });
+
+  return response.exercise;
+}
+
+export async function updateExercise(exerciseId: string, input: UpdateExerciseInput) {
+  const response = await authorizedBackendRequest<ExerciseResponse>(
+    `/api/exercises/${exerciseId}`,
+    {
+      method: "PATCH",
+      body: {
+        afterLessonId: input.afterLessonId,
+        moduleId: input.moduleId,
+        type: input.type,
+        title: typeof input.title === "string" ? input.title.trim() : input.title,
+        description:
+          typeof input.description === "string"
+            ? input.description.trim() || null
+            : input.description,
+        content: input.content,
+      },
+    }
+  );
+
+  return response.exercise;
+}
+
+export async function deleteExercise(exerciseId: string) {
+  await authorizedBackendRequest<void>(`/api/exercises/${exerciseId}`, {
+    method: "DELETE",
   });
 }
 

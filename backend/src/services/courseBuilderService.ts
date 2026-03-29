@@ -311,6 +311,20 @@ export async function deleteLessonById(auth: AuthenticatedRequestContext, lesson
     );
   }
 
+  const { error: exerciseLinkError } = await supabaseAdmin
+    .from("exercises")
+    .update({ after_lesson_id: null })
+    .eq("after_lesson_id", lessonId);
+
+  if (exerciseLinkError) {
+    throw toServiceError(
+      500,
+      "LESSON_EXERCISE_UNLINK_FAILED",
+      "Unable to unlink exercises from lesson",
+      exerciseLinkError
+    );
+  }
+
   const { error: blockDeleteError } = await supabaseAdmin
     .from("lesson_blocks")
     .delete()

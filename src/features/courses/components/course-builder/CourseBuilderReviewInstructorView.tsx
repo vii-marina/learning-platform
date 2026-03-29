@@ -143,9 +143,9 @@ export function CourseBuilderReviewInstructorView({
                 )}
               </div>
               <div className="space-y-2">
-                <h4 className="text-2xl font-bold tracking-tight text-[#14213d]">
+                <h6 className="text-2xl font-bold tracking-tight text-[#14213d]">
                   {currentCourseName}
-                </h4>
+                </h6>
                 <p className="max-w-3xl text-sm leading-7 text-slate-600">
                   {reviewDescription}
                 </p>
@@ -172,9 +172,9 @@ export function CourseBuilderReviewInstructorView({
                   {`Module ${reviewPreviewData.module.order}`}
                 </span>
               </div>
-              <h4 className="mt-4 text-2xl font-bold tracking-tight text-[#14213d]">
+              <h6 className="mt-4 text-2xl font-bold tracking-tight text-[#14213d]">
                 {reviewPreviewData.lesson.title}
-              </h4>
+              </h6>
               <p className="mt-3 text-sm leading-7 text-slate-600">
                 {currentLessonPreviewText || "No written content yet."}
               </p>
@@ -189,9 +189,9 @@ export function CourseBuilderReviewInstructorView({
                   {`${reviewPreviewData.test.questions.length} questions`}
                 </span>
               </div>
-              <h4 className="mt-4 text-2xl font-bold tracking-tight text-[#14213d]">
+              <h6 className="mt-4 text-2xl font-bold tracking-tight text-[#14213d]">
                 {selectedTestTitle}
-              </h4>
+              </h6>
               <p className="mt-3 text-sm leading-7 text-slate-600">
                 {currentTestLinkedLesson
                   ? `Placed after "${currentTestLinkedLesson.title}" in the module flow.`

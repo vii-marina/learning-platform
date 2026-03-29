@@ -50,6 +50,36 @@
   }
 }
 
+@keyframes success-notice-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes success-notice-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+.success-notice--enter {
+  animation: success-notice-enter 220ms ease-out forwards;
+}
+
+.success-notice--exit {
+  animation: success-notice-exit 220ms ease-in forwards;
+}
+
 .rich-text-editor .rich-text-editor__content {
   min-height: 320px;
   padding: 16px 18px;
@@ -94,6 +124,120 @@
 .rich-text-editor .rich-text-editor__content a {
   color: rgb(8 191 212);
   text-decoration: underline;
+}
+
+.rich-text-editor .rich-text-editor__content pre,
+.prose pre {
+  --lesson-code-accent: rgb(8 191 212);
+  --lesson-code-bg-start: rgb(252 254 255);
+  --lesson-code-bg-end: rgb(241 245 249);
+  --lesson-code-text: rgb(51 65 85);
+  position: relative;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, var(--lesson-code-bg-start), var(--lesson-code-bg-end));
+  color: var(--lesson-code-text);
+  box-shadow:
+    inset 4px 0 0 var(--lesson-code-accent),
+    0 12px 24px rgba(15, 23, 42, 0.05);
+  padding: 2.2rem 1.125rem 1rem;
+  font-family:
+    "SFMono-Regular",
+    SFMono-Regular,
+    ui-monospace,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.925rem;
+  line-height: 1.65;
+}
+
+.rich-text-editor .rich-text-editor__content pre::before,
+.prose pre::before {
+  content: "Example";
+  position: absolute;
+  left: 1rem;
+  top: 0.72rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--lesson-code-accent);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="example"],
+.prose pre[data-code-variant="example"] {
+  --lesson-code-accent: rgb(6 182 212);
+  --lesson-code-bg-start: rgb(252 254 255);
+  --lesson-code-bg-end: rgb(241 245 249);
+  --lesson-code-text: rgb(71 85 105);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="input"],
+.prose pre[data-code-variant="input"] {
+  --lesson-code-accent: rgb(22 163 74);
+  --lesson-code-bg-start: rgb(247 255 248);
+  --lesson-code-bg-end: rgb(236 253 243);
+  --lesson-code-text: rgb(22 101 52);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="input"]::before,
+.prose pre[data-code-variant="input"]::before {
+  content: "Input";
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="output"],
+.prose pre[data-code-variant="output"] {
+  --lesson-code-accent: rgb(79 70 229);
+  --lesson-code-bg-start: rgb(248 250 255);
+  --lesson-code-bg-end: rgb(238 242 255);
+  --lesson-code-text: rgb(67 56 202);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="output"]::before,
+.prose pre[data-code-variant="output"]::before {
+  content: "Output";
+}
+
+.rich-text-editor .rich-text-editor__content pre code,
+.prose pre code {
+  display: block;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+  white-space: pre;
+}
+
+.rich-text-editor .rich-text-editor__content :not(pre) > code,
+.prose :not(pre) > code {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  background: linear-gradient(180deg, rgb(248 250 252), rgb(226 232 240));
+  color: rgb(14 116 144);
+  padding: 0.15rem 0.45rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-family:
+    "SFMono-Regular",
+    SFMono-Regular,
+    ui-monospace,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.9em;
+}
+
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: none;
 }
 
 .rich-text-editor .rich-text-editor__content img,

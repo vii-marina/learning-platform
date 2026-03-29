@@ -99,15 +99,19 @@ export function ModuleTestsSection({
                       key={question.id}
                       className="rounded-[1rem] border border-slate-100 bg-[#f9fbfd] p-4"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-[#14213d]">{index + 1}</p>
-                        <span className="text-xs font-medium text-slate-500">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex min-w-0 items-start gap-3">
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#13daec]/30 bg-[#13daec]/12 text-sm font-bold text-[#08bfd4]">
+                            {index + 1}
+                          </div>
+                          <p className="min-w-0 whitespace-pre-wrap pt-1 text-sm font-semibold leading-6 text-slate-700">
+                            {question.questionText}
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-xs font-medium text-slate-500">
                           {questionTypeLabels[question.type]}
                         </span>
                       </div>
-                      <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                        {question.questionText}
-                      </p>
 
                       <div className="mt-4 space-y-2">
                         {question.type === "true_false" ? (

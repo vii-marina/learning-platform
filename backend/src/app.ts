@@ -7,6 +7,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFound";
 import { adminRoutes } from "./routes/adminRoutes";
 import { authRoutes } from "./routes/authRoutes";
+import { exerciseRoutes } from "./routes/exerciseRoutes";
 import { healthRoutes } from "./routes/healthRoutes";
 import aiRoutes from "./routes/aiRoutes";
 
@@ -43,6 +44,7 @@ export function createApp() {
   app.use(healthRoutes);
   app.use("/auth", authRoutes);
   app.use("/admin", adminRoutes);
+  app.use("/api", exerciseRoutes);
   app.use("/api/ai", aiRoutes);
   app.use(notFoundHandler);
   app.use(errorHandler);

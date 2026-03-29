@@ -136,8 +136,8 @@ export function TestQuestionEditor({
                   onClick={() => handleTypeChange(option.value)}
                   className={`rounded-2xl border px-4 py-3 text-sm font-medium transition ${
                     isActive
-                      ? "border-[#13daec] bg-[#13daec] text-[#0f172a]"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-[#13daec]/30 hover:bg-[#13daec]/5"
+                      ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
                   }`}
                 >
                   {option.label}
@@ -155,22 +155,7 @@ export function TestQuestionEditor({
               onChange(question.id, { ...question, questionText: event.target.value })
             }
             placeholder="Enter your question here..."
-            className="mt-2 h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-700 outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
-          />
-        </div>
-
-        <div>
-          <label className="text-base font-semibold text-[#14213d]">Hint</label>
-          <textarea
-            value={question.hint ?? ""}
-            onChange={(event) =>
-              onChange(question.id, {
-                ...question,
-                hint: event.target.value,
-              })
-            }
-            placeholder="Optional hint students can reveal if they need help."
-            className="mt-2 h-24 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-700 outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+            className="mt-2 h-28 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-700 outline-none transition focus:border-[#8b5cf6] focus:ring-4 focus:ring-[#8b5cf6]/15"
           />
         </div>
 
@@ -231,7 +216,7 @@ export function TestQuestionEditor({
                       handleOptionTextChange(optionIndex, event.target.value)
                     }
                     placeholder={`Option ${optionIndex + 1}`}
-                    className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-base text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-base text-[#14213d] focus:border-[#8b5cf6] focus:ring-4 focus:ring-[#8b5cf6]/15"
                   />
                   <button
                     type="button"
@@ -248,7 +233,7 @@ export function TestQuestionEditor({
             <button
               type="button"
               onClick={handleAddOption}
-              className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-[#13daec]/25 bg-white px-4 py-2 text-sm font-medium text-[#08bfd4] transition hover:bg-[#13daec]/5"
+              className="mt-4 inline-flex items-center gap-2 rounded-2xl border border-[#c4b5fd]/60 bg-white px-4 py-2 text-sm font-medium text-[#7c3aed] transition hover:bg-[#f5f3ff]"
             >
               <Plus className="h-4 w-4" />
               Add option

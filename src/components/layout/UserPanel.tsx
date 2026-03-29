@@ -34,9 +34,9 @@ export function UserPanel() {
         <p className="text-xs uppercase tracking-wide text-slate-500">
           Next up
         </p>
-        <h4 className="mt-2 text-sm font-semibold text-slate-900">
+        <h6 className="mt-2 text-sm font-semibold text-slate-900">
           Course placeholder
-        </h4>
+        </h6>
         <p className="mt-2 text-xs text-slate-600">
           Short description for the next lesson.
         </p>

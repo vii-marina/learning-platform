@@ -4,7 +4,6 @@ import { CourseMediaUpload } from "./CourseMediaUpload";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 
 type CourseBuilderCourseInfoStepProps = {
-  stepLabel: string;
   title: string;
   description?: string;
   courseTitle: string;
@@ -21,7 +20,6 @@ type CourseBuilderCourseInfoStepProps = {
 };
 
 export function CourseBuilderCourseInfoStep({
-  stepLabel,
   title,
   description = "",
   courseTitle,
@@ -38,15 +36,11 @@ export function CourseBuilderCourseInfoStep({
 }: CourseBuilderCourseInfoStepProps) {
   return (
     <section className="mx-auto w-full max-w-[64rem]">
-      <CourseBuilderStepHeading
-        stepLabel={stepLabel}
-        title={title}
-        description={description}
-      />
+      <CourseBuilderStepHeading title={title} description={description} />
 
-      <div className="mt-8 grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.62fr)]">
-        <div className="rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-5">
-          <div className="space-y-5">
+      <div className="mt-8 grid items-stretch gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(260px,0.62fr)]">
+        <div className="flex h-full flex-col rounded-[1.5rem] border border-slate-200 bg-white p-4 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-5">
+          <div className="flex h-full flex-col space-y-5">
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-[#14213d]">
                 Course Title
@@ -59,7 +53,7 @@ export function CourseBuilderCourseInfoStep({
               />
             </div>
 
-            <div className="space-y-2">
+            <div className="flex min-h-0 flex-1 flex-col space-y-2">
               <label className="block text-sm font-semibold text-[#14213d]">
                 Detailed Description
               </label>
@@ -68,7 +62,7 @@ export function CourseBuilderCourseInfoStep({
                 onChange={(event) => onCourseDescriptionChange(event.target.value)}
                 placeholder="What will students learn? Describe the journey..."
                 maxLength={2000}
-                className="min-h-[150px] w-full rounded-xl border border-slate-200 bg-[#f4f7fb] px-4 py-3 text-base leading-6 text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                className="min-h-[150px] flex-1 resize-none rounded-xl border border-slate-200 bg-[#f4f7fb] px-4 py-3 text-base leading-6 text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
               />
               <div className="flex items-center justify-end text-xs text-slate-500">
                 <span>{`${courseDescription.length} / 2000`}</span>

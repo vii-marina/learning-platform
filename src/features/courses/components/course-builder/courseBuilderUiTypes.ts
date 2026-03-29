@@ -1,4 +1,10 @@
-import type { TestQuestionType } from "../../api";
+import type {
+  DragDropCodeExerciseContent,
+  ExerciseContent,
+  ExerciseType,
+  TestQuestionType,
+  WriteCodeExerciseContent,
+} from "../../api";
 
 export type CourseTestQuestion = {
   id: string;
@@ -16,3 +22,30 @@ export type CourseTest = {
   order: number;
   questions: CourseTestQuestion[];
 };
+
+export type CourseExercise = {
+  id: string;
+  title: string;
+  description: string | null;
+  afterLessonId: string | null;
+  type: ExerciseType;
+  content: ExerciseContent;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type ExerciseDraftBase = {
+  afterLessonId: string | null;
+  title: string;
+  description: string;
+};
+
+export type ExerciseEditorDraft =
+  | (ExerciseDraftBase & {
+      type: "drag_drop_code";
+      content: DragDropCodeExerciseContent;
+    })
+  | (ExerciseDraftBase & {
+      type: "write_code";
+      content: WriteCodeExerciseContent;
+    });

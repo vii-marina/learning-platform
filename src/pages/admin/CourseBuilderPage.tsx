@@ -7,19 +7,24 @@ import {
   useState,
 } from "react";
 import { Card } from "../../components/ui/Card";
+import { useAppToast } from "../../components/ui/AppToastProvider";
 import { supabase } from "../../lib/supabase";
 import {
   createCourse,
+  createExercise,
   createLesson,
   createModule,
   createTestAnswer,
   createTestEntity,
   createTestQuestion,
+  deleteExercise,
   deleteLesson,
   deleteModule,
   deleteTestEntity,
   deleteTestQuestion,
+  generateTestQuestionsWithAi,
   getCourseById,
+  listExercisesByModule,
   listLessonBlocksByLesson,
   listLessonsByModule,
   listModulesByCourse,
@@ -29,6 +34,7 @@ import {
   publishCourse,
   upsertLessonPrimaryRichTextBlock,
   updateCourse,
+  updateExercise,
   updateLesson,
   updateTestEntity,
   updateModule,
@@ -40,6 +46,9 @@ import {
   uploadLessonContentImage,
 } from "../../features/courses/api/courseMediaStorage";
 import type {
+  AiQuestionGenerationMode,
+  Exercise,
+  ExerciseContent,
   Lesson,
   Module,
   TestEntity,
@@ -48,12 +57,15 @@ import { CourseBuilderContentStep } from "../../features/courses/components/cour
 import { CourseBuilderCourseInfoStep } from "../../features/courses/components/course-builder/CourseBuilderCourseInfoStep";
 import { CourseBuilderHeader } from "../../features/courses/components/course-builder/CourseBuilderHeader";
 import { CourseBuilderReviewStep } from "../../features/courses/components/course-builder/CourseBuilderReviewStep";
+import { ExerciseCreateModal } from "../../features/courses/components/course-builder/ExerciseCreateModal";
 import { LessonCreateModal } from "../../features/courses/components/course-builder/LessonCreateModal";
 import { TestCreateModal } from "../../features/courses/components/course-builder/TestCreateModal";
 import { useCourseBuilderReviewState } from "../../features/courses/components/course-builder/useCourseBuilderReviewState";
 import type {
+  CourseExercise,
   CourseTest,
   CourseTestQuestion,
+  ExerciseEditorDraft,
 } from "../../features/courses/components/course-builder/courseBuilderUiTypes";
 import {
   courseBuilderSteps,
@@ -63,8 +75,12 @@ import {
   canSaveTestDraft,
   cloneTestQuestion,
   createEmptyTestQuestion,
+  getDefaultAiQuestionCount,
   getGeneratedCourseTestTitle,
+  getLessonAiQuestionLimit,
+  getModuleAiQuestionLimit,
   hasLessonContent,
+  mapGeneratedQuestionsToCourseTestQuestions,
   mapQuestionToCourseTestQuestion,
   type LessonEditorDraft,
 } from "../../features/courses/components/course-builder/courseBuilderPageUtils";
@@ -101,6 +117,45 @@ function createEmptyTestEditorDraft(): TestEditorDraft {
     afterLessonId: null,
     questions: [createEmptyTestQuestion()],
   };
+}
+
+function createEmptyExerciseDraft(): ExerciseEditorDraft {
+  return {
+    afterLessonId: null,
+    type: "drag_drop_code",
+    title: "",
+    description: "",
+    content: {
+      type: "drag_drop_code",
+      question: "",
+      code_template: "",
+      tokens: [""],
+      correct_answer: [],
+    },
+  };
+}
+
+function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
+  return {
+    id: exercise.id,
+    title: exercise.title,
+    description: exercise.description,
+    afterLessonId: exercise.after_lesson_id,
+    type: exercise.type,
+    content: exercise.content,
+    createdAt: exercise.created_at,
+    updatedAt: exercise.updated_at,
+  };
+}
+
+function mapCourseExerciseToDraft(exercise: CourseExercise): ExerciseEditorDraft {
+  return {
+    afterLessonId: exercise.afterLessonId,
+    type: exercise.type,
+    title: exercise.title,
+    description: exercise.description ?? "",
+    content: exercise.content,
+  } as ExerciseEditorDraft;
 }
 
 function areQuestionArraysEqual(
@@ -154,6 +209,30 @@ function areTestDraftsEqual(leftDraft: TestEditorDraft, rightDraft: TestEditorDr
   );
 }
 
+function hasMeaningfulQuestionDraft(question: CourseTestQuestion) {
+  if (question.questionText.trim().length > 0) {
+    return true;
+  }
+
+  if (question.correctOptionIndexes.length > 0) {
+    return true;
+  }
+
+  return question.options.some((option, index) => {
+    const trimmedOption = option.trim();
+
+    if (!trimmedOption) {
+      return false;
+    }
+
+    return trimmedOption !== `Option ${index + 1}`;
+  });
+}
+
+function hasMeaningfulTestQuestionDraft(questions: CourseTestQuestion[]) {
+  return questions.length > 1 || questions.some(hasMeaningfulQuestionDraft);
+}
+
 export const CourseBuilderPage = forwardRef<
   CourseBuilderPageHandle,
   {
@@ -171,6 +250,7 @@ export const CourseBuilderPage = forwardRef<
   ref
 ) {
   const [message, setMessage] = useState("");
+  const { showSuccessToast } = useAppToast();
   const [activeStep, setActiveStep] = useState<BuilderStep>(1);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
   const [isPersistingCourse, setIsPersistingCourse] = useState(false);
@@ -215,20 +295,58 @@ export const CourseBuilderPage = forwardRef<
   const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [isSavingTest, setIsSavingTest] = useState(false);
+  const [isGeneratingAiQuestions, setIsGeneratingAiQuestions] = useState(false);
+  const [shouldPersistDraftAfterLessonSave, setShouldPersistDraftAfterLessonSave] =
+    useState(false);
   const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
   const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
   const [testInitialDraft, setTestInitialDraft] = useState<TestEditorDraft | null>(null);
+  const [testAiGenerationMode, setTestAiGenerationMode] =
+    useState<AiQuestionGenerationMode>("single_choice");
+  const [testAiQuestionCount, setTestAiQuestionCount] = useState(5);
   const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
+  const [exercisesByModule, setExercisesByModule] = useState<Record<string, CourseExercise[]>>(
+    {}
+  );
+  const [exerciseEditorModuleId, setExerciseEditorModuleId] = useState<string | null>(null);
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [exerciseEditorInitialDraft, setExerciseEditorInitialDraft] =
+    useState<ExerciseEditorDraft | null>(null);
+  const [isSavingExercise, setIsSavingExercise] = useState(false);
+  const [isPreparingExerciseEditor, setIsPreparingExerciseEditor] = useState(false);
+  const [exerciseEditorError, setExerciseEditorError] = useState("");
+  const [expandedExerciseIds, setExpandedExerciseIds] = useState<Record<string, boolean>>({});
   const lessonLoadRequestRef = useRef(0);
+  const hasShownExercisesPermissionWarningRef = useRef(false);
+  const exercisesPermissionWarningMessage =
+    "Exercises could not be loaded because the database permissions for the exercises table are misconfigured. The rest of the course content is still loaded.";
 
   const activeTestModuleLessons = useMemo(
     () => (testEditorModuleId ? lessonsByModule[testEditorModuleId] || [] : []),
     [lessonsByModule, testEditorModuleId]
   );
+  const testAiQuestionLimit = useMemo(() => {
+    if (!testEditorModuleId) {
+      return 0;
+    }
+
+    if (testAfterLessonId) {
+      const selectedLesson = activeTestModuleLessons.find(
+        (lesson) => lesson.id === testAfterLessonId
+      );
+
+      return selectedLesson ? getLessonAiQuestionLimit(selectedLesson.content ?? "") : 0;
+    }
+
+    return getModuleAiQuestionLimit(activeTestModuleLessons);
+  }, [activeTestModuleLessons, testAfterLessonId, testEditorModuleId]);
   const canSaveCurrentTest = useMemo(
     () => canSaveTestDraft(testQuestions),
     [testQuestions]
   );
+  const canGenerateTestAi =
+    testEditorModuleId !== null &&
+    testAiQuestionLimit > 0;
   const courseThumbnailUrl = useMemo(
     () => getCourseMediaPublicUrl(courseThumbnailPath),
     [courseThumbnailPath]
@@ -404,6 +522,38 @@ export const CourseBuilderPage = forwardRef<
     }
   };
 
+  const fetchExercises = async (moduleId: string) => {
+    try {
+      const exercises = await listExercisesByModule(moduleId);
+      const mappedExercises = exercises.map(mapExerciseToCourseExercise);
+      setExercisesByModule((prev) => ({ ...prev, [moduleId]: mappedExercises }));
+      setMessage((currentMessage) =>
+        currentMessage === exercisesPermissionWarningMessage ? currentMessage : ""
+      );
+      return mappedExercises;
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.toLowerCase().includes("permission denied for table exercises")
+      ) {
+        const mappedExercises: CourseExercise[] = [];
+        setExercisesByModule((prev) => ({ ...prev, [moduleId]: mappedExercises }));
+        if (!hasShownExercisesPermissionWarningRef.current) {
+          setMessage(exercisesPermissionWarningMessage);
+          hasShownExercisesPermissionWarningRef.current = true;
+        }
+        return mappedExercises;
+      }
+
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to load exercises.");
+      }
+      return null;
+    }
+  };
+
   const hydratePersistedCourse = async (
     courseId: string,
     courseSnapshot?: SavedCourseSnapshot
@@ -414,9 +564,10 @@ export const CourseBuilderPage = forwardRef<
       const persistedModules = await listModulesByCourse(courseId);
       const moduleContent = await Promise.all(
         persistedModules.map(async (module) => {
-          const [lessons, entities] = await Promise.all([
+          const [lessons, entities, exercises] = await Promise.all([
             listLessonsByModule(module.id),
             listTestsByModule(module.id),
+            fetchExercises(module.id),
           ]);
           const tests = await Promise.all(entities.map(hydrateCourseTest));
 
@@ -424,6 +575,7 @@ export const CourseBuilderPage = forwardRef<
             moduleId: module.id,
             lessons,
             tests,
+            exercises: exercises ?? [],
           };
         })
       );
@@ -436,6 +588,9 @@ export const CourseBuilderPage = forwardRef<
       );
       setTestsByModule(
         Object.fromEntries(moduleContent.map(({ moduleId, tests }) => [moduleId, tests]))
+      );
+      setExercisesByModule(
+        Object.fromEntries(moduleContent.map(({ moduleId, exercises }) => [moduleId, exercises]))
       );
       setHasFetchedModules(true);
       setCurrentCourseId(courseId);
@@ -595,7 +750,8 @@ export const CourseBuilderPage = forwardRef<
         }
 
         setSavedCourseSnapshot(currentCourseSnapshot);
-        setMessage(action === "publish" ? "Course published." : "Draft saved.");
+        setMessage("");
+        showSuccessToast(action === "publish" ? "Course published." : "Draft saved.");
         return currentCourseId;
       }
 
@@ -616,7 +772,8 @@ export const CourseBuilderPage = forwardRef<
 
       await hydratePersistedCourse(createdCourse.id);
       setSavedCourseSnapshot(currentCourseSnapshot);
-      setMessage(action === "publish" ? "Course published." : "Draft saved.");
+      setMessage("");
+      showSuccessToast(action === "publish" ? "Course published." : "Draft saved.");
       return createdCourse.id;
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
@@ -709,6 +866,40 @@ export const CourseBuilderPage = forwardRef<
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [hasUnsavedChanges]);
+
+  useEffect(() => {
+    setTestAiQuestionCount((previousCount) => {
+      if (testAiQuestionLimit <= 0) {
+        return 1;
+      }
+
+      if (previousCount > testAiQuestionLimit) {
+        return getDefaultAiQuestionCount(testAiQuestionLimit);
+      }
+
+      return previousCount;
+    });
+  }, [testAiQuestionLimit]);
+
+  useEffect(() => {
+    if (!shouldPersistDraftAfterLessonSave || currentCourseId !== null || isPersistingCourse) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void (async () => {
+      await persistCourseAtFinalStep("draft");
+
+      if (!isCancelled) {
+        setShouldPersistDraftAfterLessonSave(false);
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentCourseId, isPersistingCourse, shouldPersistDraftAfterLessonSave]);
 
   useImperativeHandle(
     ref,
@@ -852,10 +1043,87 @@ export const CourseBuilderPage = forwardRef<
     };
   }, [currentCourseId, modules, testsByModule]);
 
+  useEffect(() => {
+    if (!currentCourseId) {
+      return;
+    }
+
+    const missingModuleIds = modules
+      .filter((module) => exercisesByModule[module.id] === undefined)
+      .map((module) => module.id);
+
+    if (missingModuleIds.length === 0) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    void Promise.all(
+      missingModuleIds.map(async (moduleId) => ({
+        moduleId,
+        exercises: await listExercisesByModule(moduleId),
+      }))
+    )
+      .then((results) => {
+        if (isCancelled) {
+          return;
+        }
+
+        setExercisesByModule((prev) => ({
+          ...prev,
+          ...Object.fromEntries(
+            results.map(({ moduleId, exercises }) => [
+              moduleId,
+              exercises.map(mapExerciseToCourseExercise),
+            ])
+          ),
+        }));
+        setMessage("");
+      })
+      .catch((error) => {
+        if (!isCancelled) {
+          if (error instanceof Error && error.message.trim()) {
+            setMessage(error.message);
+          } else {
+            setMessage("Unable to load exercises.");
+          }
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [currentCourseId, exercisesByModule, modules]);
+
   const handleSaveDraft = async () => {
     const courseId = await persistCourseAtFinalStep("draft");
     return Boolean(courseId);
   };
+
+  useEffect(() => {
+    const handleSaveDraftShortcut = (event: KeyboardEvent) => {
+      const isSaveShortcut =
+        (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "s";
+
+      if (!isSaveShortcut) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (!canSaveDraft || isPersistingCourse) {
+        return;
+      }
+
+      void handleSaveDraft();
+    };
+
+    window.addEventListener("keydown", handleSaveDraftShortcut);
+
+    return () => {
+      window.removeEventListener("keydown", handleSaveDraftShortcut);
+    };
+  }, [canSaveDraft, handleSaveDraft, isPersistingCourse]);
 
   const handleCourseMediaUpload = async (file: File) => {
     const mediaScopeId = currentCourseId ?? draftCourseSessionId;
@@ -916,6 +1184,7 @@ export const CourseBuilderPage = forwardRef<
       setModules((prev) => [...prev, module]);
       setLessonsByModule((prev) => ({ ...prev, [module.id]: [] }));
       setTestsByModule((prev) => ({ ...prev, [module.id]: [] }));
+      setExercisesByModule((prev) => ({ ...prev, [module.id]: [] }));
       setExpandedModuleId(module.id);
       closeNewModuleComposer();
       setMessage("");
@@ -992,6 +1261,11 @@ export const CourseBuilderPage = forwardRef<
         delete next[moduleId];
         return next;
       });
+      setExercisesByModule((prev) => {
+        const next = { ...prev };
+        delete next[moduleId];
+        return next;
+      });
       setExpandedLessonIds((prev) => {
         const next = { ...prev };
         Object.keys(next).forEach((lessonId) => {
@@ -1010,17 +1284,37 @@ export const CourseBuilderPage = forwardRef<
         });
         return next;
       });
+      setExpandedExerciseIds((prev) => {
+        const next = { ...prev };
+        Object.keys(next).forEach((exerciseId) => {
+          if ((exercisesByModule[moduleId] || []).some((exercise) => exercise.id === exerciseId)) {
+            delete next[exerciseId];
+          }
+        });
+        return next;
+      });
       if (expandedModuleId === moduleId) {
         setExpandedModuleId(null);
       }
       if (pendingLessonDraft?.moduleId === moduleId) {
         setPendingLessonDraft(null);
       }
+      if (exerciseEditorModuleId === moduleId) {
+        setExerciseEditorModuleId(null);
+        setEditingExerciseId(null);
+        setExerciseEditorInitialDraft(null);
+        setExerciseEditorError("");
+      }
       setMessage("");
       return;
     }
 
     try {
+      const moduleExercises =
+        exercisesByModule[moduleId] ?? (await fetchExercises(moduleId)) ?? [];
+      for (const exercise of moduleExercises) {
+        await deleteExercise(exercise.id);
+      }
       const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
       for (const test of moduleTests) {
         await deleteTestEntity(test.id);
@@ -1049,6 +1343,11 @@ export const CourseBuilderPage = forwardRef<
       delete next[moduleId];
       return next;
     });
+    setExercisesByModule((prev) => {
+      const next = { ...prev };
+      delete next[moduleId];
+      return next;
+    });
     setExpandedTestIds((prev) => {
       const next = { ...prev };
       Object.keys(next).forEach((testId) => {
@@ -1058,8 +1357,23 @@ export const CourseBuilderPage = forwardRef<
       });
       return next;
     });
+    setExpandedExerciseIds((prev) => {
+      const next = { ...prev };
+      Object.keys(next).forEach((exerciseId) => {
+        if ((exercisesByModule[moduleId] || []).some((exercise) => exercise.id === exerciseId)) {
+          delete next[exerciseId];
+        }
+      });
+      return next;
+    });
     if (expandedModuleId === moduleId) {
       setExpandedModuleId(null);
+    }
+    if (exerciseEditorModuleId === moduleId) {
+      setExerciseEditorModuleId(null);
+      setEditingExerciseId(null);
+      setExerciseEditorInitialDraft(null);
+      setExerciseEditorError("");
     }
     setHasFetchedModules(false);
     await fetchModules(currentCourseId);
@@ -1074,6 +1388,9 @@ export const CourseBuilderPage = forwardRef<
     }
     if (currentCourseId && nextId && !testsByModule[nextId]) {
       await fetchTests(nextId);
+    }
+    if (currentCourseId && nextId && !exercisesByModule[nextId]) {
+      await fetchExercises(nextId);
     }
   };
 
@@ -1278,26 +1595,46 @@ export const CourseBuilderPage = forwardRef<
   };
 
   const handleCreateLesson = async () => {
-    if (!lessonEditorModuleId || !lessonTitle.trim()) return;
+    if (!lessonEditorModuleId || !lessonTitle.trim()) {
+      return null;
+    }
     const moduleId = lessonEditorModuleId;
 
     if (!currentCourseId) {
       if (editingLessonId) {
+        const existingLesson = (lessonsByModule[moduleId] || []).find(
+          (lesson) => lesson.id === editingLessonId
+        );
+
+        if (!existingLesson) {
+          setMessage("Unable to resolve the selected lesson.");
+          return null;
+        }
+
+        const updatedLesson: Lesson = {
+          ...existingLesson,
+          title: lessonTitle.trim(),
+          content: lessonContent,
+          video_url: lessonVideoUrl.trim() || null,
+          content_type: "rich_text",
+          updated_at: new Date().toISOString(),
+        };
+
         setLessonsByModule((prev) => ({
           ...prev,
           [moduleId]: (prev[moduleId] || []).map((lesson) =>
             lesson.id === editingLessonId
-              ? {
-                  ...lesson,
-                  title: lessonTitle.trim(),
-                  content: lessonContent,
-                  video_url: lessonVideoUrl.trim() || null,
-                  content_type: "rich_text",
-                  updated_at: new Date().toISOString(),
-                }
+              ? updatedLesson
               : lesson
           ),
         }));
+        setShouldPersistDraftAfterLessonSave(true);
+        closeCreateLessonModal();
+        setMessage("");
+        return {
+          moduleId,
+          lesson: updatedLesson,
+        };
       } else {
         const createdLesson = createLocalLessonDraft(moduleId);
         setLessonsByModule((prev) => ({
@@ -1305,23 +1642,33 @@ export const CourseBuilderPage = forwardRef<
           [moduleId]: [...(prev[moduleId] || []), createdLesson],
         }));
         setPendingLessonDraft(null);
+        setShouldPersistDraftAfterLessonSave(true);
+        closeCreateLessonModal();
+        setMessage("");
+        return {
+          moduleId,
+          lesson: createdLesson,
+        };
       }
-
-      closeCreateLessonModal();
-      setMessage("");
-      return;
     }
 
     try {
       setIsCreatingLesson(true);
       if (editingLessonId) {
-        await updateLesson(editingLessonId, {
+        const updatedLesson = await updateLesson(editingLessonId, {
           title: lessonTitle.trim(),
           content: lessonContent,
           video_url: lessonVideoUrl.trim() || null,
           content_type: "rich_text",
         });
         await upsertLessonPrimaryRichTextBlock(editingLessonId, lessonContent);
+        await fetchLessons(moduleId);
+        closeCreateLessonModal();
+        setMessage("");
+        return {
+          moduleId,
+          lesson: updatedLesson,
+        };
       } else {
         const createdLesson = await createLesson({
           module_id: moduleId,
@@ -1332,16 +1679,21 @@ export const CourseBuilderPage = forwardRef<
         });
         await upsertLessonPrimaryRichTextBlock(createdLesson.id, lessonContent);
         setPendingLessonDraft(null);
+        await fetchLessons(moduleId);
+        closeCreateLessonModal();
+        setMessage("");
+        return {
+          moduleId,
+          lesson: createdLesson,
+        };
       }
-      await fetchLessons(moduleId);
-      closeCreateLessonModal();
-      setMessage("");
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
-        return;
+        return null;
       }
       setMessage(editingLessonId ? "Unable to update lesson." : "Unable to create lesson.");
+      return null;
     } finally {
       setIsCreatingLesson(false);
     }
@@ -1383,6 +1735,7 @@ export const CourseBuilderPage = forwardRef<
       await deleteLesson(lessonId);
       await fetchLessons(moduleId);
       await fetchTests(moduleId);
+      await fetchExercises(moduleId);
       setExpandedLessonIds((prev) => {
         const next = { ...prev };
         delete next[lessonId];
@@ -1402,36 +1755,203 @@ export const CourseBuilderPage = forwardRef<
     setExpandedLessonIds((prev) => ({ ...prev, [lessonId]: !prev[lessonId] }));
   };
 
+  const resolveAiGenerationTarget = async ({
+    moduleId,
+    afterLessonId,
+  }: {
+    moduleId: string;
+    afterLessonId: string | null;
+  }) => {
+    const activeModule = modules.find((module) => module.id === moduleId);
+
+    if (!activeModule) {
+      throw new Error("Unable to resolve the selected module.");
+    }
+
+    const selectedLesson = afterLessonId
+      ? (lessonsByModule[moduleId] || []).find((lesson) => lesson.id === afterLessonId) ?? null
+      : null;
+
+    if (afterLessonId && !selectedLesson) {
+      throw new Error("Unable to resolve the selected lesson.");
+    }
+
+    if (currentCourseId) {
+      return {
+        moduleId,
+        afterLessonId,
+      };
+    }
+
+    const persistedCourseId = await persistCourseAtFinalStep("draft");
+
+    if (!persistedCourseId) {
+      throw new Error("Unable to save the draft before generating questions.");
+    }
+
+    const persistedModules = await listModulesByCourse(persistedCourseId);
+    const persistedModule =
+      persistedModules.find((module) => module.order === activeModule.order) ?? null;
+
+    if (!persistedModule) {
+      throw new Error("Unable to resolve the saved module.");
+    }
+
+    if (!selectedLesson) {
+      return {
+        moduleId: persistedModule.id,
+        afterLessonId: null,
+      };
+    }
+
+    const persistedLessons = await listLessonsByModule(persistedModule.id);
+    const persistedLesson =
+      persistedLessons.find((lesson) => lesson.order === selectedLesson.order) ?? null;
+
+    if (!persistedLesson) {
+      throw new Error("Unable to resolve the saved lesson.");
+    }
+
+    return {
+      moduleId: persistedModule.id,
+      afterLessonId: persistedLesson.id,
+    };
+  };
+
+  const resolveExerciseEditorModuleId = async (moduleId: string) => {
+    const activeModule = modules.find((module) => module.id === moduleId);
+
+    if (!activeModule) {
+      throw new Error("Unable to resolve the selected module.");
+    }
+
+    if (currentCourseId) {
+      return moduleId;
+    }
+
+    const persistedCourseId = await persistCourseAtFinalStep("draft");
+
+    if (!persistedCourseId) {
+      throw new Error("Unable to save the draft before creating an exercise.");
+    }
+
+    const persistedModules = await listModulesByCourse(persistedCourseId);
+    const persistedModule =
+      persistedModules.find((module) => module.order === activeModule.order) ?? null;
+
+    if (!persistedModule) {
+      throw new Error("Unable to resolve the saved module.");
+    }
+
+    return persistedModule.id;
+  };
+
   const closeCreateTestModal = () => {
     setTestEditorModuleId(null);
     setEditingTestId(null);
     setTestAfterLessonId(null);
     setTestQuestions([]);
     setTestInitialDraft(null);
+    setTestAiGenerationMode("single_choice");
   };
 
-  const openCreateTestModal = (moduleId: string) => {
+  const closeCreateExerciseModal = () => {
+    setExerciseEditorModuleId(null);
+    setEditingExerciseId(null);
+    setExerciseEditorInitialDraft(null);
+    setExerciseEditorError("");
+  };
+
+  const openCreateTestModal = (
+    moduleId: string,
+    options?: {
+      afterLessonId?: string | null;
+    }
+  ) => {
     const nextDraft = createEmptyTestEditorDraft();
+    const nextAfterLessonId = options?.afterLessonId ?? nextDraft.afterLessonId;
+    const moduleLessons = lessonsByModule[moduleId] || [];
+    const nextAiQuestionLimit = nextAfterLessonId
+      ? getLessonAiQuestionLimit(
+          moduleLessons.find((lesson) => lesson.id === nextAfterLessonId)?.content ?? ""
+        )
+      : getModuleAiQuestionLimit(moduleLessons);
+
     setTestEditorModuleId(moduleId);
     setEditingTestId(null);
-    setTestAfterLessonId(nextDraft.afterLessonId);
+    setTestAfterLessonId(nextAfterLessonId);
     setTestQuestions(nextDraft.questions);
+    setTestAiGenerationMode("single_choice");
+    setTestAiQuestionCount(getDefaultAiQuestionCount(Math.max(nextAiQuestionLimit, 1)));
     setTestInitialDraft({
-      afterLessonId: nextDraft.afterLessonId,
+      afterLessonId: nextAfterLessonId,
       questions: nextDraft.questions.map(cloneTestQuestion),
     });
   };
 
   const openEditTestModal = (moduleId: string, test: CourseTest) => {
     const nextQuestions = test.questions.map(cloneTestQuestion);
+    const moduleLessons = lessonsByModule[moduleId] || [];
+    const nextAiQuestionLimit = test.afterLessonId
+      ? getLessonAiQuestionLimit(
+          moduleLessons.find((lesson) => lesson.id === test.afterLessonId)?.content ?? ""
+        )
+      : getModuleAiQuestionLimit(moduleLessons);
+
     setTestEditorModuleId(moduleId);
     setEditingTestId(test.id);
     setTestAfterLessonId(test.afterLessonId);
     setTestQuestions(nextQuestions);
+    setTestAiGenerationMode("single_choice");
+    setTestAiQuestionCount(getDefaultAiQuestionCount(Math.max(nextAiQuestionLimit, 1)));
     setTestInitialDraft({
       afterLessonId: test.afterLessonId,
       questions: nextQuestions.map(cloneTestQuestion),
     });
+  };
+
+  const openCreateExerciseModal = async (moduleId: string) => {
+    if (isPreparingExerciseEditor) {
+      return;
+    }
+
+    setExerciseEditorError("");
+    setMessage("");
+    setIsPreparingExerciseEditor(true);
+
+    try {
+      const resolvedModuleId = await resolveExerciseEditorModuleId(moduleId);
+
+      await Promise.all([
+        lessonsByModule[resolvedModuleId] ? Promise.resolve() : fetchLessons(resolvedModuleId),
+        exercisesByModule[resolvedModuleId] ? Promise.resolve() : fetchExercises(resolvedModuleId),
+      ]);
+
+      setExerciseEditorModuleId(resolvedModuleId);
+      setEditingExerciseId(null);
+      setExerciseEditorInitialDraft(createEmptyExerciseDraft());
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to open the exercise editor.");
+      }
+    } finally {
+      setIsPreparingExerciseEditor(false);
+    }
+  };
+
+  const openEditExerciseModal = async (moduleId: string, exercise: CourseExercise) => {
+    setExerciseEditorError("");
+    setMessage("");
+
+    if (!lessonsByModule[moduleId] && currentCourseId) {
+      await fetchLessons(moduleId);
+    }
+
+    setExerciseEditorModuleId(moduleId);
+    setEditingExerciseId(exercise.id);
+    setExerciseEditorInitialDraft(mapCourseExerciseToDraft(exercise));
   };
 
   const handleAddTestQuestion = () => {
@@ -1452,6 +1972,57 @@ export const CourseBuilderPage = forwardRef<
       const remaining = prev.filter((question) => question.id !== questionId);
       return remaining.length > 0 ? remaining : [createEmptyTestQuestion()];
     });
+  };
+
+  const handleGenerateTestQuestionsWithAi = async () => {
+    if (!testEditorModuleId || !canGenerateTestAi || isGeneratingAiQuestions) {
+      return false;
+    }
+
+    if (
+      hasMeaningfulTestQuestionDraft(testQuestions) &&
+      !window.confirm("Replace the current test questions with AI-generated ones?")
+    ) {
+      return false;
+    }
+
+    setMessage("");
+    setIsGeneratingAiQuestions(true);
+
+    try {
+      const resolvedTarget = await resolveAiGenerationTarget({
+        moduleId: testEditorModuleId,
+        afterLessonId: testAfterLessonId,
+      });
+      const generatedQuestions = await generateTestQuestionsWithAi({
+        afterLessonId: resolvedTarget.afterLessonId ?? undefined,
+        moduleId: resolvedTarget.afterLessonId ? undefined : resolvedTarget.moduleId,
+        questionCount: testAiQuestionCount,
+        generationMode: testAiGenerationMode,
+      });
+
+      if (generatedQuestions.length === 0) {
+        throw new Error("AI did not return any questions.");
+      }
+
+      const normalizedQuestions =
+        mapGeneratedQuestionsToCourseTestQuestions(generatedQuestions);
+
+      setTestEditorModuleId(resolvedTarget.moduleId);
+      setTestAfterLessonId(resolvedTarget.afterLessonId);
+      setTestQuestions(normalizedQuestions.map(cloneTestQuestion));
+      setMessage("");
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to generate questions with AI.");
+      }
+      return false;
+    } finally {
+      setIsGeneratingAiQuestions(false);
+    }
   };
 
   const handleCreateTest = async () => {
@@ -1546,6 +2117,60 @@ export const CourseBuilderPage = forwardRef<
     }
   };
 
+  const handleSaveExercise = async (draft: ExerciseEditorDraft) => {
+    if (!exerciseEditorModuleId) {
+      setExerciseEditorError("Unable to resolve the selected module.");
+      return;
+    }
+
+    setExerciseEditorError("");
+
+    try {
+      setIsSavingExercise(true);
+      const resolvedModuleId = exerciseEditorModuleId;
+      const modulePayload =
+        draft.afterLessonId === null
+          ? {
+              moduleId: resolvedModuleId,
+            }
+          : {};
+
+      if (editingExerciseId) {
+        await updateExercise(editingExerciseId, {
+          afterLessonId: draft.afterLessonId,
+          ...modulePayload,
+          type: draft.type,
+          title: draft.title,
+          description: draft.description.trim() || null,
+          content: draft.content as ExerciseContent,
+        });
+      } else {
+        await createExercise({
+          afterLessonId: draft.afterLessonId ?? undefined,
+          ...modulePayload,
+          type: draft.type,
+          title: draft.title,
+          description: draft.description.trim() || null,
+          content: draft.content as ExerciseContent,
+        });
+      }
+
+      await fetchExercises(resolvedModuleId);
+      closeCreateExerciseModal();
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setExerciseEditorError(error.message);
+      } else {
+        setExerciseEditorError(
+          editingExerciseId ? "Unable to update exercise." : "Unable to create exercise."
+        );
+      }
+    } finally {
+      setIsSavingExercise(false);
+    }
+  };
+
   const handleDeleteTest = async (moduleId: string, testId: string) => {
     if (!window.confirm("Delete this test?")) return;
 
@@ -1581,8 +2206,52 @@ export const CourseBuilderPage = forwardRef<
     }
   };
 
+  const handleDeleteExercise = async (moduleId: string, exerciseId: string) => {
+    if (!window.confirm("Delete this exercise?")) return;
+
+    if (!currentCourseId) {
+      setExercisesByModule((prev) => ({
+        ...prev,
+        [moduleId]: (prev[moduleId] || []).filter((exercise) => exercise.id !== exerciseId),
+      }));
+      setExpandedExerciseIds((prev) => {
+        const next = { ...prev };
+        delete next[exerciseId];
+        return next;
+      });
+      setMessage("");
+      return;
+    }
+
+    try {
+      await deleteExercise(exerciseId);
+      await fetchExercises(moduleId);
+      setExpandedExerciseIds((prev) => {
+        const next = { ...prev };
+        delete next[exerciseId];
+        return next;
+      });
+
+      if (editingExerciseId === exerciseId) {
+        closeCreateExerciseModal();
+      }
+
+      setMessage("");
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to delete exercise.");
+      }
+    }
+  };
+
   const toggleTestPreview = (testId: string) => {
     setExpandedTestIds((prev) => ({ ...prev, [testId]: !prev[testId] }));
+  };
+
+  const toggleExercisePreview = (exerciseId: string) => {
+    setExpandedExerciseIds((prev) => ({ ...prev, [exerciseId]: !prev[exerciseId] }));
   };
 
   const handlePublishCourse = async () => {
@@ -1651,7 +2320,6 @@ export const CourseBuilderPage = forwardRef<
           </Card>
         ) : activeStep === 1 ? (
           <CourseBuilderCourseInfoStep
-            stepLabel={`Step ${activeStep} of ${courseBuilderSteps.length}`}
             title={currentStepTitle}
             description={currentStepDescription}
             courseTitle={courseTitle}
@@ -1674,7 +2342,6 @@ export const CourseBuilderPage = forwardRef<
 
         {activeStep === 2 ? (
           <CourseBuilderContentStep
-            stepLabel={`Step ${activeStep} of ${courseBuilderSteps.length}`}
             title={currentStepTitle}
             modules={modules}
             isCreatingModule={isCreatingModule}
@@ -1683,12 +2350,15 @@ export const CourseBuilderPage = forwardRef<
             nextModuleOrder={nextModuleOrder}
             lessonsByModule={lessonsByModule}
             testsByModule={testsByModule}
+            exercisesByModule={exercisesByModule}
             expandedModuleId={expandedModuleId}
             editModuleId={editModuleId}
             editModuleTitle={editModuleTitle}
             currentCourseId={builderContentKey}
             expandedLessonIds={expandedLessonIds}
             expandedTestIds={expandedTestIds}
+            expandedExerciseIds={expandedExerciseIds}
+            isPreparingExercise={isPreparingExerciseEditor}
             onNewModuleTitleChange={setNewModuleTitle}
             onSaveNewModule={() => {
               void handleSaveNewModule();
@@ -1723,8 +2393,18 @@ export const CourseBuilderPage = forwardRef<
             onDeleteTest={(moduleId, testId) => {
               void handleDeleteTest(moduleId, testId);
             }}
+            onToggleExercise={toggleExercisePreview}
+            onEditExercise={(moduleId, exercise) => {
+              void openEditExerciseModal(moduleId, exercise);
+            }}
+            onDeleteExercise={(moduleId, exerciseId) => {
+              void handleDeleteExercise(moduleId, exerciseId);
+            }}
             onCreateLesson={openCreateLessonModal}
             onCreateTest={openCreateTestModal}
+            onCreateExercise={(moduleId) => {
+              void openCreateExerciseModal(moduleId);
+            }}
             onCreateModule={openNewModuleComposer}
             onBack={() => setActiveStep(1)}
             onContinueToReview={() => setActiveStep(3)}
@@ -1733,7 +2413,6 @@ export const CourseBuilderPage = forwardRef<
 
         {activeStep === 3 ? (
           <CourseBuilderReviewStep
-            stepLabel={`Step ${activeStep} of ${courseBuilderSteps.length}`}
             title="Final Preview"
             publishBlockingIssues={publishBlockingIssues}
             currentCourseName={currentCourseName}
@@ -1815,14 +2494,41 @@ export const CourseBuilderPage = forwardRef<
         questions={testQuestions}
         canSave={canSaveCurrentTest}
         isSaving={isSavingTest}
+        aiGenerationMode={testAiGenerationMode}
+        aiQuestionCount={testAiQuestionCount}
+        maxAiQuestionCount={testAiQuestionLimit}
+        canGenerateAi={canGenerateTestAi}
+        isGeneratingAi={isGeneratingAiQuestions}
         onClose={closeCreateTestModal}
         onSave={() => {
           void handleCreateTest();
         }}
+        onGenerateAi={handleGenerateTestQuestionsWithAi}
+        onAiGenerationModeChange={setTestAiGenerationMode}
+        onAiQuestionCountChange={setTestAiQuestionCount}
         onAfterLessonChange={setTestAfterLessonId}
         onAddQuestion={handleAddTestQuestion}
         onQuestionChange={handleChangeTestQuestion}
         onDeleteQuestion={handleDeleteTestQuestion}
+      />
+
+      <ExerciseCreateModal
+        isOpen={exerciseEditorModuleId !== null}
+        heading={editingExerciseId ? "Edit Exercise" : "Create Exercise"}
+        saveLabel={editingExerciseId ? "Save Changes" : "Save Exercise"}
+        courseTitle={currentCourseName}
+        modules={modules}
+        lessonsByModule={lessonsByModule}
+        testsByModule={testsByModule}
+        activeModuleId={exerciseEditorModuleId}
+        lessons={exerciseEditorModuleId ? lessonsByModule[exerciseEditorModuleId] || [] : []}
+        initialDraft={exerciseEditorInitialDraft}
+        isSaving={isSavingExercise}
+        errorMessage={exerciseEditorError}
+        onClose={closeCreateExerciseModal}
+        onSave={(draft) => {
+          void handleSaveExercise(draft);
+        }}
       />
     </div>
   );
