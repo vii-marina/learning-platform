@@ -1,4 +1,5 @@
 import type {
+  GeneratedTestQuestion,
   Lesson,
   Module,
   TestAnswer,
@@ -42,6 +43,96 @@ export const createEmptyTestQuestion = (): CourseTestQuestion => ({
   correctOptionIndexes: [],
   hint: null,
 });
+
+export const mapGeneratedQuestionToCourseTestQuestion = (
+  question: GeneratedTestQuestion
+): CourseTestQuestion => {
+  if (question.type === "true_false") {
+    const normalizedOptions = (question.options ?? []).reduce<
+      Array<{ text: string; correct: boolean }>
+    >((options, option) => {
+      const text = option.text.trim().toLowerCase();
+
+      if (text !== "true" && text !== "false") {
+        return options;
+      }
+
+      options.push({
+        text,
+        correct: Boolean(option.correct),
+      });
+
+      return options;
+    }, []);
+
+    const correctTrue = normalizedOptions.find(
+      (option) => option.text === "true" && option.correct
+    );
+    const correctFalse = normalizedOptions.find(
+      (option) => option.text === "false" && option.correct
+    );
+
+    return {
+      id: createId(),
+      type: "true_false",
+      questionText: question.question_text.trim(),
+      options: [...TRUE_FALSE_OPTIONS],
+      correctOptionIndexes: correctTrue ? [0] : correctFalse ? [1] : [],
+      hint: null,
+    };
+  }
+
+  const normalizedOptions = (question.options ?? []).reduce<
+    Array<{ text: string; correct: boolean }>
+  >((options, option) => {
+    const text = option.text.trim();
+
+    if (!text) {
+      return options;
+    }
+
+    options.push({
+      text,
+      correct: Boolean(option.correct),
+    });
+
+    return options;
+  }, []);
+
+  const options =
+    normalizedOptions.length >= 2
+      ? normalizedOptions.map((option) => option.text)
+      : ["Option 1", "Option 2"];
+  const correctOptionIndexes = normalizedOptions.reduce<number[]>(
+    (indexes, option, index) => {
+      if (option.correct) {
+        indexes.push(index);
+      }
+
+      return indexes;
+    },
+    []
+  );
+
+  return {
+    id: createId(),
+    type:
+      question.type === "multiple_choice" || correctOptionIndexes.length > 1
+        ? "multiple_choice"
+        : "single_choice",
+    questionText: question.question_text.trim(),
+    options,
+    correctOptionIndexes:
+      correctOptionIndexes.length > 0 && correctOptionIndexes.every((index) => index < options.length)
+        ? correctOptionIndexes
+        : [0],
+    hint: null,
+  };
+};
+
+export const mapGeneratedQuestionsToCourseTestQuestions = (
+  questions: GeneratedTestQuestion[]
+) => questions.map(mapGeneratedQuestionToCourseTestQuestion);
 
 export const cloneTestQuestion = (
   question: CourseTestQuestion
@@ -259,6 +350,61 @@ export const getPlainTextFromHtml = (content: string | null) =>
     .replace(/\n{3,}/g, "\n\n")
     .replace(/[ \t]{2,}/g, " ")
     .trim();
+
+const countWords = (text: string) =>
+  text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean).length;
+
+export const estimateMaxAiQuestionCount = (
+  text: string,
+  hardLimit: number
+) => {
+  const wordCount = countWords(text);
+
+  if (wordCount === 0) {
+    return 0;
+  }
+
+  if (wordCount <= 10) {
+    return 1;
+  }
+
+  if (wordCount <= 40) {
+    return Math.min(hardLimit, 2);
+  }
+
+  if (wordCount <= 90) {
+    return Math.min(hardLimit, 3);
+  }
+
+  if (wordCount <= 160) {
+    return Math.min(hardLimit, 5);
+  }
+
+  if (wordCount <= 280) {
+    return Math.min(hardLimit, 8);
+  }
+
+  if (wordCount <= 450) {
+    return Math.min(hardLimit, 10);
+  }
+
+  return hardLimit;
+};
+
+export const getLessonAiQuestionLimit = (content: string) =>
+  estimateMaxAiQuestionCount(getPlainTextFromHtml(content), 5);
+
+export const getModuleAiQuestionLimit = (lessons: Lesson[]) =>
+  estimateMaxAiQuestionCount(
+    lessons.map((lesson) => getPlainTextFromHtml(lesson.content)).filter(Boolean).join("\n\n"),
+    15
+  );
+
+export const getDefaultAiQuestionCount = (maxQuestionCount: number) =>
+  Math.max(1, Math.min(maxQuestionCount, 5));
 
 export const getFirstReviewSelection = (
   modules: Module[],

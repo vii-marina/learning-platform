@@ -76,6 +76,7 @@ export function LessonCreateModal({
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
+          restrictToActiveModule
           activeModuleId={activeModuleId}
           activeLessonId={activeLessonId}
           draftLessonModuleId={draftLessonModuleId}

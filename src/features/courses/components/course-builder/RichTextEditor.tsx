@@ -5,6 +5,9 @@ import StarterKit from "@tiptap/starter-kit";
 import UnderlineExtension from "@tiptap/extension-underline";
 import Placeholder from "@tiptap/extension-placeholder";
 import {
+  ChevronDown,
+  ChevronUp,
+  Code2,
   ImagePlus,
   Link2,
   List,
@@ -14,6 +17,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { LessonContentImage } from "./LessonContentImage";
+import { LessonCodeBlockVariant } from "./LessonCodeBlockVariant";
 import { LessonTextColor } from "./LessonTextColor";
 
 type RichTextEditorProps = {
@@ -34,6 +38,7 @@ export function RichTextEditor({
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [editorMessage, setEditorMessage] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const editor = useEditor({
     extensions: [
@@ -46,6 +51,7 @@ export function RichTextEditor({
         placeholder,
       }),
       LessonContentImage,
+      LessonCodeBlockVariant,
       LessonTextColor,
     ],
     content: value,
@@ -128,6 +134,10 @@ export function RichTextEditor({
   const canRedo = editor.can().chain().focus().redo().run();
   const hasLink = editor.isActive("link");
   const activeTextColor = (editor.getAttributes("textColor").color as string) || "";
+  const activeCodeVariant =
+    typeof editor.getAttributes("codeBlock").codeVariant === "string"
+      ? (editor.getAttributes("codeBlock").codeVariant as string)
+      : "example";
 
   const handleToggleLink = () => {
     if (disabled) {
@@ -229,11 +239,36 @@ export function RichTextEditor({
           editor.isActive("italic"),
           disabled
         )}
+        {toolbarButton(
+          "Code",
+          () => editor.chain().focus().toggleCode().run(),
+          editor.isActive("code"),
+          disabled || editor.isActive("codeBlock")
+        )}
         {toolbarIconButton(
           "Underline",
           () => editor.chain().focus().toggleUnderline().run(),
           <Underline className="h-4 w-4" />,
           editor.isActive("underline"),
+          disabled
+        )}
+        {toolbarIconButton(
+          "Code block",
+          () => editor.chain().focus().toggleCodeBlock().run(),
+          <Code2 className="h-4 w-4" />,
+          editor.isActive("codeBlock"),
+          disabled
+        )}
+        {toolbarButton(
+          "Input",
+          () => editor.chain().focus().setLessonCodeBlockVariant("input").run(),
+          editor.isActive("codeBlock") && activeCodeVariant === "input",
+          disabled
+        )}
+        {toolbarButton(
+          "Output",
+          () => editor.chain().focus().setLessonCodeBlockVariant("output").run(),
+          editor.isActive("codeBlock") && activeCodeVariant === "output",
           disabled
         )}
         <div className="h-6 w-px bg-slate-200" />
@@ -286,6 +321,13 @@ export function RichTextEditor({
         )}
         <div className="ml-auto flex items-center gap-2">
           {toolbarIconButton(
+            isExpanded ? "Collapse editor" : "Expand editor",
+            () => setIsExpanded((currentValue) => !currentValue),
+            isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />,
+            isExpanded,
+            disabled
+          )}
+          {toolbarIconButton(
             "Undo",
             () => editor.chain().focus().undo().run(),
             <Undo2 className="h-4 w-4" />,
@@ -315,7 +357,11 @@ export function RichTextEditor({
             editor.chain().focus().run();
           }
         }}
-        className={`min-h-[320px] bg-white ${disabled ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
+        className={`bg-white ${
+          isExpanded
+            ? "min-h-[320px]"
+            : "max-h-[30rem] min-h-[320px] overflow-y-auto"
+        } ${disabled ? "cursor-not-allowed opacity-70" : "cursor-text"}`}
       >
         <EditorContent editor={editor} className="text-base text-slate-700" />
       </div>

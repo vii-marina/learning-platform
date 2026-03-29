@@ -66,6 +66,7 @@ export function AdminDashboardCoursesPage() {
 
     return courses.filter((course) => {
       const searchableText = [
+        course.id,
         course.title,
         getAdminCourseAuthorName(course),
         course.description ?? "",

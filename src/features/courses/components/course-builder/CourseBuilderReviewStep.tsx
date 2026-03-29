@@ -7,7 +7,6 @@ import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 import { StudentCoursePreview } from "./StudentCoursePreview";
 
 type CourseBuilderReviewStepProps = {
-  stepLabel: string;
   title: string;
   publishBlockingIssues: string[];
   currentCourseName: string;
@@ -34,7 +33,6 @@ type CourseBuilderReviewStepProps = {
 };
 
 export function CourseBuilderReviewStep({
-  stepLabel,
   title,
   publishBlockingIssues,
   currentCourseName,
@@ -61,7 +59,7 @@ export function CourseBuilderReviewStep({
 }: CourseBuilderReviewStepProps) {
   return (
     <section className="mx-auto w-full max-w-[64rem]">
-      <CourseBuilderStepHeading stepLabel={stepLabel} title={title} />
+      <CourseBuilderStepHeading title={title} />
 
       <div className="mt-8">
         <StudentCoursePreview

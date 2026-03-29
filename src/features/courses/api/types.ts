@@ -1,6 +1,8 @@
 export type CourseStatus = "draft" | "published" | "archived";
 export type CourseAccessType = "public" | "private" | "invite";
 export type TestQuestionType = "true_false" | "single_choice" | "multiple_choice";
+export type AiQuestionGenerationMode = TestQuestionType | "mixed";
+export type ExerciseType = "drag_drop_code" | "write_code";
 
 export type Course = {
   id: string;
@@ -74,6 +76,37 @@ export type TestAnswer = {
   answer_text: string;
   is_correct: boolean;
   created_at: string;
+};
+
+export type DragDropCodeExerciseContent = {
+  type: "drag_drop_code";
+  question: string;
+  code_template: string;
+  tokens: string[];
+  correct_answer: string[];
+};
+
+export type WriteCodeExerciseContent = {
+  type: "write_code";
+  question: string;
+  initial_code: string;
+  expected_answer: string;
+};
+
+export type ExerciseContent =
+  | DragDropCodeExerciseContent
+  | WriteCodeExerciseContent;
+
+export type Exercise = {
+  id: string;
+  module_id: string;
+  after_lesson_id: string | null;
+  type: ExerciseType;
+  title: string;
+  description: string | null;
+  content: ExerciseContent;
+  created_at: string;
+  updated_at: string;
 };
 
 export type CreateCourseInput = {
@@ -155,3 +188,21 @@ export type CreateTestAnswerInput = {
 };
 
 export type UpdateTestAnswerInput = Partial<Pick<TestAnswer, "answer_text" | "is_correct">>;
+
+export type CreateExerciseInput = {
+  afterLessonId?: string;
+  moduleId?: string;
+  type: ExerciseType;
+  title: string;
+  description?: string | null;
+  content: ExerciseContent;
+};
+
+export type UpdateExerciseInput = Partial<{
+  afterLessonId: string | null;
+  moduleId: string;
+  type: ExerciseType;
+  title: string;
+  description: string | null;
+  content: ExerciseContent;
+}>;

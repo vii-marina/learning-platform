@@ -80,17 +80,9 @@ export function ModuleLessonsSection({
 
             {isExpanded ? (
               <div className="border-t border-slate-100 bg-white px-4 py-4">
-                <div className="space-y-4">
-                  {hasLessonContent(lesson.content) ? (
-                    <div
-                      className="prose prose-sm max-w-none text-slate-600"
-                      dangerouslySetInnerHTML={{ __html: lesson.content ?? "" }}
-                    />
-                  ) : (
-                    <p className="text-sm leading-6 text-slate-600">No lesson content yet.</p>
-                  )}
+                <div className="text-slate-600">
                   {embedUrl ? (
-                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
+                    <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-[0_12px_24px_rgba(15,23,42,0.12)] md:float-left md:mb-3 md:mr-5 md:w-[32%] md:max-w-[16rem]">
                       <div className="aspect-video">
                         <iframe
                           src={embedUrl}
@@ -102,6 +94,17 @@ export function ModuleLessonsSection({
                       </div>
                     </div>
                   ) : null}
+
+                  {hasLessonContent(lesson.content) ? (
+                    <div
+                      className="prose prose-sm max-w-none text-slate-600"
+                      dangerouslySetInnerHTML={{ __html: lesson.content ?? "" }}
+                    />
+                  ) : (
+                    <p className="text-sm leading-6 text-slate-600">No lesson content yet.</p>
+                  )}
+
+                  {embedUrl ? <div className="clear-both" /> : null}
                 </div>
               </div>
             ) : null}
