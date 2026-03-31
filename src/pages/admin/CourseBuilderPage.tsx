@@ -22,6 +22,7 @@ import {
   deleteModule,
   deleteTestEntity,
   deleteTestQuestion,
+  generateExerciseWithAi,
   generateTestQuestionsWithAi,
   getCourseById,
   listExercisesByModule,
@@ -104,6 +105,8 @@ type TestEditorDraft = {
   afterLessonId: string | null;
   questions: CourseTestQuestion[];
 };
+
+type CreateContentMode = "manual" | "ai";
 
 export type CourseBuilderPageHandle = {
   hasUnsavedChanges: boolean;
@@ -306,10 +309,15 @@ export const CourseBuilderPage = forwardRef<
     useState<AiQuestionGenerationMode>("single_choice");
   const [testAiQuestionCount, setTestAiQuestionCount] = useState(5);
   const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
+  const [testCreateInitialMode, setTestCreateInitialMode] = useState<CreateContentMode | null>(
+    null
+  );
   const [exercisesByModule, setExercisesByModule] = useState<Record<string, CourseExercise[]>>(
     {}
   );
   const [exerciseEditorModuleId, setExerciseEditorModuleId] = useState<string | null>(null);
+  const [exerciseCreateInitialMode, setExerciseCreateInitialMode] =
+    useState<CreateContentMode>("manual");
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [exerciseEditorInitialDraft, setExerciseEditorInitialDraft] =
     useState<ExerciseEditorDraft | null>(null);
@@ -1787,7 +1795,7 @@ export const CourseBuilderPage = forwardRef<
     const persistedCourseId = await persistCourseAtFinalStep("draft");
 
     if (!persistedCourseId) {
-      throw new Error("Unable to save the draft before generating questions.");
+      throw new Error("Unable to save the draft before generating AI content.");
     }
 
     const persistedModules = await listModulesByCourse(persistedCourseId);
@@ -1853,6 +1861,7 @@ export const CourseBuilderPage = forwardRef<
     setTestAfterLessonId(null);
     setTestQuestions([]);
     setTestInitialDraft(null);
+    setTestCreateInitialMode(null);
     setTestAiGenerationMode("single_choice");
   };
 
@@ -1861,12 +1870,14 @@ export const CourseBuilderPage = forwardRef<
     setEditingExerciseId(null);
     setExerciseEditorInitialDraft(null);
     setExerciseEditorError("");
+    setExerciseCreateInitialMode("manual");
   };
 
   const openCreateTestModal = (
     moduleId: string,
     options?: {
       afterLessonId?: string | null;
+      initialMode?: CreateContentMode;
     }
   ) => {
     const nextDraft = createEmptyTestEditorDraft();
@@ -1879,6 +1890,7 @@ export const CourseBuilderPage = forwardRef<
       : getModuleAiQuestionLimit(moduleLessons);
 
     setTestEditorModuleId(moduleId);
+    setTestCreateInitialMode(options?.initialMode ?? "manual");
     setEditingTestId(null);
     setTestAfterLessonId(nextAfterLessonId);
     setTestQuestions(nextDraft.questions);
@@ -1900,6 +1912,7 @@ export const CourseBuilderPage = forwardRef<
       : getModuleAiQuestionLimit(moduleLessons);
 
     setTestEditorModuleId(moduleId);
+    setTestCreateInitialMode("manual");
     setEditingTestId(test.id);
     setTestAfterLessonId(test.afterLessonId);
     setTestQuestions(nextQuestions);
@@ -1911,7 +1924,12 @@ export const CourseBuilderPage = forwardRef<
     });
   };
 
-  const openCreateExerciseModal = async (moduleId: string) => {
+  const openCreateExerciseModal = async (
+    moduleId: string,
+    options?: {
+      initialMode?: CreateContentMode;
+    }
+  ) => {
     if (isPreparingExerciseEditor) {
       return;
     }
@@ -1929,6 +1947,7 @@ export const CourseBuilderPage = forwardRef<
       ]);
 
       setExerciseEditorModuleId(resolvedModuleId);
+      setExerciseCreateInitialMode(options?.initialMode ?? "manual");
       setEditingExerciseId(null);
       setExerciseEditorInitialDraft(createEmptyExerciseDraft());
     } catch (error) {
@@ -1951,8 +1970,20 @@ export const CourseBuilderPage = forwardRef<
     }
 
     setExerciseEditorModuleId(moduleId);
+    setExerciseCreateInitialMode("manual");
     setEditingExerciseId(exercise.id);
     setExerciseEditorInitialDraft(mapCourseExerciseToDraft(exercise));
+  };
+
+  const handleOpenTestCreationChoice = (moduleId: string, mode: CreateContentMode) => {
+    openCreateTestModal(moduleId, { initialMode: mode });
+  };
+
+  const handleOpenExerciseCreationChoice = async (
+    moduleId: string,
+    mode: CreateContentMode
+  ) => {
+    await openCreateExerciseModal(moduleId, { initialMode: mode });
   };
 
   const handleAddTestQuestion = () => {
@@ -2024,6 +2055,41 @@ export const CourseBuilderPage = forwardRef<
     } finally {
       setIsGeneratingAiQuestions(false);
     }
+  };
+
+  const handleGenerateExerciseWithAi = async (
+    draft: ExerciseEditorDraft
+  ): Promise<ExerciseEditorDraft> => {
+    if (!exerciseEditorModuleId) {
+      throw new Error("Unable to resolve the selected module.");
+    }
+
+    const resolvedTarget = await resolveAiGenerationTarget({
+      moduleId: exerciseEditorModuleId,
+      afterLessonId: draft.afterLessonId,
+    });
+
+    const generatedContent = await generateExerciseWithAi({
+      afterLessonId: resolvedTarget.afterLessonId ?? undefined,
+      moduleId: resolvedTarget.afterLessonId ? undefined : resolvedTarget.moduleId,
+      type: draft.type,
+    });
+
+    if (draft.type === "drag_drop_code" && generatedContent.type === "drag_drop_code") {
+      return {
+        ...draft,
+        content: generatedContent,
+      };
+    }
+
+    if (draft.type === "write_code" && generatedContent.type === "write_code") {
+      return {
+        ...draft,
+        content: generatedContent,
+      };
+    }
+
+    throw new Error("AI returned an exercise type that does not match the selected format.");
   };
 
   const handleCreateTest = async () => {
@@ -2402,10 +2468,8 @@ export const CourseBuilderPage = forwardRef<
               void handleDeleteExercise(moduleId, exerciseId);
             }}
             onCreateLesson={openCreateLessonModal}
-            onCreateTest={openCreateTestModal}
-            onCreateExercise={(moduleId) => {
-              void openCreateExerciseModal(moduleId);
-            }}
+            onCreateTest={handleOpenTestCreationChoice}
+            onCreateExercise={handleOpenExerciseCreationChoice}
             onCreateModule={openNewModuleComposer}
             onBack={() => setActiveStep(1)}
             onContinueToReview={() => setActiveStep(3)}
@@ -2482,6 +2546,7 @@ export const CourseBuilderPage = forwardRef<
 
       <TestCreateModal
         isOpen={testEditorModuleId !== null}
+        initialMode={testCreateInitialMode}
         heading={editingTestId ? "Edit Test" : "Create Test"}
         saveLabel={editingTestId ? "Save Changes" : "Save Test"}
         courseTitle={currentCourseName}
@@ -2522,6 +2587,7 @@ export const CourseBuilderPage = forwardRef<
               }-${exerciseEditorInitialDraft?.afterLessonId ?? "module"}`
         }
         isOpen={exerciseEditorModuleId !== null}
+        initialMode={exerciseCreateInitialMode}
         heading={editingExerciseId ? "Edit Exercise" : "Create Exercise"}
         saveLabel={editingExerciseId ? "Save Changes" : "Save Exercise"}
         courseTitle={currentCourseName}
@@ -2534,10 +2600,12 @@ export const CourseBuilderPage = forwardRef<
         isSaving={isSavingExercise}
         errorMessage={exerciseEditorError}
         onClose={closeCreateExerciseModal}
+        onGenerateAi={handleGenerateExerciseWithAi}
         onSave={(draft) => {
           void handleSaveExercise(draft);
         }}
       />
+
     </div>
   );
 });

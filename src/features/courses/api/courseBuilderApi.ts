@@ -14,6 +14,8 @@ import type {
   CreateTestEntityInput,
   CreateTestQuestionInput,
   Exercise,
+  ExerciseContent,
+  ExerciseType,
   Lesson,
   LessonBlock,
   Module,
@@ -79,6 +81,16 @@ type GenerateTestQuestionsInput = {
   moduleId?: string;
   questionCount?: number;
   generationMode?: AiQuestionGenerationMode;
+};
+
+type GenerateExerciseResponse = {
+  content: ExerciseContent;
+};
+
+type GenerateExerciseInput = {
+  afterLessonId?: string;
+  moduleId?: string;
+  type: ExerciseType;
 };
 
 function normalizeCourseSlug(value: string) {
@@ -490,6 +502,18 @@ export async function generateTestQuestionsWithAi(
   );
 
   return response.questions;
+}
+
+export async function generateExerciseWithAi(input: GenerateExerciseInput) {
+  const response = await authorizedBackendRequest<GenerateExerciseResponse>(
+    "/api/ai/generate-exercise",
+    {
+      method: "POST",
+      body: input,
+    }
+  );
+
+  return response.content;
 }
 
 export async function listExercisesByModule(moduleId: string) {

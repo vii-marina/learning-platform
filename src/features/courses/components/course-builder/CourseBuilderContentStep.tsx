@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -14,8 +15,11 @@ import { Button } from "../../../../components/ui/Button";
 import { Input } from "../../../../components/ui/Input";
 import type { Lesson, Module } from "../../api";
 import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
+import { CreationPathModal } from "./CreationPathModal";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 import { ModuleContentList } from "./ModuleContentList";
+
+type CreateContentMode = "manual" | "ai";
 
 type CourseBuilderContentStepProps = {
   title: string;
@@ -53,8 +57,8 @@ type CourseBuilderContentStepProps = {
   onEditExercise: (moduleId: string, exercise: CourseExercise) => void;
   onDeleteExercise: (moduleId: string, exerciseId: string) => void;
   onCreateLesson: (moduleId: string) => void;
-  onCreateTest: (moduleId: string) => void;
-  onCreateExercise: (moduleId: string) => void;
+  onCreateTest: (moduleId: string, mode: CreateContentMode) => void;
+  onCreateExercise: (moduleId: string, mode: CreateContentMode) => void;
   onCreateModule: () => void;
   onBack: () => void;
   onContinueToReview: () => void;
@@ -102,9 +106,15 @@ export function CourseBuilderContentStep({
   onBack,
   onContinueToReview,
 }: CourseBuilderContentStepProps) {
+  const [createContentChoice, setCreateContentChoice] = useState<{
+    kind: "test" | "exercise";
+    moduleId: string;
+  } | null>(null);
+
   return (
-    <section className="mx-auto w-full max-w-[64rem]">
-      <CourseBuilderStepHeading title={title} />
+    <>
+      <section className="mx-auto w-full max-w-[64rem]">
+        <CourseBuilderStepHeading title={title} />
 
       <div className="mt-8 space-y-4">
         {modules.map((module) => {
@@ -189,7 +199,7 @@ export function CourseBuilderContentStep({
 
               {isExpanded ? (
                 <div className="flex flex-col">
-                  <div className="max-h-[30rem] overflow-y-auto px-4 py-4 md:px-5 md:py-5">
+                  <div className="max-h-[16rem] overflow-y-auto px-4 py-4 md:px-5 md:py-5">
                     <ModuleContentList
                       moduleId={module.id}
                       moduleOrder={module.order}
@@ -216,14 +226,19 @@ export function CourseBuilderContentStep({
                       <button
                         type="button"
                         onClick={() => onCreateLesson(module.id)}
-                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#13daec]/35 bg-white px-4 text-sm font-bold text-[#08bfd4] transition hover:bg-[#13daec]/8"
+                        className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#13daec]/35 bg-[#eef8f9] px-4 text-sm font-bold text-[#08bfd4] transition hover:bg-[#def9fb]"
                       >
                         <Plus className="h-4 w-4" />
                         Add Lesson
                       </button>
                       <button
                         type="button"
-                        onClick={() => onCreateTest(module.id)}
+                        onClick={() =>
+                          setCreateContentChoice({
+                            kind: "test",
+                            moduleId: module.id,
+                          })
+                        }
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#c4b5fd]/60 bg-[#f5f3ff] px-4 text-sm font-bold text-[#7c3aed] transition hover:bg-[#ede9fe]"
                       >
                         <BadgeCheck className="h-4 w-4" />
@@ -231,7 +246,12 @@ export function CourseBuilderContentStep({
                       </button>
                       <button
                         type="button"
-                        onClick={() => onCreateExercise(module.id)}
+                        onClick={() =>
+                          setCreateContentChoice({
+                            kind: "exercise",
+                            moduleId: module.id,
+                          })
+                        }
                         disabled={isPreparingExercise}
                         className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#f97316]/35 bg-[#fff7ed] px-4 text-sm font-bold text-[#c2410c] transition hover:bg-[#fed7aa]/40 disabled:cursor-not-allowed disabled:opacity-60"
                       >
@@ -305,6 +325,56 @@ export function CourseBuilderContentStep({
           </button>
         </div>
       </div>
-    </section>
+      </section>
+
+      <CreationPathModal
+        isOpen={createContentChoice !== null}
+        title={createContentChoice?.kind === "exercise" ? "Create Exercise" : "Create Test"}
+        aiLabel={
+          createContentChoice?.kind === "exercise"
+            ? "Generate Exercise with AI"
+            : "Generate Test with AI"
+        }
+        manualLabel={
+          createContentChoice?.kind === "exercise"
+            ? "Create Exercise Manually"
+            : "Create Test Manually"
+        }
+        accent={createContentChoice?.kind === "exercise" ? "exercise" : "test"}
+        onClose={() => {
+          setCreateContentChoice(null);
+        }}
+        onSelectAi={() => {
+          if (!createContentChoice) {
+            return;
+          }
+
+          const { kind, moduleId } = createContentChoice;
+          setCreateContentChoice(null);
+
+          if (kind === "exercise") {
+            onCreateExercise(moduleId, "ai");
+            return;
+          }
+
+          onCreateTest(moduleId, "ai");
+        }}
+        onSelectManual={() => {
+          if (!createContentChoice) {
+            return;
+          }
+
+          const { kind, moduleId } = createContentChoice;
+          setCreateContentChoice(null);
+
+          if (kind === "exercise") {
+            onCreateExercise(moduleId, "manual");
+            return;
+          }
+
+          onCreateTest(moduleId, "manual");
+        }}
+      />
+    </>
   );
 }

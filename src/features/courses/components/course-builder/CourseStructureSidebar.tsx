@@ -149,7 +149,6 @@ export function CourseStructureSidebar({
   return (
     <aside className={containerClassName}>
       <div className="border-b border-slate-200 px-6 py-6">
-        <p className="text-sm font-semibold text-slate-400">Course Structure</p>
         <h3 className="mt-2 text-2xl font-extrabold tracking-tight text-[#14213d]">
           {courseTitle}
         </h3>

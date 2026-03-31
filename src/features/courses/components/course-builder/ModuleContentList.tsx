@@ -170,7 +170,7 @@ export function ModuleContentList({
                   )}
                 </button>
 
-                <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => onEditLesson(moduleId, item.lesson)}
@@ -265,7 +265,7 @@ export function ModuleContentList({
                   )}
                 </button>
 
-                <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => onEditTest(moduleId, item.test)}
@@ -385,7 +385,7 @@ export function ModuleContentList({
                 )}
               </button>
 
-              <div className="flex items-center gap-1 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
+              <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => onEditExercise(moduleId, item.exercise)}

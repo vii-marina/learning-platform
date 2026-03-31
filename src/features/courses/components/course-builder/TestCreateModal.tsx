@@ -8,6 +8,7 @@ import { TestQuestionEditor } from "./TestQuestionEditor";
 
 type TestCreateModalProps = {
   isOpen: boolean;
+  initialMode?: "manual" | "ai" | null;
   heading?: string;
   saveLabel?: string;
   courseTitle: string;
@@ -67,6 +68,7 @@ function hasMeaningfulTestQuestionDraft(questions: CourseTestQuestion[]) {
 
 export function TestCreateModal({
   isOpen,
+  initialMode = null,
   heading = "Create Test",
   saveLabel = "Save Test",
   courseTitle,
@@ -112,9 +114,9 @@ export function TestCreateModal({
       return;
     }
 
-    setMode(null);
+    setMode(initialMode);
     setShowAiQuestions(false);
-  }, [activeTestId, isOpen]);
+  }, [activeTestId, initialMode, isOpen, questions]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -139,7 +141,6 @@ export function TestCreateModal({
     return null;
   }
 
-  const activeModule = modules.find((module) => module.id === activeModuleId) || null;
   const title =
     mode === "ai"
       ? "Generate Questions with AI"
@@ -166,12 +167,12 @@ export function TestCreateModal({
     setShowAiQuestions(false);
   };
 
-  const placementButtons = (
-    <div className="mt-4 flex flex-wrap gap-2">
+  const placementControls = (
+    <div className="mt-4 grid grid-cols-2 gap-3">
       <button
         type="button"
         onClick={() => handlePlacementChange(null)}
-        className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
+        className={`h-12 w-full rounded-2xl border px-5 text-sm font-semibold transition ${
           selectedAfterLessonId === null
             ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
             : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
@@ -181,25 +182,25 @@ export function TestCreateModal({
         This Module
       </button>
 
-      {lessons.map((lesson) => {
-        const isActive = selectedAfterLessonId === lesson.id;
-
-        return (
-          <button
-            key={lesson.id}
-            type="button"
-            onClick={() => handlePlacementChange(lesson.id)}
-            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-              isActive
-                ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
-                : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
-            }`}
-            disabled={isSaving}
-          >
+      <select
+        value={selectedAfterLessonId ?? ""}
+        onChange={(event) => handlePlacementChange(event.target.value || null)}
+        disabled={lessons.length === 0 || isSaving}
+        className={`h-12 w-full rounded-2xl border px-4 text-sm font-semibold outline-none transition ${
+          selectedAfterLessonId !== null
+            ? "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]"
+            : "border-slate-200 bg-white text-slate-700 focus:border-[#a78bfa] focus:ring-4 focus:ring-[#8b5cf6]/15"
+        } disabled:cursor-not-allowed disabled:opacity-60`}
+      >
+        <option value="" disabled>
+          {lessons.length === 0 ? "No lessons available" : "Select lesson"}
+        </option>
+        {lessons.map((lesson) => (
+          <option key={lesson.id} value={lesson.id}>
             {`${lesson.order}. ${lesson.title}`}
-          </button>
-        );
-      })}
+          </option>
+        ))}
+      </select>
     </div>
   );
 
@@ -282,11 +283,7 @@ export function TestCreateModal({
             <h3 className="text-3xl font-extrabold tracking-tight text-[#14213d]">
               {title}
             </h3>
-            {activeModule ? (
-              <p className="mt-2 text-sm text-slate-500">
-                {`Inside Module ${activeModule.order}: ${activeModule.title}.`}
-              </p>
-            ) : null}
+
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
@@ -298,7 +295,7 @@ export function TestCreateModal({
                   <h6 className="text-2xl font-bold tracking-tight text-[#14213d]">
                     Place this test after:
                   </h6>
-                  {placementButtons}
+                  {placementControls}
                 </section>
 
                 {mode === "ai" ? (

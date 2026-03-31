@@ -1,5 +1,15 @@
 import { supabaseAdmin } from "../lib/supabase";
 
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+}
+
 function extractPlainText(content: unknown) {
   try {
     const parsed =
@@ -13,9 +23,17 @@ function extractPlainText(content: unknown) {
       return "";
     }
 
-    return html
+    return decodeHtmlEntities(html)
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|h1|h2|h3|h4|h5|h6|ul|ol|pre|blockquote)>/gi, "\n")
+      .replace(/<li\b[^>]*>/gi, "- ")
+      .replace(/<\/li>/gi, "\n")
+      .replace(/<\/?code\b[^>]*>/gi, "")
       .replace(/<[^>]*>/g, " ")
-      .replace(/\s+/g, " ")
+      .replace(/[ \t]+\n/g, "\n")
+      .replace(/\n[ \t]+/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]{2,}/g, " ")
       .trim();
   } catch {
     return "";

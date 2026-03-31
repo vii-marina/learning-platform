@@ -19,9 +19,26 @@ type LessonRow = {
   module_id: string;
 };
 
-type ExerciseContent = {
+type ExerciseContentValue = {
   type: ExerciseType;
 } & Record<string, unknown>;
+
+type ExerciseBaseRow = {
+  id: string;
+  module_id: string;
+  after_lesson_id: string | null;
+  type: ExerciseType;
+  title: string;
+  position: number | null;
+  created_at: string;
+};
+
+type ExerciseContentRow = {
+  id: string;
+  exercise_id: string;
+  content: ExerciseContentValue;
+  created_at: string;
+};
 
 type ExerciseRow = {
   id: string;
@@ -30,7 +47,7 @@ type ExerciseRow = {
   type: ExerciseType;
   title: string;
   description: string | null;
-  content: ExerciseContent;
+  content: ExerciseContentValue;
   created_at: string;
   updated_at: string;
 };
@@ -56,6 +73,23 @@ function ensureTeacherOrAdmin(auth: AuthenticatedRequestContext) {
       "EXERCISE_FORBIDDEN"
     );
   }
+}
+
+function mapExerciseRow(
+  exercise: ExerciseBaseRow,
+  contentRow: ExerciseContentRow | null
+): ExerciseRow {
+  return {
+    id: exercise.id,
+    module_id: exercise.module_id,
+    after_lesson_id: exercise.after_lesson_id,
+    type: exercise.type,
+    title: exercise.title,
+    description: null,
+    content: contentRow?.content ?? ({ type: exercise.type } as ExerciseContentValue),
+    created_at: exercise.created_at,
+    updated_at: contentRow?.created_at ?? exercise.created_at,
+  };
 }
 
 async function getCourseOwnership(courseId: string) {
@@ -113,10 +147,10 @@ async function getLessonById(lessonId: string) {
   return data as LessonRow;
 }
 
-async function getExerciseById(exerciseId: string) {
+async function getExerciseBaseById(exerciseId: string) {
   const { data, error } = await supabaseAdmin
     .from("exercises")
-    .select("*")
+    .select("id,module_id,after_lesson_id,type,title,position,created_at")
     .eq("id", exerciseId)
     .maybeSingle();
 
@@ -128,7 +162,81 @@ async function getExerciseById(exerciseId: string) {
     throw new AppError(404, "Exercise was not found.", "EXERCISE_NOT_FOUND");
   }
 
-  return data as ExerciseRow;
+  return data as ExerciseBaseRow;
+}
+
+async function getExerciseContentByExerciseId(exerciseId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("exercise_content")
+    .select("id,exercise_id,content,created_at")
+    .eq("exercise_id", exerciseId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "EXERCISE_CONTENT_FETCH_FAILED",
+      "Unable to load exercise content",
+      error
+    );
+  }
+
+  return (data as ExerciseContentRow | null) ?? null;
+}
+
+async function listExerciseContentByExerciseIds(exerciseIds: string[]) {
+  if (exerciseIds.length === 0) {
+    return new Map<string, ExerciseContentRow>();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("exercise_content")
+    .select("id,exercise_id,content,created_at")
+    .in("exercise_id", exerciseIds)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "EXERCISE_CONTENT_LIST_FAILED",
+      "Unable to list exercise content",
+      error
+    );
+  }
+
+  const rows = (data ?? []) as ExerciseContentRow[];
+  const contentByExerciseId = new Map<string, ExerciseContentRow>();
+
+  rows.forEach((row) => {
+    if (!contentByExerciseId.has(row.exercise_id)) {
+      contentByExerciseId.set(row.exercise_id, row);
+    }
+  });
+
+  return contentByExerciseId;
+}
+
+async function getNextExercisePosition(moduleId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("exercises")
+    .select("position")
+    .eq("module_id", moduleId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "EXERCISE_POSITION_FAILED",
+      "Unable to compute next exercise position",
+      error
+    );
+  }
+
+  return (data?.position ?? 0) + 1;
 }
 
 async function authorizeCourseAccess(auth: AuthenticatedRequestContext, courseId: string) {
@@ -155,7 +263,7 @@ async function authorizeLessonAccess(auth: AuthenticatedRequestContext, lessonId
 }
 
 async function authorizeExerciseAccess(auth: AuthenticatedRequestContext, exerciseId: string) {
-  const exercise = await getExerciseById(exerciseId);
+  const exercise = await getExerciseBaseById(exerciseId);
   await authorizeModuleAccess(auth, exercise.module_id);
   return exercise;
 }
@@ -200,15 +308,23 @@ export async function listModuleExercises(
 
   const { data, error } = await supabaseAdmin
     .from("exercises")
-    .select("*")
+    .select("id,module_id,after_lesson_id,type,title,position,created_at")
     .eq("module_id", moduleId)
+    .order("position", { ascending: true })
     .order("created_at", { ascending: true });
 
   if (error) {
     throw toServiceError(500, "EXERCISES_LIST_FAILED", "Unable to list exercises", error);
   }
 
-  return (data ?? []) as ExerciseRow[];
+  const exercises = (data ?? []) as ExerciseBaseRow[];
+  const contentByExerciseId = await listExerciseContentByExerciseIds(
+    exercises.map((exercise) => exercise.id)
+  );
+
+  return exercises.map((exercise) =>
+    mapExerciseRow(exercise, contentByExerciseId.get(exercise.id) ?? null)
+  );
 }
 
 export async function createExercise(
@@ -219,13 +335,14 @@ export async function createExercise(
     type: ExerciseType;
     title: string;
     description?: string | null;
-    content: ExerciseContent;
+    content: ExerciseContentValue;
   }
 ) {
   const target = await resolveExercisePlacement(auth, {
     afterLessonId: input.afterLessonId,
     moduleId: input.moduleId,
   });
+  const position = await getNextExercisePosition(target.moduleId);
 
   const { data, error } = await supabaseAdmin
     .from("exercises")
@@ -234,17 +351,37 @@ export async function createExercise(
       after_lesson_id: target.afterLessonId,
       type: input.type,
       title: input.title.trim(),
-      description: input.description?.trim() || null,
-      content: input.content,
+      position,
     })
-    .select("*")
+    .select("id,module_id,after_lesson_id,type,title,position,created_at")
     .single();
 
   if (error) {
     throw toServiceError(500, "EXERCISE_CREATE_FAILED", "Unable to create exercise", error);
   }
 
-  return data as ExerciseRow;
+  const exercise = data as ExerciseBaseRow;
+
+  const { data: contentData, error: contentError } = await supabaseAdmin
+    .from("exercise_content")
+    .insert({
+      exercise_id: exercise.id,
+      content: input.content,
+    })
+    .select("id,exercise_id,content,created_at")
+    .single();
+
+  if (contentError) {
+    await supabaseAdmin.from("exercises").delete().eq("id", exercise.id);
+    throw toServiceError(
+      500,
+      "EXERCISE_CONTENT_CREATE_FAILED",
+      "Unable to save exercise content",
+      contentError
+    );
+  }
+
+  return mapExerciseRow(exercise, contentData as ExerciseContentRow);
 }
 
 export async function updateExerciseById(
@@ -256,11 +393,12 @@ export async function updateExerciseById(
     type?: ExerciseType;
     title?: string;
     description?: string | null;
-    content?: ExerciseContent;
+    content?: ExerciseContentValue;
   }
 ) {
   const existingExercise = await authorizeExerciseAccess(auth, exerciseId);
-  const payload: Record<string, unknown> = {};
+  const basePayload: Record<string, unknown> = {};
+  let targetModuleId = existingExercise.module_id;
 
   if (
     input.type !== undefined &&
@@ -277,49 +415,103 @@ export async function updateExerciseById(
   if (input.afterLessonId !== undefined) {
     if (input.afterLessonId) {
       const lesson = await authorizeLessonAccess(auth, input.afterLessonId);
-      payload.after_lesson_id = lesson.id;
-      payload.module_id = lesson.module_id;
+      basePayload.after_lesson_id = lesson.id;
+      basePayload.module_id = lesson.module_id;
+      targetModuleId = lesson.module_id;
     } else {
-      const targetModuleId = input.moduleId ?? existingExercise.module_id;
-      const module = await authorizeModuleAccess(auth, targetModuleId);
-      payload.after_lesson_id = null;
-      payload.module_id = module.id;
+      const targetModule = await authorizeModuleAccess(
+        auth,
+        input.moduleId ?? existingExercise.module_id
+      );
+      basePayload.after_lesson_id = null;
+      basePayload.module_id = targetModule.id;
+      targetModuleId = targetModule.id;
     }
   } else if (input.moduleId !== undefined) {
-    const module = await authorizeModuleAccess(auth, input.moduleId);
-    payload.after_lesson_id = null;
-    payload.module_id = module.id;
-  }
-
-  if (input.type !== undefined) {
-    payload.type = input.type;
+    const targetModule = await authorizeModuleAccess(auth, input.moduleId);
+    basePayload.after_lesson_id = null;
+    basePayload.module_id = targetModule.id;
+    targetModuleId = targetModule.id;
   }
 
   if (input.title !== undefined) {
-    payload.title = input.title.trim();
-  }
-
-  if (input.description !== undefined) {
-    payload.description = input.description?.trim() || null;
+    basePayload.title = input.title.trim();
   }
 
   if (input.content !== undefined) {
-    payload.content = input.content;
-    payload.type = input.type ?? (input.content.type as ExerciseType);
+    basePayload.type = input.type ?? (input.content.type as ExerciseType);
+  } else if (input.type !== undefined) {
+    basePayload.type = input.type;
   }
 
-  const { data, error } = await supabaseAdmin
-    .from("exercises")
-    .update(payload)
-    .eq("id", exerciseId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw toServiceError(500, "EXERCISE_UPDATE_FAILED", "Unable to update exercise", error);
+  if (targetModuleId !== existingExercise.module_id) {
+    basePayload.position = await getNextExercisePosition(targetModuleId);
   }
 
-  return data as ExerciseRow;
+  let exercise = existingExercise;
+
+  if (Object.keys(basePayload).length > 0) {
+    const { data, error } = await supabaseAdmin
+      .from("exercises")
+      .update(basePayload)
+      .eq("id", exerciseId)
+      .select("id,module_id,after_lesson_id,type,title,position,created_at")
+      .single();
+
+    if (error) {
+      throw toServiceError(500, "EXERCISE_UPDATE_FAILED", "Unable to update exercise", error);
+    }
+
+    exercise = data as ExerciseBaseRow;
+  }
+
+  let contentRow = await getExerciseContentByExerciseId(exerciseId);
+
+  if (input.content !== undefined) {
+    if (contentRow) {
+      const { data, error } = await supabaseAdmin
+        .from("exercise_content")
+        .update({
+          content: input.content,
+        })
+        .eq("id", contentRow.id)
+        .select("id,exercise_id,content,created_at")
+        .single();
+
+      if (error) {
+        throw toServiceError(
+          500,
+          "EXERCISE_CONTENT_UPDATE_FAILED",
+          "Unable to update exercise content",
+          error
+        );
+      }
+
+      contentRow = data as ExerciseContentRow;
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from("exercise_content")
+        .insert({
+          exercise_id: exerciseId,
+          content: input.content,
+        })
+        .select("id,exercise_id,content,created_at")
+        .single();
+
+      if (error) {
+        throw toServiceError(
+          500,
+          "EXERCISE_CONTENT_CREATE_FAILED",
+          "Unable to save exercise content",
+          error
+        );
+      }
+
+      contentRow = data as ExerciseContentRow;
+    }
+  }
+
+  return mapExerciseRow(exercise, contentRow);
 }
 
 export async function deleteExerciseById(
@@ -327,6 +519,20 @@ export async function deleteExerciseById(
   exerciseId: string
 ) {
   await authorizeExerciseAccess(auth, exerciseId);
+
+  const { error: contentError } = await supabaseAdmin
+    .from("exercise_content")
+    .delete()
+    .eq("exercise_id", exerciseId);
+
+  if (contentError) {
+    throw toServiceError(
+      500,
+      "EXERCISE_CONTENT_DELETE_FAILED",
+      "Unable to delete exercise content",
+      contentError
+    );
+  }
 
   const { error } = await supabaseAdmin.from("exercises").delete().eq("id", exerciseId);
 
