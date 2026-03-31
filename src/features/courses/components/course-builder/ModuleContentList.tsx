@@ -97,18 +97,17 @@ function buildOrderedModuleContentItems(
 
 function getNestedTestTitle(test: CourseTest, lessons: Lesson[], moduleOrder: number) {
   const linkedLesson = lessons.find((lesson) => lesson.id === test.afterLessonId);
-  const fallbackTitle = getGeneratedCourseTestTitle({
+  if (linkedLesson) {
+    const linkedLessonTitle = linkedLesson.title.trim() || `Lesson ${moduleOrder}.${linkedLesson.order}`;
+    return `Test - ${linkedLessonTitle}`;
+  }
+
+  return getGeneratedCourseTestTitle({
     moduleOrder,
     lessons,
     afterLessonId: test.afterLessonId,
     fallbackTitle: test.title,
   });
-
-  if (linkedLesson && fallbackTitle.trim() === linkedLesson.title.trim()) {
-    return "Lesson Test";
-  }
-
-  return fallbackTitle;
 }
 
 export function ModuleContentList({
@@ -256,9 +255,6 @@ export function ModuleContentList({
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-[1rem] font-semibold text-[#14213d]">
                         {displayTitle}
-                      </span>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">
-                        Test
                       </span>
                     </div>
                   </div>

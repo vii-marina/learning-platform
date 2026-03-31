@@ -3,6 +3,7 @@ export type CourseAccessType = "public" | "private" | "invite";
 export type TestQuestionType = "true_false" | "single_choice" | "multiple_choice";
 export type AiQuestionGenerationMode = TestQuestionType | "mixed";
 export type ExerciseType = "drag_drop_code" | "write_code";
+export type ExerciseMatchMode = "strict" | "flexible";
 
 export type Course = {
   id: string;
@@ -78,12 +79,19 @@ export type TestAnswer = {
   created_at: string;
 };
 
+export type DragDropCodeExerciseBlank = {
+  id: string;
+  correct: string;
+  distractors: string[];
+};
+
 export type DragDropCodeExerciseContent = {
   type: "drag_drop_code";
   question: string;
   code_template: string;
   tokens: string[];
   correct_answer: string[];
+  blanks?: DragDropCodeExerciseBlank[];
 };
 
 export type WriteCodeExerciseContent = {
@@ -91,6 +99,7 @@ export type WriteCodeExerciseContent = {
   question: string;
   initial_code: string;
   expected_answer: string;
+  match_mode?: ExerciseMatchMode;
 };
 
 export type ExerciseContent =

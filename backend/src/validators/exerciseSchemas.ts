@@ -7,6 +7,12 @@ const optionalNullableTrimmedString = z
   .optional();
 
 const exerciseTypeSchema = z.enum(["drag_drop_code", "write_code"]);
+const exerciseMatchModeSchema = z.enum(["strict", "flexible"]);
+const dragDropBlankSchema = z.object({
+  id: z.string().trim().min(1, "Blank id is required."),
+  correct: z.string().trim().min(1, "Correct value is required."),
+  distractors: z.array(z.string().trim().min(1, "Distractor cannot be empty.")).default([]),
+});
 
 const dragDropCodeContentSchema = z
   .object({
@@ -17,6 +23,7 @@ const dragDropCodeContentSchema = z
     correct_answer: z
       .array(z.string().trim().min(1, "Correct answer token cannot be empty."))
       .min(1),
+    blanks: z.array(dragDropBlankSchema).optional(),
   })
   .superRefine((value, context) => {
     const tokens = new Set(value.tokens);
@@ -37,6 +44,7 @@ const writeCodeContentSchema = z.object({
   question: z.string().trim().min(1, "Question is required."),
   initial_code: z.string().min(1, "Initial code is required."),
   expected_answer: z.string().min(1, "Expected answer is required."),
+  match_mode: exerciseMatchModeSchema.optional(),
 });
 
 const exerciseContentSchema = z.union([dragDropCodeContentSchema, writeCodeContentSchema]);

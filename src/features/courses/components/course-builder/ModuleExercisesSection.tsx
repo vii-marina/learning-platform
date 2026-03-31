@@ -28,7 +28,7 @@ function getPlacementLabel(lessons: Lesson[], exercise: CourseExercise) {
 }
 
 function getExerciseTypeLabel(exercise: CourseExercise) {
-  return exercise.type === "drag_drop_code" ? "Drag & Drop Code" : "Write Code";
+  return exercise.type === "drag_drop_code" ? "Fill Missing Code" : "Write Code";
 }
 
 export function ModuleExercisesSection({

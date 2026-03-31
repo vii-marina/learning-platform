@@ -123,14 +123,15 @@ function createEmptyExerciseDraft(): ExerciseEditorDraft {
   return {
     afterLessonId: null,
     type: "drag_drop_code",
-    title: "",
+    title: "Fill Missing Code Exercise",
     description: "",
     content: {
       type: "drag_drop_code",
       question: "",
       code_template: "",
-      tokens: [""],
+      tokens: [],
       correct_answer: [],
+      blanks: [],
     },
   };
 }
@@ -2513,6 +2514,13 @@ export const CourseBuilderPage = forwardRef<
       />
 
       <ExerciseCreateModal
+        key={
+          exerciseEditorModuleId === null
+            ? "exercise-editor-closed"
+            : `${exerciseEditorModuleId}-${editingExerciseId ?? "new"}-${
+                exerciseEditorInitialDraft?.type ?? "drag_drop_code"
+              }-${exerciseEditorInitialDraft?.afterLessonId ?? "module"}`
+        }
         isOpen={exerciseEditorModuleId !== null}
         heading={editingExerciseId ? "Edit Exercise" : "Create Exercise"}
         saveLabel={editingExerciseId ? "Save Changes" : "Save Exercise"}
