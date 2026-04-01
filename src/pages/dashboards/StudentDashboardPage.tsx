@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { useAppToast } from "../../components/ui/AppToastProvider";
 import { Card } from "../../components/ui/Card";
 import {
   getCurrentUser,
@@ -13,6 +14,7 @@ import type {
 import { StudentDashboardCourses } from "../../features/student-dashboard/components/StudentDashboardCourses";
 import { StudentDashboardOverview } from "../../features/student-dashboard/components/StudentDashboardOverview";
 import { StudentDashboardProfile } from "../../features/student-dashboard/components/StudentDashboardProfile";
+import { loadStudentDashboardCourses } from "../../features/student-dashboard/api/studentDashboardApi";
 import { StudentDashboardSidebar } from "../../features/student-dashboard/components/StudentDashboardSidebar";
 import { uploadStudentAvatar } from "../../features/student-dashboard/api/studentProfileStorage";
 import {
@@ -20,6 +22,7 @@ import {
   getDefaultRouteForRole,
 } from "../../features/auth/lib/roleRouting";
 import type { StudentDashboardSectionId } from "../../features/student-dashboard/types";
+import type { StudentDashboardCourseCatalogItem } from "../../features/student-dashboard/api/studentDashboardApi";
 
 function StudentDashboardPlaceholder({
   title,
@@ -42,6 +45,7 @@ function StudentDashboardPlaceholder({
 
 export function StudentDashboardPage() {
   const navigate = useNavigate();
+  const { showSuccessToast } = useAppToast();
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -51,10 +55,13 @@ export function StudentDashboardPage() {
     text: string;
   } | null>(null);
   const [profileMessage, setProfileMessage] = useState<{
-    type: "error" | "success";
+    type: "error";
     text: string;
     details?: unknown;
   } | null>(null);
+  const [catalogCourses, setCatalogCourses] = useState<StudentDashboardCourseCatalogItem[]>([]);
+  const [isCatalogLoading, setIsCatalogLoading] = useState(false);
+  const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<StudentDashboardSectionId>("overview");
 
@@ -105,6 +112,45 @@ export function StudentDashboardPage() {
     };
   }, [navigate]);
 
+  useEffect(() => {
+    if (!hasAccess || currentUser?.role !== "student") {
+      return;
+    }
+
+    let isMounted = true;
+
+    async function loadCatalog() {
+      try {
+        setIsCatalogLoading(true);
+        const courses = await loadStudentDashboardCourses();
+
+        if (!isMounted) {
+          return;
+        }
+
+        setCatalogCourses(courses);
+        setCatalogMessage(null);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setCatalogCourses([]);
+        setCatalogMessage(getErrorMessage(error, "Unable to load published courses."));
+      } finally {
+        if (isMounted) {
+          setIsCatalogLoading(false);
+        }
+      }
+    }
+
+    void loadCatalog();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser?.role, hasAccess]);
+
   if (!isLoading && !hasAccess && !pageMessage) {
     return <Navigate to="/dashboard" replace />;
   }
@@ -128,10 +174,7 @@ export function StudentDashboardPage() {
         avatarPath,
       });
       setCurrentUser(updatedUser);
-      setProfileMessage({
-        type: "success",
-        text: "Information updated.",
-      });
+      showSuccessToast("Profile saved.");
     } catch (error) {
       setProfileMessage({
         type: "error",
@@ -160,9 +203,22 @@ export function StudentDashboardPage() {
           </Card>
         );
       case "overview":
-        return <StudentDashboardOverview onOpenCourses={() => setActiveSection("courses")} />;
+        return (
+          <StudentDashboardOverview
+            courses={catalogCourses}
+            isLoadingCourses={isCatalogLoading}
+            coursesMessage={catalogMessage}
+            onOpenCourses={() => setActiveSection("courses")}
+          />
+        );
       case "courses":
-        return <StudentDashboardCourses />;
+        return (
+          <StudentDashboardCourses
+            courses={catalogCourses}
+            isLoadingCourses={isCatalogLoading}
+            coursesMessage={catalogMessage}
+          />
+        );
       case "teachers":
         return <StudentDashboardPlaceholder title="My teachers" />;
       
@@ -171,7 +227,14 @@ export function StudentDashboardPage() {
       case "settings":
         return <StudentDashboardPlaceholder title="Settings" />;
       default:
-        return <StudentDashboardOverview onOpenCourses={() => setActiveSection("courses")} />;
+        return (
+          <StudentDashboardOverview
+            courses={catalogCourses}
+            isLoadingCourses={isCatalogLoading}
+            coursesMessage={catalogMessage}
+            onOpenCourses={() => setActiveSection("courses")}
+          />
+        );
     }
   }
 

@@ -173,8 +173,8 @@ export function TestQuestionEditor({
                 }
                 className={`rounded-2xl border px-4 py-3 text-base font-semibold transition ${
                   question.correctOptionIndexes.includes(0)
-                    ? "border-emerald-300 bg-emerald-100 text-emerald-800"
-                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    ? "border-emerald-400 bg-emerald-100 text-emerald-800"
+                    : "border-emerald-100 bg-emerald-50 text-emerald-700"
                 }`}
               >
                 True
@@ -189,8 +189,8 @@ export function TestQuestionEditor({
                 }
                 className={`rounded-2xl border px-4 py-3 text-base font-semibold transition ${
                   question.correctOptionIndexes.includes(1)
-                    ? "border-rose-300 bg-rose-100 text-rose-800"
-                    : "border-rose-200 bg-rose-50 text-rose-700"
+                    ? "border-rose-400 bg-rose-100 text-rose-800"
+                    : "border-rose-100 bg-rose-50 text-rose-700"
                 }`}
               >
                 False

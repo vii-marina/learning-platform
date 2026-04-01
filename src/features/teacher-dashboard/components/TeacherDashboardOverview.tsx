@@ -6,41 +6,30 @@ export function TeacherDashboardOverview({
   onOpenCourseBuilder: () => void;
 }) {
   return (
-    <div className="space-y-6">
-      <section
-        className="overflow-hidden rounded-[1.75rem] p-6 text-white shadow-[0_24px_60px_rgba(23,51,143,0.24)] md:p-8"
-        style={{
-          background:
-            "linear-gradient(135deg, #17338f 0%, #2f5fcd 48%, #63b2ff 100%)",
-        }}
-      >
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_15rem] lg:items-center">
-          <div className="space-y-4">
-            <h1 className="text-3xl font-black tracking-tight text-white md:text-4xl">
-              Create your course
-            </h1>
-            <p className="max-w-2xl text-sm leading-7 text-white/82 md:text-base">
-              Launch a new course structure, organize modules and lessons, and
-              prepare materials for your students in the builder workspace.
-            </p>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={onOpenCourseBuilder}
-                className="inline-flex items-center gap-2 rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#17338f] transition hover:bg-slate-100"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Open course builder</span>
-              </button>
-              
-            </div>
-          </div>
+    <section className="rounded-[2rem] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/70 md:p-8">
+      <div className="space-y-5">
+        <div className="space-y-2">
 
-          
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
+            Build and maintain your courses
+          </h1>
+          <p className="max-w-2xl text-sm leading-6 text-slate-500">
+            The course dashboard is designed around drafting, publishing, and jumping back into
+            your latest edits quickly.
+          </p>
         </div>
-      </section>
 
-      
-    </div>
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onOpenCourseBuilder}
+            className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Course</span>
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }

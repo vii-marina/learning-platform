@@ -107,6 +107,16 @@ function buildDefaultSlug(title: string) {
   return `${base}-${suffix}`;
 }
 
+function buildDuplicateCourseTitle(title: string) {
+  const normalizedTitle = title.trim() || "Untitled course";
+
+  if (/\bcopy(?:\s+\d+)?$/i.test(normalizedTitle)) {
+    return `${normalizedTitle} 2`;
+  }
+
+  return `${normalizedTitle} Copy`;
+}
+
 function normalizeCourseStatus(isPublished: boolean | undefined): CourseStatus {
   return isPublished ? "published" : "draft";
 }
@@ -269,6 +279,14 @@ export async function publishCourse(courseId: string) {
   });
 }
 
+export async function unpublishCourse(courseId: string) {
+  return updateCourse(courseId, {
+    status: "draft",
+    is_published: false,
+    deleted_at: null,
+  });
+}
+
 export async function archiveCourse(courseId: string) {
   return updateCourse(courseId, {
     status: "archived",
@@ -290,6 +308,105 @@ export async function deleteCourse(courseId: string) {
   if (error) {
     throw new Error(toErrorMessage("Unable to delete course", error.message));
   }
+}
+
+export async function duplicateCourse(courseId: string) {
+  const sourceCourse = await getCourseById(courseId);
+  const duplicatedCourse = await createCourse({
+    title: buildDuplicateCourseTitle(sourceCourse.title),
+    description: sourceCourse.description,
+    teacher_id: sourceCourse.teacher_id,
+    status: "draft",
+    access_type: sourceCourse.access_type,
+    thumbnail_path: sourceCourse.thumbnail_path,
+    is_published: false,
+  });
+  const sourceModules = await listModulesByCourse(sourceCourse.id);
+  const lessonIdMap = new Map<string, string>();
+
+  for (const sourceModule of sourceModules) {
+    const duplicatedModule = await createModule({
+      course_id: duplicatedCourse.id,
+      title: sourceModule.title,
+      order: sourceModule.order,
+    });
+
+    const [sourceLessons, sourceTests, sourceExercises] = await Promise.all([
+      listLessonsByModule(sourceModule.id),
+      listTestsByModule(sourceModule.id),
+      listExercisesByModule(sourceModule.id),
+    ]);
+
+    for (const sourceLesson of sourceLessons) {
+      const duplicatedLesson = await createLesson({
+        module_id: duplicatedModule.id,
+        title: sourceLesson.title,
+        content: sourceLesson.content,
+        video_url: sourceLesson.video_url,
+        content_type: sourceLesson.content_type,
+        order: sourceLesson.order,
+      });
+
+      lessonIdMap.set(sourceLesson.id, duplicatedLesson.id);
+
+      const sourceLessonBlocks = await listLessonBlocksByLesson(sourceLesson.id);
+
+      for (const sourceLessonBlock of sourceLessonBlocks) {
+        await createLessonBlock({
+          lesson_id: duplicatedLesson.id,
+          block_type: sourceLessonBlock.block_type,
+          content: sourceLessonBlock.content,
+          order: sourceLessonBlock.order,
+        });
+      }
+    }
+
+    for (const sourceExercise of sourceExercises) {
+      await createExercise({
+        moduleId: duplicatedModule.id,
+        afterLessonId: sourceExercise.after_lesson_id
+          ? lessonIdMap.get(sourceExercise.after_lesson_id)
+          : undefined,
+        type: sourceExercise.type,
+        title: sourceExercise.title,
+        description: sourceExercise.description,
+        content: sourceExercise.content,
+      });
+    }
+
+    for (const sourceTest of sourceTests) {
+      const duplicatedTest = await createTestEntity({
+        module_id: duplicatedModule.id,
+        after_lesson_id: sourceTest.after_lesson_id
+          ? lessonIdMap.get(sourceTest.after_lesson_id) ?? null
+          : null,
+        title: sourceTest.title,
+        order: sourceTest.order,
+      });
+      const sourceQuestions = await listTestQuestions(sourceTest.id);
+
+      for (const sourceQuestion of sourceQuestions) {
+        const duplicatedQuestion = await createTestQuestion({
+          test_id: duplicatedTest.id,
+          type: sourceQuestion.type,
+          question_text: sourceQuestion.question_text,
+          order: sourceQuestion.order,
+          hint: sourceQuestion.hint,
+        });
+        const sourceAnswers = await listTestAnswers(sourceQuestion.id);
+
+        for (const sourceAnswer of sourceAnswers) {
+          await createTestAnswer({
+            question_id: duplicatedQuestion.id,
+            answer_text: sourceAnswer.answer_text,
+            is_correct: sourceAnswer.is_correct,
+          });
+        }
+      }
+    }
+  }
+
+  return duplicatedCourse;
 }
 
 export async function listModulesByCourse(courseId: string) {

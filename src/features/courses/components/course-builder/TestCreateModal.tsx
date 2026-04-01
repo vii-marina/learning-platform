@@ -3,12 +3,14 @@ import { Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
 import type { AiQuestionGenerationMode, Lesson, Module } from "../../api";
 import type { CourseTest, CourseTestQuestion } from "./courseBuilderUiTypes";
+import type { CreateContentMode } from "./courseBuilderPageUtils";
+import { hasMeaningfulTestQuestionDraft } from "./courseBuilderPageUtils";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { TestQuestionEditor } from "./TestQuestionEditor";
 
 type TestCreateModalProps = {
   isOpen: boolean;
-  initialMode?: "manual" | "ai" | null;
+  initialMode?: CreateContentMode | null;
   heading?: string;
   saveLabel?: string;
   courseTitle: string;
@@ -38,7 +40,7 @@ type TestCreateModalProps = {
   onDeleteQuestion: (questionId: string) => void;
 };
 
-type TestCreateMode = "manual" | "ai" | null;
+type TestCreateMode = CreateContentMode | null;
 
 const aiGenerationModeOptions: Array<{
   value: AiQuestionGenerationMode;
@@ -49,22 +51,6 @@ const aiGenerationModeOptions: Array<{
   { value: "multiple_choice", label: "Multiple Correct Answers" },
   { value: "mixed", label: "Mixed" },
 ];
-
-function hasMeaningfulQuestionDraft(question: CourseTestQuestion) {
-  if (question.questionText.trim().length > 0) {
-    return true;
-  }
-
-  if (question.correctOptionIndexes.length > 0) {
-    return true;
-  }
-
-  return question.options.some((option, index) => option.trim() !== `Option ${index + 1}`);
-}
-
-function hasMeaningfulTestQuestionDraft(questions: CourseTestQuestion[]) {
-  return questions.length > 1 || questions.some(hasMeaningfulQuestionDraft);
-}
 
 export function TestCreateModal({
   isOpen,

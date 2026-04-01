@@ -33,13 +33,13 @@ export function AdminTeacherAvatar({
 
   return (
     <div
-      className={`overflow-hidden rounded-full border-4 border-[#dbeafe] bg-[linear-gradient(135deg,#13daec_0%,#7c3aed_100%)] ${classes}`}
+      className={`overflow-hidden rounded-full border border-slate-200 bg-[#13daec]/10 ${classes}`}
       aria-hidden="true"
     >
       {imageUrl ? (
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <div className="flex h-full w-full items-center justify-center font-black text-white">
+        <div className="flex h-full w-full items-center justify-center font-semibold text-[#0f172a]">
           {getInitials(name)}
         </div>
       )}

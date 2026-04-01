@@ -39,6 +39,8 @@ const BLANK_SLOT_PATTERN = /___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_PATTERN = /{{answer}}|___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
 const lessonTextPlaceholder = "__LESSON_TEXT__";
+const EXERCISE_SYSTEM_PROMPT =
+  "You generate high-quality programming exercises for an educational platform.";
 
 const dragDropExerciseSchema = z.object({
   type: z.literal("drag_drop_code").optional(),
@@ -48,10 +50,11 @@ const dragDropExerciseSchema = z.object({
     .array(
       z.object({
         correct: z.string().trim().min(1),
-        distractors: z.array(z.string().trim().min(1)).default([]),
+        distractors: z.array(z.string().trim().min(1)).min(2).max(3),
       })
     )
-    .min(1),
+    .min(1)
+    .max(4),
 });
 
 const writeCodeExerciseSchema = z.object({
@@ -78,30 +81,56 @@ function normalizeJsonResponse(response: string) {
 function buildPrompt(type: GeneratedExerciseType) {
   if (type === "drag_drop_code") {
     return `
-You are an educational assistant.
+For drag_drop_code:
 
-Generate exactly one "Fill Missing Code" programming exercise based on the lesson content.
+Generate ONE high-quality "Fill Missing Code" exercise.
+
+Global rules:
+- Use lesson content ONLY.
+- Base the exercise directly on the lesson's concepts, keywords, syntax, and code patterns.
+- Do NOT introduce unrelated topics.
+- Do NOT generate generic programming questions.
+- If the lesson is about variables, use variables. If it is about conditionals, use if/else. If it is about loops, use loops.
+- Keep the task beginner-friendly, but avoid trivial tasks.
+- The task must require understanding, not guessing.
+- Use realistic code that looks like a real beginner programming example.
+- Avoid repetitive patterns such as Hello World or simple print-only tasks when a more meaningful exercise is possible.
+- Make each generation feel different by varying the structure when the lesson supports it, such as variables, functions, conditions, loops, or operations.
+- Return ONLY valid JSON.
+- Do not wrap JSON in markdown.
+- Do not add explanations, headings, or extra text.
 
 Rules:
-- Return ONLY valid JSON
-- The exercise must be short, clear, and directly based on the lesson
-- Use 1 to 3 blanks
-- The code must stay syntactically coherent
+- Use lesson content ONLY.
+- Use 1 to 4 blanks.
+- Blanks must represent real logic or syntax from the lesson.
+- The code must be meaningful and slightly challenging.
+- The code must stay syntactically coherent.
 - Use placeholders inside code_template in this exact format: {{blank_1}}, {{blank_2}}, ...
-- The number of placeholders must exactly match the number of blank objects
-- Each blank must include the correct value and 2 or 3 distractors
-- Distractors must be plausible but incorrect
-- Keep the task suitable for beginner students when possible
+- The number of placeholders must exactly match the number of blank objects.
+- Each blank must represent a real programming concept, such as an operator, condition, function call, variable value, return expression, or loop part taken from the lesson context.
+- Each blank must include the correct value and 2 or 3 plausible distractors based on common mistakes.
+- Distractors must NOT be random or unrelated.
 
-Return format:
+Examples of good tasks:
+- completing condition
+- filling operator
+- completing function logic
+
+Examples of bad tasks:
+- repeating "Hello world"
+- trivial prints
+- unrelated code
+
+Return JSON:
 {
   "type": "drag_drop_code",
-  "question": "Fill in the missing code to ...",
-  "code_template": "print({{blank_1}})",
+  "question": "...",
+  "code_template": "...",
   "blanks": [
     {
-      "correct": "\"Hello\"",
-      "distractors": ["\"Hi\"", "\"Bye\""]
+      "correct": "...",
+      "distractors": ["...", "..."]
     }
   ]
 }
@@ -114,24 +143,49 @@ ${lessonTextPlaceholder}
   }
 
   return `
-You are an educational assistant.
+For write_code:
 
-Generate exactly one "Write Code" programming exercise based on the lesson content.
+Generate ONE high-quality "Write Code" exercise.
+
+Global rules:
+- Use lesson content ONLY.
+- Base the exercise directly on the lesson's concepts, keywords, syntax, and code patterns.
+- Do NOT introduce unrelated topics.
+- Do NOT generate generic programming questions.
+- If the lesson is about variables, use variables. If it is about conditionals, use if/else. If it is about loops, use loops.
+- Keep the task beginner-friendly, but avoid trivial tasks.
+- The task must require understanding, not guessing.
+- Use realistic code that looks like a real beginner programming example.
+- Avoid repetitive patterns such as Hello World or simple print-only tasks when a more meaningful exercise is possible.
+- Make each generation feel different by varying the structure when the lesson supports it, such as variables, functions, conditions, loops, or operations.
+- Return ONLY valid JSON.
+- Do not wrap JSON in markdown.
+- Do not add explanations, headings, or extra text.
 
 Rules:
-- Return ONLY valid JSON
-- The exercise must be short, clear, and directly based on the lesson
-- initial_code must contain exactly one answer slot in this exact format: {{answer}}
-- Keep the code concise and realistic
-- expected_answer must be the exact code the student should type into the slot
-- Keep the task suitable for beginner students when possible
+- Use lesson content ONLY.
+- Task must require thinking.
+- Avoid generic prompts and avoid unrelated concepts.
+- initial_code must contain exactly one {{answer}} slot.
+- expected_answer must be the correct code for that slot.
+- The surrounding code must be concise, realistic, and meaningful.
 
-Return format:
+Examples of good tasks:
+- completing condition
+- filling operator
+- completing function logic
+
+Examples of bad tasks:
+- repeating "Hello world"
+- trivial prints
+- unrelated code
+
+Return JSON:
 {
   "type": "write_code",
-  "question": "Complete the missing code to ...",
-  "initial_code": "def add(a, b):\\n    return {{answer}}",
-  "expected_answer": "a + b"
+  "question": "...",
+  "initial_code": "... {{answer}} ...",
+  "expected_answer": "..."
 }
 
 Lesson content:
@@ -183,6 +237,10 @@ function normalizeDragDropExerciseContent(rawValue: unknown): GeneratedDragDropC
       (token) => token !== blank.correct.trim()
     );
 
+    if (distractors.length < 2) {
+      throw new Error("AI must return at least two unique distractors for each blank.");
+    }
+
     return {
       id: randomUUID(),
       correct: blank.correct.trim(),
@@ -229,11 +287,14 @@ export async function generateExerciseFromLesson(
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0.4,
+    temperature: 0.7,
+    response_format: {
+      type: "json_object",
+    },
     messages: [
       {
         role: "system",
-        content: "You generate programming exercises for educational platforms.",
+        content: EXERCISE_SYSTEM_PROMPT,
       },
       {
         role: "user",
