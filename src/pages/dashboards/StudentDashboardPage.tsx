@@ -165,10 +165,7 @@ export function StudentDashboardPage() {
         return <StudentDashboardCourses />;
       case "teachers":
         return <StudentDashboardPlaceholder title="My teachers" />;
-      case "progress":
-        return <StudentDashboardPlaceholder title="My progress" />;
-      case "calendar":
-        return <StudentDashboardPlaceholder title="Calendar" />;
+      
       case "messages":
         return <StudentDashboardPlaceholder title="Messages" />;
       case "settings":

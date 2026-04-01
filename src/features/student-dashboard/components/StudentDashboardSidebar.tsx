@@ -1,7 +1,5 @@
 import {
-  BarChart3,
   BookOpen,
-  CalendarDays,
   GraduationCap,
   LayoutGrid,
   LogOut,
@@ -25,8 +23,6 @@ const primaryItems: SidebarItem[] = [
   { id: "overview", label: "Overview", icon: LayoutGrid },
   { id: "teachers", label: "My Teachers", icon: GraduationCap },
   { id: "courses", label: "My Courses", icon: BookOpen },
-  { id: "progress", label: "My Progress", icon: BarChart3 },
-  { id: "calendar", label: "Calendar", icon: CalendarDays },
   { id: "messages", label: "Messages", icon: MessageSquare },
 ];
 

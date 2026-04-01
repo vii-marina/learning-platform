@@ -542,10 +542,6 @@ export function TeacherDashboardProfile({
         <h1 className="text-[2rem] font-black tracking-tight text-[#14213d]">
           Profile Settings
         </h1>
-        <p className="max-w-3xl text-sm leading-6 text-slate-500">
-          Manage your public identity and professional information for the
-          learning platform.
-        </p>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[15.5rem_minmax(0,1fr)]">

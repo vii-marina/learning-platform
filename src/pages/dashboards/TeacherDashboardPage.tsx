@@ -315,10 +315,7 @@ export function TeacherDashboardPage() {
         );
       case "students":
         return <TeacherDashboardPlaceholder title="My students" />;
-      case "progress":
-        return <TeacherDashboardPlaceholder title="My progress" />;
-      case "calendar":
-        return <TeacherDashboardPlaceholder title="Calendar" />;
+      
       case "messages":
         return <TeacherDashboardPlaceholder title="Messages" />;
       case "settings":
