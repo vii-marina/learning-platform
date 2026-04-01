@@ -1,6 +1,7 @@
 import { ArrowLeft } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
+import { useAppToast } from "../../components/ui/AppToastProvider";
 import { Card } from "../../components/ui/Card";
 import {
   loadAdminStudentDetailData,
@@ -18,6 +19,7 @@ type StudentDetailLocationState = {
 };
 
 export function AdminStudentDetailsPage() {
+  const { showSuccessToast } = useAppToast();
   const { studentId } = useParams<{ studentId: string }>();
   const location = useLocation();
   const locationState = location.state as StudentDetailLocationState | null;
@@ -28,7 +30,7 @@ export function AdminStudentDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [pageMessage, setPageMessage] = useState("");
   const [profileMessage, setProfileMessage] = useState<{
-    type: "error" | "success";
+    type: "error";
     text: string;
     details?: unknown;
   } | null>(null);
@@ -100,10 +102,7 @@ export function AdminStudentDetailsPage() {
       });
 
       setStudent(updatedStudent);
-      setProfileMessage({
-        type: "success",
-        text: "Student profile updated.",
-      });
+      showSuccessToast("Profile saved.");
     } catch (error) {
       setProfileMessage({
         type: "error",

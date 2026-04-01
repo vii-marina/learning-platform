@@ -1,225 +1,367 @@
-import { BookOpen, FileText, FileVideo, Layers3 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { BookOpen, LoaderCircle, Plus, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import {
+  duplicateCourse,
   listCourses,
+  listLessonsByModule,
   listModulesByCourse,
+  listTestAnswers,
+  listTestQuestions,
+  listTestsByModule,
+  publishCourse,
+  softDeleteCourse,
+  unpublishCourse,
   type Course,
+  type Lesson,
+  type Module,
 } from "../../courses/api";
 import {
   getCourseMediaKind,
   getCourseMediaPublicUrl,
 } from "../../courses/api/courseMediaStorage";
+import { StudentCoursePreview } from "../../courses/components/course-builder/StudentCoursePreview";
+import {
+  mapQuestionToCourseTestQuestion,
+} from "../../courses/components/course-builder/courseBuilderPageUtils";
+import type { CourseTest } from "../../courses/components/course-builder/courseBuilderUiTypes";
+import { useCourseBuilderReviewState } from "../../courses/components/course-builder/useCourseBuilderReviewState";
 import { getErrorMessage } from "../../auth/api/backendClient";
+import { TeacherContinueEditing } from "./TeacherContinueEditing";
+import { TeacherCourseCard } from "./TeacherCourseCard";
+import { TeacherCourseTabs } from "./TeacherCourseTabs";
+import type {
+  TeacherCourseFilterId,
+  TeacherCourseSummary,
+} from "./teacherCourseDashboard.types";
+import {
+  formatCourseRelativeTime,
+  getCourseStatusClassName,
+  getCourseStatusLabel,
+  isArchivedCourse,
+  isPublishedCourse,
+  matchesCourseFilter,
+  sortCoursesByRecent,
+} from "./teacherCourseDashboard.utils";
 
 type TeacherDashboardCoursesProps = {
   teacherId: string | null;
+  onCreateCourse: () => void;
   onContinueCourse: (courseId: string) => void;
+  onOpenPublishCourse: (courseId: string) => void;
 };
 
-type TeacherCourseSummary = Course & {
-  moduleCount: number;
+type TeacherCoursePreviewData = {
+  course: TeacherCourseSummary;
+  modules: Module[];
+  lessonsByModule: Record<string, Lesson[]>;
+  testsByModule: Record<string, CourseTest[]>;
 };
 
-function isPublishedCourse(course: TeacherCourseSummary) {
-  return course.status === "published" || course.is_published;
+type PendingCourseAction = {
+  courseId: string;
+  action: "delete" | "duplicate" | "publish" | "unpublish";
+} | null;
+
+function buildAlertClassName(type: "error" | "success") {
+  return type === "error"
+    ? "border-rose-200 bg-rose-50 text-rose-700"
+    : "border-[#13daec]/30 bg-[#13daec]/10 text-slate-800";
 }
 
-function isArchivedCourse(course: TeacherCourseSummary) {
-  return course.status === "archived";
+async function loadTeacherCourseSummary(course: Course): Promise<TeacherCourseSummary> {
+  const modules = await listModulesByCourse(course.id);
+  const lessonGroups = await Promise.all(
+    modules.map((module) => listLessonsByModule(module.id))
+  );
+
+  return {
+    ...course,
+    modulesCount: modules.length,
+    lessonsCount: lessonGroups.reduce(
+      (totalLessonCount, lessons) => totalLessonCount + lessons.length,
+      0
+    ),
+  };
 }
 
-function formatCourseDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(value));
+async function loadTeacherCoursePreview(
+  course: TeacherCourseSummary
+): Promise<TeacherCoursePreviewData> {
+  const modules = await listModulesByCourse(course.id);
+  const moduleContent = await Promise.all(
+    modules.map(async (module) => {
+      const [lessons, tests] = await Promise.all([
+        listLessonsByModule(module.id),
+        listTestsByModule(module.id),
+      ]);
+
+      const resolvedTests = await Promise.all(
+        tests.map(async (test) => {
+          const questions = await listTestQuestions(test.id);
+          const questionPayloads = await Promise.all(
+            questions.map(async (question) => ({
+              question,
+              answers: await listTestAnswers(question.id),
+            }))
+          );
+
+          return {
+            id: test.id,
+            title: test.title,
+            afterLessonId: test.after_lesson_id,
+            order: test.order,
+            questions: questionPayloads.map(({ question, answers }) =>
+              mapQuestionToCourseTestQuestion(question, answers)
+            ),
+          } satisfies CourseTest;
+        })
+      );
+
+      return {
+        moduleId: module.id,
+        lessons,
+        tests: resolvedTests,
+      };
+    })
+  );
+
+  return {
+    course,
+    modules,
+    lessonsByModule: Object.fromEntries(
+      moduleContent.map(({ moduleId, lessons }) => [moduleId, lessons])
+    ) as Record<string, Lesson[]>,
+    testsByModule: Object.fromEntries(
+      moduleContent.map(({ moduleId, tests }) => [moduleId, tests])
+    ) as Record<string, CourseTest[]>,
+  };
 }
 
-function TeacherCourseThumbnail({
-  title,
-  thumbnailPath,
+function TeacherCourseDeleteModal({
+  course,
+  isDeleting,
+  onClose,
+  onConfirm,
 }: {
-  title: string;
-  thumbnailPath: string | null;
+  course: TeacherCourseSummary | null;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
 }) {
-  const thumbnailUrl = getCourseMediaPublicUrl(thumbnailPath);
-  const thumbnailKind = getCourseMediaKind(thumbnailPath);
-  const Icon =
-    thumbnailKind === "video"
-      ? FileVideo
-      : thumbnailKind === "file"
-        ? FileText
-        : BookOpen;
+  if (!course) {
+    return null;
+  }
 
   return (
-    <div className="aspect-[16/10] overflow-hidden bg-slate-100">
-      {thumbnailUrl && thumbnailKind === "image" ? (
-        <img src={thumbnailUrl} alt={title} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full items-center justify-center bg-[linear-gradient(135deg,#0f172a_0%,#14213d_55%,#13daec_130%)] text-white">
-          <div className="flex flex-col items-center gap-3 text-center">
-            <div className="rounded-full bg-white/12 p-4">
-              <Icon className="h-6 w-6" />
-            </div>
-            <p className="text-sm font-medium text-white/80">
-              {thumbnailKind === "video" ? "Video thumbnail" : "Course preview"}
+    <div
+      className="fixed inset-0 z-[120] bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !isDeleting) {
+          onClose();
+        }
+      }}
+    >
+      <div className="mx-auto flex min-h-full max-w-md items-center justify-center">
+        <div className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="space-y-3">
+            <p className="text-sm font-semibold  text-rose-600">
+              Delete Course
+            </p>
+            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              Remove {course.title}?
+            </h2>
+            <p className="text-sm leading-6 text-slate-500">
+              This removes the course from your dashboard.
             </p>
           </div>
+
+          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <Button type="button" variant="secondary" size="lg" onClick={onClose} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              onClick={onConfirm}
+              disabled={isDeleting}
+              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+            >
+              {isDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
+              <span>{isDeleting ? "Deleting..." : "Delete"}</span>
+            </Button>
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-function TeacherCourseStatusBadge({ course }: { course: TeacherCourseSummary }) {
-  if (isArchivedCourse(course)) {
-    return (
-      <span className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-        Archived
-      </span>
-    );
-  }
+function TeacherCourseDetailsModal({
+  course,
+  previewData,
+  isLoading,
+  message,
+  onClose,
+  onContinue,
+}: {
+  course: TeacherCourseSummary | null;
+  previewData: TeacherCoursePreviewData | null;
+  isLoading: boolean;
+  message: string;
+  onClose: () => void;
+  onContinue: (courseId: string) => void;
+}) {
+  const courseThumbnailUrl = getCourseMediaPublicUrl(course?.thumbnail_path ?? null);
+  const courseThumbnailKind = getCourseMediaKind(course?.thumbnail_path ?? null);
+  const {
+    totalModules,
+    totalLessons,
+    totalTests,
+    expandedReviewModuleId,
+    resolvedReviewSelection,
+    reviewPreviewData,
+    heroBackgroundStyle,
+    currentLessonEmbedUrl,
+    currentLessonPosition,
+    currentTestLinkedLesson,
+    handleReviewModuleToggle,
+    handleReviewItemSelect,
+  } = useCourseBuilderReviewState({
+    activeStep: 3,
+    modules: previewData?.modules ?? [],
+    lessonsByModule: previewData?.lessonsByModule ?? {},
+    testsByModule: previewData?.testsByModule ?? {},
+    courseThumbnailUrl,
+    courseThumbnailKind,
+  });
 
-  if (isPublishedCourse(course)) {
-    return (
-      <span className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-        Published
-      </span>
-    );
+  if (!course) {
+    return null;
   }
 
   return (
-    <span className="rounded-full border border-amber-100 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
-      Draft
-    </span>
-  );
-}
-
-function TeacherCourseCard({
-  course,
-  onContinueCourse,
-}: {
-  course: TeacherCourseSummary;
-  onContinueCourse: (courseId: string) => void;
-}) {
-  const courseDescription = course.description?.trim()
-    ? course.description
-    : isPublishedCourse(course)
-      ? "This course is already created and available in your teaching workspace."
-      : "This draft is not finished yet. Continue building the course structure and content.";
-  const isDraftCourse = !isPublishedCourse(course) && !isArchivedCourse(course);
-  const cardClassName =
-    "group relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white text-left shadow-[0_16px_36px_rgba(15,23,42,0.06)] transition";
-
-  const cardContent = (
-    <>
-      <div className="flex h-full flex-col transition duration-200 group-hover:opacity-45">
-        <TeacherCourseThumbnail title={course.title} thumbnailPath={course.thumbnail_path} />
-
-        <div className="flex min-h-[15rem] flex-1 flex-col px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <TeacherCourseStatusBadge course={course} />
-            <span className="text-xs font-medium text-slate-400">
-              Updated {formatCourseDate(course.updated_at)}
-            </span>
-          </div>
-
-          <div className="flex flex-1 flex-col">
-            <h3 className="mt-3 line-clamp-2 min-h-[3.5rem] text-xl font-black leading-tight tracking-tight text-[#14213d]">
-              {course.title}
-            </h3>
-
-            <p className="mt-2 line-clamp-3 text-sm leading-6 text-slate-600">
-              {courseDescription}
-            </p>
-          </div>
-
-          <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-4">
-            <span className="inline-flex items-center gap-2 text-sm font-medium text-slate-500">
-              <Layers3 className="h-4 w-4" />
-              Modules
-            </span>
-            <span className="text-sm font-bold text-[#14213d]">{course.moduleCount}</span>
-          </div>
-        </div>
-      </div>
-
-      {isDraftCourse ? (
-        <>
-          <div className="pointer-events-none absolute inset-0 rounded-[1.5rem] bg-white/0 transition duration-200 group-hover:bg-white/18" />
-          <div className="pointer-events-none absolute inset-x-5 bottom-5 z-10 translate-y-3 opacity-0 transition duration-200 group-hover:translate-y-0 group-hover:opacity-100">
-            <div className="inline-flex h-11 w-full items-center justify-center rounded-[1rem] bg-[#13daec] px-4 text-sm font-semibold text-[#0f172a] shadow-[0_14px_26px_rgba(15,23,42,0.16)]">
-              Continue creating course
+    <div
+      className="fixed inset-0 z-[110] bg-slate-950/55 p-4 backdrop-blur-sm lg:p-6"
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+    >
+      <div className="mx-auto flex h-full max-w-[1540px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xl">
+        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200/80 bg-white px-5 py-5 md:px-6">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-semibold ${getCourseStatusClassName(course)}`}
+              >
+                {getCourseStatusLabel(course)}
+              </span>
+              <span className="text-sm text-slate-500">
+                Last edited {formatCourseRelativeTime(course.updated_at)}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
+                {course.title}
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2 text-sm text-slate-600">
+              <span className="rounded-full bg-slate-100 px-3 py-1.5">
+                {course.modulesCount} modules
+              </span>
+              <span className="rounded-full bg-slate-100 px-3 py-1.5">
+                {course.lessonsCount} lessons
+              </span>
             </div>
           </div>
-        </>
-      ) : null}
-    </>
-  );
 
-  if (isDraftCourse) {
-    return (
-      <button
-        type="button"
-        onClick={() => onContinueCourse(course.id)}
-        className={`${cardClassName} cursor-pointer hover:-translate-y-[2px] hover:border-cyan-200 hover:shadow-[0_22px_46px_rgba(15,23,42,0.1)] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#13daec]/18`}
-      >
-        {cardContent}
-      </button>
-    );
-  }
-
-  return <article className={cardClassName}>{cardContent}</article>;
-}
-
-function TeacherCourseCatalog({
-  title,
-  courses,
-  countToneClassName,
-  onContinueCourse,
-}: {
-  title: string;
-  courses: TeacherCourseSummary[];
-  countToneClassName: string;
-  onContinueCourse: (courseId: string) => void;
-}) {
-  return (
-    <section className="scroll-mt-6">
-      <Card className="rounded-[1.5rem] border-cyan-100 p-0 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <h2 className="text-xl font-black tracking-tight text-[#14213d]">
-              {title}
-            </h2>
-            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${countToneClassName}`}>
-              {courses.length}
-            </span>
+          <div className="flex items-center gap-3">
+            <Button type="button" size="lg" onClick={() => onContinue(course.id)}>
+              Continue Editing
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              onClick={onClose}
+              className="w-11 px-0"
+              aria-label="Close course details"
+            >
+              <X className="h-5 w-5" />
+            </Button>
           </div>
         </div>
 
-        <div className="grid gap-4 px-5 py-5 md:grid-cols-2 xl:grid-cols-3">
-          {courses.map((course) => (
-            <TeacherCourseCard
-              key={course.id}
-              course={course}
-              onContinueCourse={onContinueCourse}
+        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
+          {message ? (
+            <Card className="border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-none">
+              <p className="text-sm font-medium">{message}</p>
+            </Card>
+          ) : isLoading ? (
+            <Card className="p-10 text-sm text-slate-500">
+              <div className="flex items-center gap-3">
+                <LoaderCircle className="h-4 w-4 animate-spin" />
+                <span>Loading preview...</span>
+              </div>
+            </Card>
+          ) : previewData ? (
+            <StudentCoursePreview
+              currentCourseName={course.title}
+              courseThumbnailUrl={courseThumbnailUrl}
+              courseThumbnailKind={courseThumbnailKind}
+              heroBackgroundStyle={heroBackgroundStyle}
+              modules={previewData.modules}
+              lessonsByModule={previewData.lessonsByModule}
+              testsByModule={previewData.testsByModule}
+              totalModules={totalModules}
+              totalLessons={totalLessons}
+              totalTests={totalTests}
+              expandedReviewModuleId={expandedReviewModuleId}
+              resolvedReviewSelection={resolvedReviewSelection}
+              reviewPreviewData={reviewPreviewData}
+              currentLessonEmbedUrl={currentLessonEmbedUrl}
+              currentLessonPosition={currentLessonPosition}
+              currentTestLinkedLesson={currentTestLinkedLesson}
+              onModuleToggle={handleReviewModuleToggle}
+              onItemSelect={handleReviewItemSelect}
             />
-          ))}
+          ) : (
+            <Card className="p-10 text-sm text-slate-500">
+              Preview unavailable.
+            </Card>
+          )}
         </div>
-      </Card>
-    </section>
+      </div>
+    </div>
   );
 }
 
 export function TeacherDashboardCourses({
   teacherId,
+  onCreateCourse,
   onContinueCourse,
+  onOpenPublishCourse,
 }: TeacherDashboardCoursesProps) {
   const [courses, setCourses] = useState<TeacherCourseSummary[]>([]);
+  const [activeTab, setActiveTab] = useState<TeacherCourseFilterId>("all");
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{
+    type: "error" | "success";
+    text: string;
+  } | null>(null);
+  const [openCourseId, setOpenCourseId] = useState<string | null>(null);
+  const [previewData, setPreviewData] = useState<TeacherCoursePreviewData | null>(null);
+  const [previewMessage, setPreviewMessage] = useState("");
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [pendingDeleteCourse, setPendingDeleteCourse] =
+    useState<TeacherCourseSummary | null>(null);
+  const [pendingCourseAction, setPendingCourseAction] =
+    useState<PendingCourseAction>(null);
+  const [isDeletingCourse, setIsDeletingCourse] = useState(false);
+  const previewRequestIdRef = useRef(0);
 
   useEffect(() => {
     let isMounted = true;
@@ -234,34 +376,27 @@ export function TeacherDashboardCourses({
       }
 
       try {
+        setIsLoading(true);
         const nextCourses = await listCourses(teacherId);
-        const moduleCounts = await Promise.all(
-          nextCourses.map(async (course) => ({
-            courseId: course.id,
-            moduleCount: (await listModulesByCourse(course.id)).length,
-          }))
-        );
-        const moduleCountByCourseId = Object.fromEntries(
-          moduleCounts.map(({ courseId, moduleCount }) => [courseId, moduleCount])
+        const nextCourseSummaries = await Promise.all(
+          nextCourses.map((course) => loadTeacherCourseSummary(course))
         );
 
         if (!isMounted) {
           return;
         }
 
-        setCourses(
-          nextCourses.map((course) => ({
-            ...course,
-            moduleCount: moduleCountByCourseId[course.id] ?? 0,
-          }))
-        );
-        setMessage("");
+        setCourses(nextCourseSummaries.sort(sortCoursesByRecent));
+        setMessage(null);
       } catch (error) {
         if (!isMounted) {
           return;
         }
 
-        setMessage(getErrorMessage(error, "Unable to load your courses."));
+        setMessage({
+          type: "error",
+          text: getErrorMessage(error, "Unable to load your courses."),
+        });
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -276,76 +411,315 @@ export function TeacherDashboardCourses({
     };
   }, [teacherId]);
 
-  const publishedCourses = useMemo(
+  const sortedCourses = useMemo(() => [...courses].sort(sortCoursesByRecent), [courses]);
+  const filteredCourses = useMemo(
+    () => sortedCourses.filter((course) => matchesCourseFilter(course, activeTab)),
+    [activeTab, sortedCourses]
+  );
+  const selectedCourse = useMemo(
+    () => sortedCourses.find((course) => course.id === openCourseId) ?? null,
+    [openCourseId, sortedCourses]
+  );
+  const continueEditingCourse = useMemo(
+    () => sortedCourses.find((course) => !isArchivedCourse(course)) ?? sortedCourses[0] ?? null,
+    [sortedCourses]
+  );
+  const draftCount = useMemo(
     () =>
-      courses.filter((course) => isPublishedCourse(course) && !isArchivedCourse(course)),
-    [courses]
+      sortedCourses.filter((course) => !isPublishedCourse(course) && !isArchivedCourse(course))
+        .length,
+    [sortedCourses]
   );
-  const draftCourses = useMemo(
-    () =>
-      courses.filter((course) => !isPublishedCourse(course) && !isArchivedCourse(course)),
-    [courses]
+  const publishedCount = useMemo(
+    () => sortedCourses.filter((course) => isPublishedCourse(course) && !isArchivedCourse(course)).length,
+    [sortedCourses]
   );
-  const archivedCourses = useMemo(
-    () => courses.filter((course) => isArchivedCourse(course)),
-    [courses]
+  const tabCounts = useMemo(
+    () => ({
+      all: sortedCourses.length,
+      drafts: sortedCourses.filter((course) => matchesCourseFilter(course, "drafts")).length,
+      published: sortedCourses.filter((course) => matchesCourseFilter(course, "published"))
+        .length,
+      archived: sortedCourses.filter((course) => matchesCourseFilter(course, "archived")).length,
+    }),
+    [sortedCourses]
   );
+
+  async function handleOpenCourseDetails(course: TeacherCourseSummary) {
+    const requestId = previewRequestIdRef.current + 1;
+    previewRequestIdRef.current = requestId;
+    setOpenCourseId(course.id);
+    setPreviewData(null);
+    setPreviewMessage("");
+    setIsPreviewLoading(true);
+
+    try {
+      const resolvedPreviewData = await loadTeacherCoursePreview(course);
+
+      if (previewRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setPreviewData(resolvedPreviewData);
+    } catch (error) {
+      if (previewRequestIdRef.current !== requestId) {
+        return;
+      }
+
+      setPreviewMessage(getErrorMessage(error, "Unable to load course preview."));
+    } finally {
+      if (previewRequestIdRef.current === requestId) {
+        setIsPreviewLoading(false);
+      }
+    }
+  }
+
+  function handleCloseCourseDetails() {
+    previewRequestIdRef.current += 1;
+    setOpenCourseId(null);
+    setPreviewData(null);
+    setPreviewMessage("");
+    setIsPreviewLoading(false);
+  }
+
+  async function handleDuplicateCourse(course: TeacherCourseSummary) {
+    try {
+      setPendingCourseAction({
+        courseId: course.id,
+        action: "duplicate",
+      });
+
+      const duplicatedCourse = await duplicateCourse(course.id);
+
+      setCourses((currentCourses) =>
+        [
+          {
+            ...duplicatedCourse,
+            modulesCount: course.modulesCount,
+            lessonsCount: course.lessonsCount,
+          },
+          ...currentCourses,
+        ].sort(sortCoursesByRecent)
+      );
+      setMessage({
+        type: "success",
+        text: "Course duplicated.",
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: getErrorMessage(error, "Unable to duplicate course."),
+      });
+    } finally {
+      setPendingCourseAction(null);
+    }
+  }
+
+  async function handleTogglePublish(course: TeacherCourseSummary) {
+    const nextAction = isPublishedCourse(course) ? "unpublish" : "publish";
+
+    try {
+      setPendingCourseAction({
+        courseId: course.id,
+        action: nextAction,
+      });
+
+      const updatedCourse = isPublishedCourse(course)
+        ? await unpublishCourse(course.id)
+        : await publishCourse(course.id);
+
+      setCourses((currentCourses) =>
+        currentCourses
+          .map((currentCourse) =>
+            currentCourse.id === course.id
+              ? {
+                  ...currentCourse,
+                  ...updatedCourse,
+                }
+              : currentCourse
+          )
+          .sort(sortCoursesByRecent)
+      );
+      setMessage({
+        type: "success",
+        text: isPublishedCourse(course) ? "Course unpublished." : "Course published.",
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: getErrorMessage(error, "Unable to update course status."),
+      });
+    } finally {
+      setPendingCourseAction(null);
+    }
+  }
+
+  async function handleConfirmDeleteCourse() {
+    if (!pendingDeleteCourse) {
+      return;
+    }
+
+    const courseId = pendingDeleteCourse.id;
+
+    try {
+      setPendingCourseAction({
+        courseId,
+        action: "delete",
+      });
+      setIsDeletingCourse(true);
+      await softDeleteCourse(courseId);
+
+      setCourses((currentCourses) =>
+        currentCourses.filter((course) => course.id !== courseId)
+      );
+
+      if (openCourseId === courseId) {
+        handleCloseCourseDetails();
+      }
+
+      setPendingDeleteCourse(null);
+      setMessage({
+        type: "success",
+        text: "Course deleted.",
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: getErrorMessage(error, "Unable to delete course."),
+      });
+    } finally {
+      setPendingCourseAction(null);
+      setIsDeletingCourse(false);
+    }
+  }
 
   return (
-    <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4 px-1 py-1">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-[#14213d]">
-            My Courses
-          </h1>
-        </div>
-        <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
-          Total courses: {courses.length}
-        </div>
+    <>
+      <div className="space-y-5">
+        <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
+              My Courses
+            </h1>
+          </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                <p className="text-sm font-medium text-slate-950">Drafts {draftCount}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
+                <p className="text-sm font-medium text-slate-950">Published {publishedCount}</p>
+              </div>
+            </div>
+
+            <Button type="button" size="lg" onClick={onCreateCourse}>
+              <Plus className="h-4 w-4" />
+              <span>New Course</span>
+            </Button>
+          </div>
+        </section>
+
+        <TeacherContinueEditing
+          course={continueEditingCourse}
+          isPreviewBusy={
+            isPreviewLoading && continueEditingCourse?.id === selectedCourse?.id
+          }
+          onCreateCourse={onCreateCourse}
+          onContinue={onContinueCourse}
+          onPreview={(course) => {
+            void handleOpenCourseDetails(course);
+          }}
+        />
+
+        <TeacherCourseTabs
+          activeTab={activeTab}
+          counts={tabCounts}
+          onChange={setActiveTab}
+        />
+
+        {message ? (
+          <Card className={`p-4 shadow-none ${buildAlertClassName(message.type)}`}>
+            <p className="text-sm font-medium">{message.text}</p>
+          </Card>
+        ) : null}
+
+        {isLoading ? (
+          <Card className="p-8 text-sm text-slate-500">
+            <div className="flex items-center gap-3">
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+              <span>Loading courses...</span>
+            </div>
+          </Card>
+        ) : filteredCourses.length === 0 ? (
+          <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
+            <div className="space-y-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+                <BookOpen className="h-5 w-5" />
+              </div>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+                {sortedCourses.length === 0 ? "No courses yet" : `No ${activeTab} courses`}
+              </h2>
+              <p className="text-sm text-slate-500">
+                {sortedCourses.length === 0
+                  ? "Create your first course to start teaching."
+                  : "Switch tabs or create a new course."}
+              </p>
+              <Button type="button" size="lg" onClick={onCreateCourse}>
+                + New Course
+              </Button>
+            </div>
+          </section>
+        ) : (
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {filteredCourses.map((course) => (
+              <TeacherCourseCard
+                key={course.id}
+                course={course}
+                actionInFlight={
+                  pendingCourseAction?.courseId === course.id
+                    ? pendingCourseAction.action
+                    : null
+                }
+                onOpenDetails={(nextCourse) => {
+                  void handleOpenCourseDetails(nextCourse);
+                }}
+                onOpenPublish={onOpenPublishCourse}
+                onContinue={onContinueCourse}
+                onDelete={setPendingDeleteCourse}
+                onDuplicate={(nextCourse) => {
+                  void handleDuplicateCourse(nextCourse);
+                }}
+                onTogglePublish={(nextCourse) => {
+                  void handleTogglePublish(nextCourse);
+                }}
+              />
+            ))}
+          </section>
+        )}
       </div>
 
-      {message ? (
-        <Card className="rounded-[1.75rem] border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-none">
-          <p className="text-sm font-medium">{message}</p>
-        </Card>
-      ) : null}
+      <TeacherCourseDetailsModal
+        course={selectedCourse}
+        previewData={previewData}
+        isLoading={isPreviewLoading}
+        message={previewMessage}
+        onClose={handleCloseCourseDetails}
+        onContinue={onContinueCourse}
+      />
 
-      {isLoading ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          Loading courses...
-        </Card>
-      ) : courses.length === 0 ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          No courses found yet.
-        </Card>
-      ) : (
-        <div className="space-y-5">
-          {draftCourses.length > 0 ? (
-            <TeacherCourseCatalog
-              title="Draft Courses"
-              courses={draftCourses}
-              countToneClassName="bg-amber-50 text-amber-700"
-              onContinueCourse={onContinueCourse}
-            />
-          ) : null}
-          {publishedCourses.length > 0 ? (
-            <TeacherCourseCatalog
-              title="Published Courses"
-              courses={publishedCourses}
-              countToneClassName="bg-emerald-50 text-emerald-700"
-              onContinueCourse={onContinueCourse}
-            />
-          ) : null}
-          {archivedCourses.length > 0 ? (
-            <TeacherCourseCatalog
-              title="Archived Courses"
-              courses={archivedCourses}
-              countToneClassName="bg-slate-100 text-slate-700"
-              onContinueCourse={onContinueCourse}
-            />
-          ) : null}
-        </div>
-      )}
-    </div>
+      <TeacherCourseDeleteModal
+        course={pendingDeleteCourse}
+        isDeleting={isDeletingCourse}
+        onClose={() => {
+          if (!isDeletingCourse) {
+            setPendingDeleteCourse(null);
+          }
+        }}
+        onConfirm={() => {
+          void handleConfirmDeleteCourse();
+        }}
+      />
+    </>
   );
 }

@@ -1,9 +1,7 @@
 import {
   Briefcase,
   Camera,
-  Mail,
   Mars,
-  Pencil,
   RotateCcw,
   UserRound,
   Venus,
@@ -12,6 +10,7 @@ import {
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import type {
@@ -29,7 +28,7 @@ type TeacherDashboardProfileProps = {
     avatarFile: File | null
   ) => Promise<void>;
   saveMessage: {
-    type: "error" | "success";
+    type: "error";
     text: string;
     details?: unknown;
   } | null;
@@ -168,27 +167,11 @@ function getExperienceStatus(value: string): FieldStatus {
 }
 
 function getFieldFrameClasses(status: FieldStatus) {
-  if (status === "valid") {
-    return "border-emerald-300 shadow-[0_0_0_3px_rgba(16,185,129,0.08)]";
-  }
-
   if (status === "invalid") {
-    return "border-rose-300 shadow-[0_0_0_3px_rgba(244,63,94,0.08)]";
+    return "border-rose-300 bg-rose-50/40";
   }
 
-  return "border-slate-200";
-}
-
-function getFieldIconClasses(status: FieldStatus) {
-  if (status === "valid") {
-    return "text-emerald-500";
-  }
-
-  if (status === "invalid") {
-    return "text-rose-500";
-  }
-
-  return "text-slate-400";
+  return "border-slate-300 bg-white";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -246,6 +229,20 @@ function joinLabels(labels: string[]) {
   return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
 }
 
+function getNoticeClassName(
+  type: "error" | "warning" | "info"
+) {
+  if (type === "error") {
+    return "border-rose-200 bg-rose-50 text-rose-700";
+  }
+
+  if (type === "warning") {
+    return "border-amber-200 bg-amber-50 text-amber-800";
+  }
+
+  return "border-[#bdeff5] bg-[#effcff] text-[#0f172a]";
+}
+
 function FieldLabel({
   label,
   required,
@@ -254,13 +251,11 @@ function FieldLabel({
   required: boolean;
 }) {
   return (
-    <div className="mb-1.5 flex items-center gap-2">
-      <label className="text-sm font-bold text-[#14213d]">{label}</label>
+    <div className="flex items-center justify-between gap-3">
+      <label className="text-sm font-medium text-slate-700">{label}</label>
       <span
-        className={`rounded-full px-2 py-0.5 text-[12px]  tracking-[0.16em] ${
-          required
-            ? "bg-[#13daec]/10 text-[#08bfd4]"
-            : "bg-slate-100 text-slate-500"
+        className={`text-xs font-medium ${
+          required ? "text-[#0891a4]" : "text-slate-400"
         }`}
       >
         {required ? "Required" : "Optional"}
@@ -274,7 +269,7 @@ function FieldShell({
 }: {
   children: ReactNode;
 }) {
-  return <div className="space-y-1.5">{children}</div>;
+  return <div className="space-y-2">{children}</div>;
 }
 
 function TextField({
@@ -286,7 +281,6 @@ function TextField({
   status,
   type = "text",
   min,
-  icon: Icon = Pencil,
 }: {
   label: string;
   required: boolean;
@@ -296,13 +290,12 @@ function TextField({
   status: FieldStatus;
   type?: "text" | "url" | "number" | "date" | "email";
   min?: number;
-  icon?: LucideIcon;
 }) {
   return (
     <FieldShell>
       <FieldLabel label={label} required={required} />
       <div
-        className={`relative rounded-[0.9rem] border bg-transparent transition focus-within:border-[#13daec] focus-within:ring-4 focus-within:ring-[#13daec]/12 ${getFieldFrameClasses(status)}`}
+        className={`rounded-xl border transition focus-within:border-[#13daec] focus-within:ring-4 focus-within:ring-[#13daec]/12 ${getFieldFrameClasses(status)}`}
       >
         <input
           type={type}
@@ -310,10 +303,8 @@ function TextField({
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
           min={min}
-          className="h-10 w-full bg-transparent px-3 pr-10 text-sm font-medium text-[#14213d] outline-none placeholder:text-slate-400"
-        />
-        <Icon
-          className={`pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 ${getFieldIconClasses(status)}`}
+          aria-invalid={status === "invalid"}
+          className="h-11 w-full rounded-xl bg-transparent px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
         />
       </div>
     </FieldShell>
@@ -339,15 +330,15 @@ function TextAreaField({
     <FieldShell>
       <FieldLabel label={label} required={required} />
       <div
-        className={`relative rounded-[0.9rem] border bg-transparent transition focus-within:border-[#13daec] focus-within:ring-4 focus-within:ring-[#13daec]/12 ${getFieldFrameClasses(status)}`}
+        className={`rounded-xl border transition focus-within:border-[#13daec] focus-within:ring-4 focus-within:ring-[#13daec]/12 ${getFieldFrameClasses(status)}`}
       >
         <textarea
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder={placeholder}
-          className="min-h-10 w-full resize-y bg-transparent px-3 py-2.5 pr-10 text-sm font-medium text-[#14213d] outline-none placeholder:text-slate-400"
+          aria-invalid={status === "invalid"}
+          className="min-h-[7rem] w-full resize-y rounded-xl bg-transparent px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
         />
-        
       </div>
     </FieldShell>
   );
@@ -383,10 +374,10 @@ function GenderField({
               key={option.value}
               type="button"
               onClick={() => onChange(option.value)}
-              className={`flex h-10 items-center justify-center gap-2 rounded-[0.9rem] border text-sm font-semibold transition ${
+              className={`flex h-11 items-center justify-center gap-2 rounded-xl border text-sm font-medium transition ${
                 isActive
-                  ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-[0_0_0_3px_rgba(16,185,129,0.08)]"
-                  : "border-slate-200 bg-transparent text-slate-500 hover:border-[#13daec]/40 hover:text-[#14213d]"
+                  ? "border-[#13daec] bg-[#13daec]/10 text-[#0f172a]"
+                  : "border-slate-300 bg-white text-slate-600 hover:border-slate-400 hover:text-slate-950"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -537,29 +528,36 @@ export function TeacherDashboardProfile({
   }
 
   return (
-    <div className="mx-auto max-w-[64rem] space-y-4">
-      <div className="space-y-1 px-1">
-        <h1 className="text-[2rem] font-black tracking-tight text-[#14213d]">
+    <div className="mx-auto max-w-[72rem] space-y-6">
+      <div className="space-y-2">
+        
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
           Profile Settings
         </h1>
+        <p className="text-sm text-slate-500">
+          Update your teacher profile, professional details, and public links.
+        </p>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[15.5rem_minmax(0,1fr)]">
-        <Card className=" p-4 shadow-none">
-          <div className="flex flex-col items-center text-center">
+      <div className="grid gap-5 xl:grid-cols-[17rem_minmax(0,1fr)]">
+        <Card className="h-fit border-[#c7eef3] bg-[#f7fdff] p-5 xl:sticky xl:top-6">
+          <div className="flex flex-col items-center gap-4 text-center">
             <AdminTeacherAvatar
               name={getTeacherDisplayName(teacher)}
               imageUrl={avatarImageUrl}
               size="lg"
             />
-            <h2 className="mt-4 text-[2rem] font-black tracking-tight text-[#14213d]">
-              {formState.fullName.trim() || getTeacherDisplayName(teacher)}
-            </h2>
-            <p className="mt-1 text-m font-bold   text-[#08bfd4]">
-              {formState.headline.trim() || "Teacher"}
-            </p>
 
-            <label className="mt-5 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-[1rem] bg-[#13daec] px-4 py-3 text-sm font-bold text-white shadow-[0_12px_24px_rgba(19,218,236,0.2)] transition hover:bg-[#10c6d7]">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                {formState.fullName.trim() || getTeacherDisplayName(teacher)}
+              </h2>
+              <p className="text-sm font-medium text-[#0891a4]">
+                {formState.headline.trim() || "Teacher profile"}
+              </p>
+            </div>
+
+            <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#13daec]/30 bg-[#13daec]/10 px-4 text-sm font-medium text-[#0f172a] transition hover:border-[#13daec]/50 hover:bg-[#13daec]/14">
               <Camera className="h-4 w-4" />
               <span>Upload Photo</span>
               <input
@@ -587,36 +585,34 @@ export function TeacherDashboardProfile({
               />
             </label>
 
-            <p className="mt-3 text-center text-xs font-semibold text-slate-400">
+            <p className="text-xs text-slate-400">
               JPG, GIF or PNG.
             </p>
 
             {avatarFile ? (
-              <p className="mt-2 break-all text-xs text-slate-500">
-                {avatarFile.name}
-              </p>
+              <p className="break-all text-xs text-slate-500">{avatarFile.name}</p>
             ) : null}
 
             {avatarError ? (
-              <p className="mt-2 text-sm font-medium text-rose-600">{avatarError}</p>
+              <p className="text-sm font-medium text-rose-600">{avatarError}</p>
             ) : null}
           </div>
         </Card>
 
-        <div className="space-y-4">
-          <Card className="rounded-[1.5rem] border-[#d8f5f7] bg-white p-5 shadow-[0_16px_32px_rgba(15,23,42,0.05)]">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl p-2 text-[#08bfd4]">
+        <div className="space-y-5">
+          <Card className="border-[#d6f5f8] bg-white p-5 md:p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-[#13daec]/12 p-2 text-[#0891a4]">
                 <UserRound className="h-5 w-5" />
               </div>
-              <h2 className="text-2xl font-black tracking-tight text-[#14213d]">
-                Personal Information
-              </h2>
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
+                  Personal Information
+                </h2>
+              </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
-              
-
               <TextField
                 label="Full name"
                 required
@@ -633,7 +629,6 @@ export function TeacherDashboardProfile({
                 placeholder="Enter email address"
                 type="email"
                 status={emailStatus}
-                icon={Mail}
               />
 
               <GenderField
@@ -662,16 +657,18 @@ export function TeacherDashboardProfile({
             </div>
           </Card>
 
-          <Card className="rounded-[1.5rem] border-[#d8f5f7] bg-white p-5 shadow-[0_16px_32px_rgba(15,23,42,0.05)]">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl p-2 text-[#08bfd4]">
+          <Card className="border-[#d6f5f8] bg-white p-5 md:p-6">
+            <div className="flex items-start gap-3">
+              <div className="rounded-lg bg-[#13daec]/12 p-2 text-[#0891a4]">
                 <Briefcase className="h-5 w-5" />
               </div>
-              <div>
-                <h2 className="text-2xl font-black tracking-tight text-[#14213d]">
+              <div className="space-y-1">
+                <h2 className="text-lg font-semibold tracking-tight text-slate-950">
                   Professional Information
                 </h2>
-                
+                <p className="text-sm text-slate-500">
+                  Headline, biography, and links that support your teaching profile.
+                </p>
               </div>
             </div>
 
@@ -738,14 +735,14 @@ export function TeacherDashboardProfile({
             </div>
           </Card>
 
-          <div className="flex flex-col gap-3 pt-1 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-h-10 flex-1">
               {avatarError ? (
-                <div className="rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+                <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("error")}`}>
                   Please choose a valid image file before saving.
                 </div>
               ) : saveMessage?.type === "error" ? (
-                <div className="rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                <div className={`rounded-xl border px-4 py-3 text-sm ${getNoticeClassName("error")}`}>
                   <p className="font-semibold">{saveMessage.text}</p>
                   {saveMessageExtraLines.length > 0 ? (
                     <ul className="mt-1 space-y-1">
@@ -758,39 +755,34 @@ export function TeacherDashboardProfile({
                   ) : null}
                 </div>
               ) : hasValidationErrors ? (
-                <div className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("warning")}`}>
                   Fix the invalid fields before saving: {joinLabels(invalidFields)}.
                 </div>
               ) : !hasRequiredFields ? (
-                <div className="rounded-[1rem] border border-cyan-200 bg-cyan-50 px-4 py-3 text-sm font-medium text-cyan-800">
+                <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("info")}`}>
                   Complete the required fields before saving: {joinLabels(missingRequiredFields)}.
-                </div>
-              ) : saveMessage?.type === "success" ? (
-                <div className="rounded-[1rem] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
-                  {saveMessage.text}
                 </div>
               ) : null}
             </div>
 
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={resetDraft}
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-[0.95rem] px-4 text-sm font-bold text-slate-500 transition hover:bg-slate-100 hover:text-[#14213d] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSaving || !hasChanges}
               >
                 <RotateCcw className="h-4 w-4" />
                 <span>Discard changes</span>
-              </button>
+              </Button>
 
-              <button
+              <Button
                 type="button"
                 onClick={() => void onSave(normalizedInput, avatarFile)}
-                className="inline-flex h-10 items-center justify-center rounded-[0.95rem] bg-[#13daec] px-5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(19,218,236,0.2)] transition hover:bg-[#10c6d7] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isSaving || !hasRequiredFields || hasValidationErrors || !hasChanges}
               >
                 {isSaving ? "Saving..." : "Save Profile"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

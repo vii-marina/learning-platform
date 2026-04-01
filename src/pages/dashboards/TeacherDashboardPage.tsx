@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import { useAppToast } from "../../components/ui/AppToastProvider";
 import { Card } from "../../components/ui/Card";
 import { supabase } from "../../lib/supabase";
 import {
@@ -23,6 +24,7 @@ import type {
 } from "../../features/auth/types";
 import { uploadTeacherAvatar } from "../../features/teacher-dashboard/api/teacherProfileStorage";
 import { CourseBuilderLeaveWarningModal } from "../../features/courses/components/course-builder/CourseBuilderLeaveWarningModal";
+import type { BuilderStep } from "../../features/courses/components/course-builder/courseBuilderPageUtils";
 import { TeacherDashboardCourses } from "../../features/teacher-dashboard/components/TeacherDashboardCourses";
 import { TeacherDashboardOverview } from "../../features/teacher-dashboard/components/TeacherDashboardOverview";
 import { TeacherDashboardProfile } from "../../features/teacher-dashboard/components/TeacherDashboardProfile";
@@ -37,6 +39,7 @@ type PendingBuilderExitAction =
   | {
       type: "builder";
       courseId: string | null;
+      initialStep: BuilderStep;
     }
   | {
       type: "logout";
@@ -48,13 +51,11 @@ function TeacherDashboardPlaceholder({
   title: string;
 }) {
   return (
-    <Card className="rounded-[1.75rem] border-cyan-100 p-8 shadow-[0_20px_40px_rgba(15,23,42,0.06)] md:p-10">
+    <Card className="rounded-[2rem] bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/70 md:p-10">
       <div className="space-y-3">
-        <h1 className="text-3xl font-black tracking-tight text-[#14213d]">
-          {title}
-        </h1>
-        <p className="max-w-2xl text-sm leading-7 text-slate-600">
-          This section is mocked for now and can be expanded next.
+        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
+        <p className="max-w-2xl text-sm leading-6 text-slate-500">
+          This section is still minimal. The course workflow is the primary dashboard surface.
         </p>
       </div>
     </Card>
@@ -63,6 +64,7 @@ function TeacherDashboardPlaceholder({
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
+  const { showSuccessToast } = useAppToast();
   const builderRef = useRef<CourseBuilderPageHandle | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -73,13 +75,14 @@ export function TeacherDashboardPage() {
     text: string;
   } | null>(null);
   const [profileMessage, setProfileMessage] = useState<{
-    type: "error" | "success";
+    type: "error";
     text: string;
     details?: unknown;
   } | null>(null);
   const [activeSection, setActiveSection] =
-    useState<TeacherDashboardSectionId>("overview");
+    useState<TeacherDashboardSectionId>("courses");
   const [builderCourseId, setBuilderCourseId] = useState<string | null>(null);
+  const [builderInitialStep, setBuilderInitialStep] = useState<BuilderStep>(1);
   const [pendingBuilderExit, setPendingBuilderExit] =
     useState<PendingBuilderExitAction | null>(null);
   const [leaveBuilderError, setLeaveBuilderError] = useState<string | null>(null);
@@ -158,10 +161,7 @@ export function TeacherDashboardPage() {
         avatarPath,
       });
       setCurrentUser(updatedUser);
-      setProfileMessage({
-        type: "success",
-        text: "Information updated.",
-      });
+      showSuccessToast("Profile saved.");
     } catch (error) {
       setProfileMessage({
         type: "error",
@@ -202,6 +202,7 @@ export function TeacherDashboardPage() {
         setActiveSection(action.section);
       } else if (action.type === "builder") {
         setBuilderCourseId(action.courseId);
+        setBuilderInitialStep(action.initialStep);
         setActiveSection("builder");
       } else {
         void performLogout();
@@ -224,14 +225,22 @@ export function TeacherDashboardPage() {
     });
   }
 
-  function handleOpenCourseBuilder(courseId: string | null = null) {
-    if (activeSection === "builder" && builderCourseId === courseId) {
+  function handleOpenCourseBuilder(
+    courseId: string | null = null,
+    initialStep: BuilderStep = 1
+  ) {
+    if (
+      activeSection === "builder" &&
+      builderCourseId === courseId &&
+      builderInitialStep === initialStep
+    ) {
       return;
     }
 
     requestBuilderExit({
       type: "builder",
       courseId,
+      initialStep,
     });
   }
 
@@ -268,6 +277,7 @@ export function TeacherDashboardPage() {
 
     if (nextAction.type === "builder") {
       setBuilderCourseId(nextAction.courseId);
+      setBuilderInitialStep(nextAction.initialStep);
       setActiveSection("builder");
       return;
     }
@@ -301,16 +311,19 @@ export function TeacherDashboardPage() {
         return (
           <TeacherDashboardCourses
             teacherId={currentUser?.id ?? null}
+            onCreateCourse={() => handleOpenCourseBuilder(null)}
             onContinueCourse={(courseId) => handleOpenCourseBuilder(courseId)}
+            onOpenPublishCourse={(courseId) => handleOpenCourseBuilder(courseId, 3)}
           />
         );
       case "builder":
         return (
           <CourseBuilderPage
-            key={builderCourseId ?? "new-course"}
+            key={`${builderCourseId ?? "new-course"}-${builderInitialStep}`}
             ref={builderRef}
             embedded
             initialCourseId={builderCourseId}
+            initialStep={builderInitialStep}
           />
         );
       case "students":
@@ -331,7 +344,7 @@ export function TeacherDashboardPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#f4fbfd] text-slate-900"
+      className="min-h-screen bg-[#f6f7fb] text-slate-900"
       style={{ fontFamily: '"Lexend", sans-serif' }}
     >
       <div className="mx-auto flex min-h-screen max-w-[1720px] flex-col lg:flex-row">
@@ -340,7 +353,6 @@ export function TeacherDashboardPage() {
           onSectionChange={handleSidebarSectionChange}
           currentUser={currentUser}
           onOpenProfile={() => handleSidebarSectionChange("profile")}
-          onOpenCourseBuilder={() => handleOpenCourseBuilder(null)}
           onLogout={() => requestBuilderExit({ type: "logout" })}
           isLoggingOut={isLoggingOut}
           logoutMessage={logoutMessage}
@@ -404,6 +416,7 @@ export function TeacherDashboardPage() {
 
           if (nextAction.type === "builder") {
             setBuilderCourseId(nextAction.courseId);
+            setBuilderInitialStep(nextAction.initialStep);
             setActiveSection("builder");
             return;
           }

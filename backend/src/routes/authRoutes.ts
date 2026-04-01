@@ -14,6 +14,7 @@ import {
   registerProfileHandler,
   updateMeHandler,
 } from "../controllers/authController";
+import { listStudentDashboardCoursesHandler } from "../controllers/studentDashboardCoursesController";
 import { requireAuth } from "../middleware/auth";
 
 const router = Router();
@@ -21,6 +22,7 @@ const router = Router();
 router.post("/register-profile", requireAuth, registerProfileHandler);
 router.get("/me", requireAuth, getMeProfileHandler);
 router.patch("/me", requireAuth, updateMeHandler);
+router.get("/student/dashboard/courses", requireAuth, listStudentDashboardCoursesHandler);
 router.get("/course-builder/modules/:moduleId/lessons", requireAuth, listModuleLessonsHandler);
 router.post("/course-builder/modules/:moduleId/lessons", requireAuth, createModuleLessonHandler);
 router.patch("/course-builder/lessons/:lessonId", requireAuth, updateLessonHandler);

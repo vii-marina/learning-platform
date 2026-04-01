@@ -6,9 +6,26 @@ import type {
   TestQuestion,
   TestQuestionType,
 } from "../../api";
-import type { CourseTest, CourseTestQuestion } from "./courseBuilderUiTypes";
+import type {
+  CourseTest,
+  CourseTestQuestion,
+  ExerciseEditorDraft,
+} from "./courseBuilderUiTypes";
 
 export type BuilderStep = 1 | 2 | 3;
+
+export type SavedCourseSnapshot = {
+  title: string;
+  description: string;
+  thumbnailPath: string | null;
+};
+
+export type TestEditorDraft = {
+  afterLessonId: string | null;
+  questions: CourseTestQuestion[];
+};
+
+export type CreateContentMode = "manual" | "ai";
 
 export const courseBuilderSteps = [
   { id: 1 as const, label: "Course Info", helper: "Title, description & media" },
@@ -35,6 +52,8 @@ const createId = () =>
     ? crypto.randomUUID()
     : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+export const createLocalEntityId = (prefix: string) => `${prefix}-${createId()}`;
+
 export const createEmptyTestQuestion = (): CourseTestQuestion => ({
   id: createId(),
   type: "single_choice",
@@ -43,6 +62,27 @@ export const createEmptyTestQuestion = (): CourseTestQuestion => ({
   correctOptionIndexes: [],
   hint: null,
 });
+
+export const createEmptyTestEditorDraft = (): TestEditorDraft => ({
+  afterLessonId: null,
+  questions: [createEmptyTestQuestion()],
+});
+
+export const createEmptyExerciseDraft = (): ExerciseEditorDraft =>
+  ({
+    afterLessonId: null,
+    type: "drag_drop_code",
+    title: "Fill Missing Code Exercise",
+    description: "",
+    content: {
+      type: "drag_drop_code",
+      question: "",
+      code_template: "",
+      tokens: [],
+      correct_answer: [],
+      blanks: [],
+    },
+  }) as ExerciseEditorDraft;
 
 export const mapGeneratedQuestionToCourseTestQuestion = (
   question: GeneratedTestQuestion
@@ -142,6 +182,80 @@ export const cloneTestQuestion = (
   correctOptionIndexes: [...question.correctOptionIndexes],
   hint: question.hint ?? null,
 });
+
+const areQuestionArraysEqual = (
+  leftQuestions: CourseTestQuestion[],
+  rightQuestions: CourseTestQuestion[]
+) => {
+  if (leftQuestions.length !== rightQuestions.length) {
+    return false;
+  }
+
+  return leftQuestions.every((leftQuestion, index) => {
+    const rightQuestion = rightQuestions[index];
+
+    if (!rightQuestion) {
+      return false;
+    }
+
+    if (
+      leftQuestion.type !== rightQuestion.type ||
+      leftQuestion.questionText !== rightQuestion.questionText ||
+      (leftQuestion.hint ?? null) !== (rightQuestion.hint ?? null)
+    ) {
+      return false;
+    }
+
+    if (leftQuestion.options.length !== rightQuestion.options.length) {
+      return false;
+    }
+
+    if (
+      leftQuestion.options.some((option, optionIndex) => option !== rightQuestion.options[optionIndex])
+    ) {
+      return false;
+    }
+
+    if (leftQuestion.correctOptionIndexes.length !== rightQuestion.correctOptionIndexes.length) {
+      return false;
+    }
+
+    return leftQuestion.correctOptionIndexes.every(
+      (optionIndex, correctIndex) =>
+        optionIndex === rightQuestion.correctOptionIndexes[correctIndex]
+    );
+  });
+};
+
+export const areTestDraftsEqual = (
+  leftDraft: TestEditorDraft,
+  rightDraft: TestEditorDraft
+) =>
+  leftDraft.afterLessonId === rightDraft.afterLessonId &&
+  areQuestionArraysEqual(leftDraft.questions, rightDraft.questions);
+
+const hasMeaningfulQuestionDraft = (question: CourseTestQuestion) => {
+  if (question.questionText.trim().length > 0) {
+    return true;
+  }
+
+  if (question.correctOptionIndexes.length > 0) {
+    return true;
+  }
+
+  return question.options.some((option, index) => {
+    const trimmedOption = option.trim();
+
+    if (!trimmedOption) {
+      return false;
+    }
+
+    return trimmedOption !== `Option ${index + 1}`;
+  });
+};
+
+export const hasMeaningfulTestQuestionDraft = (questions: CourseTestQuestion[]) =>
+  questions.length > 1 || questions.some(hasMeaningfulQuestionDraft);
 
 const buildQuestionOptions = (question: TestQuestion, answers: TestAnswer[]) => {
   if (question.type === "true_false") {

@@ -11,22 +11,14 @@ import { useAppToast } from "../../components/ui/AppToastProvider";
 import { supabase } from "../../lib/supabase";
 import {
   createCourse,
-  createExercise,
   createLesson,
   createModule,
   createTestAnswer,
   createTestEntity,
   createTestQuestion,
-  deleteExercise,
-  deleteLesson,
-  deleteModule,
-  deleteTestEntity,
   deleteTestQuestion,
-  generateExerciseWithAi,
-  generateTestQuestionsWithAi,
   getCourseById,
   listExercisesByModule,
-  listLessonBlocksByLesson,
   listLessonsByModule,
   listModulesByCourse,
   listTestAnswers,
@@ -35,23 +27,14 @@ import {
   publishCourse,
   upsertLessonPrimaryRichTextBlock,
   updateCourse,
-  updateExercise,
-  updateLesson,
-  updateTestEntity,
-  updateModule,
 } from "../../features/courses/api";
 import {
   getCourseMediaKind,
   getCourseMediaPublicUrl,
   uploadCourseMedia,
-  uploadLessonContentImage,
 } from "../../features/courses/api/courseMediaStorage";
 import type {
-  AiQuestionGenerationMode,
   Exercise,
-  ExerciseContent,
-  Lesson,
-  Module,
   TestEntity,
 } from "../../features/courses/api";
 import { CourseBuilderContentStep } from "../../features/courses/components/course-builder/CourseBuilderContentStep";
@@ -61,52 +44,25 @@ import { CourseBuilderReviewStep } from "../../features/courses/components/cours
 import { ExerciseCreateModal } from "../../features/courses/components/course-builder/ExerciseCreateModal";
 import { LessonCreateModal } from "../../features/courses/components/course-builder/LessonCreateModal";
 import { TestCreateModal } from "../../features/courses/components/course-builder/TestCreateModal";
+import { useCourseBuilderContentData } from "../../features/courses/components/course-builder/useCourseBuilderContentData";
+import { useCourseBuilderExerciseEditor } from "../../features/courses/components/course-builder/useCourseBuilderExerciseEditor";
+import { useCourseBuilderLessonEditor } from "../../features/courses/components/course-builder/useCourseBuilderLessonEditor";
+import { useCourseBuilderTestEditor } from "../../features/courses/components/course-builder/useCourseBuilderTestEditor";
 import { useCourseBuilderReviewState } from "../../features/courses/components/course-builder/useCourseBuilderReviewState";
 import type {
   CourseExercise,
   CourseTest,
   CourseTestQuestion,
-  ExerciseEditorDraft,
 } from "../../features/courses/components/course-builder/courseBuilderUiTypes";
 import {
   courseBuilderSteps,
-  EMPTY_LESSON_EDITOR_DRAFT,
   type BuilderStep,
   buildAnswerPayloads,
-  canSaveTestDraft,
-  cloneTestQuestion,
-  createEmptyTestQuestion,
-  getDefaultAiQuestionCount,
+  createLocalEntityId,
   getGeneratedCourseTestTitle,
-  getLessonAiQuestionLimit,
-  getModuleAiQuestionLimit,
-  hasLessonContent,
-  mapGeneratedQuestionsToCourseTestQuestions,
   mapQuestionToCourseTestQuestion,
-  type LessonEditorDraft,
+  type SavedCourseSnapshot,
 } from "../../features/courses/components/course-builder/courseBuilderPageUtils";
-
-function createLocalEntityId(prefix: string) {
-  const uniqueId =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-  return `${prefix}-${uniqueId}`;
-}
-
-type SavedCourseSnapshot = {
-  title: string;
-  description: string;
-  thumbnailPath: string | null;
-};
-
-type TestEditorDraft = {
-  afterLessonId: string | null;
-  questions: CourseTestQuestion[];
-};
-
-type CreateContentMode = "manual" | "ai";
 
 export type CourseBuilderPageHandle = {
   hasUnsavedChanges: boolean;
@@ -115,30 +71,7 @@ export type CourseBuilderPageHandle = {
   saveDraft: () => Promise<boolean>;
 };
 
-function createEmptyTestEditorDraft(): TestEditorDraft {
-  return {
-    afterLessonId: null,
-    questions: [createEmptyTestQuestion()],
-  };
-}
-
-function createEmptyExerciseDraft(): ExerciseEditorDraft {
-  return {
-    afterLessonId: null,
-    type: "drag_drop_code",
-    title: "Fill Missing Code Exercise",
-    description: "",
-    content: {
-      type: "drag_drop_code",
-      question: "",
-      code_template: "",
-      tokens: [],
-      correct_answer: [],
-      blanks: [],
-    },
-  };
-}
-
+// Local mapping helpers keep persisted models separate from editor drafts.
 function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
   return {
     id: exercise.id,
@@ -151,111 +84,29 @@ function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
     updatedAt: exercise.updated_at,
   };
 }
-
-function mapCourseExerciseToDraft(exercise: CourseExercise): ExerciseEditorDraft {
-  return {
-    afterLessonId: exercise.afterLessonId,
-    type: exercise.type,
-    title: exercise.title,
-    description: exercise.description ?? "",
-    content: exercise.content,
-  } as ExerciseEditorDraft;
-}
-
-function areQuestionArraysEqual(
-  leftQuestions: CourseTestQuestion[],
-  rightQuestions: CourseTestQuestion[]
-) {
-  if (leftQuestions.length !== rightQuestions.length) {
-    return false;
-  }
-
-  return leftQuestions.every((leftQuestion, index) => {
-    const rightQuestion = rightQuestions[index];
-
-    if (!rightQuestion) {
-      return false;
-    }
-
-    if (
-      leftQuestion.type !== rightQuestion.type ||
-      leftQuestion.questionText !== rightQuestion.questionText ||
-      (leftQuestion.hint ?? null) !== (rightQuestion.hint ?? null)
-    ) {
-      return false;
-    }
-
-    if (leftQuestion.options.length !== rightQuestion.options.length) {
-      return false;
-    }
-
-    if (
-      leftQuestion.options.some((option, optionIndex) => option !== rightQuestion.options[optionIndex])
-    ) {
-      return false;
-    }
-
-    if (leftQuestion.correctOptionIndexes.length !== rightQuestion.correctOptionIndexes.length) {
-      return false;
-    }
-
-    return leftQuestion.correctOptionIndexes.every(
-      (optionIndex, correctIndex) =>
-        optionIndex === rightQuestion.correctOptionIndexes[correctIndex]
-    );
-  });
-}
-
-function areTestDraftsEqual(leftDraft: TestEditorDraft, rightDraft: TestEditorDraft) {
-  return (
-    leftDraft.afterLessonId === rightDraft.afterLessonId &&
-    areQuestionArraysEqual(leftDraft.questions, rightDraft.questions)
-  );
-}
-
-function hasMeaningfulQuestionDraft(question: CourseTestQuestion) {
-  if (question.questionText.trim().length > 0) {
-    return true;
-  }
-
-  if (question.correctOptionIndexes.length > 0) {
-    return true;
-  }
-
-  return question.options.some((option, index) => {
-    const trimmedOption = option.trim();
-
-    if (!trimmedOption) {
-      return false;
-    }
-
-    return trimmedOption !== `Option ${index + 1}`;
-  });
-}
-
-function hasMeaningfulTestQuestionDraft(questions: CourseTestQuestion[]) {
-  return questions.length > 1 || questions.some(hasMeaningfulQuestionDraft);
-}
-
 export const CourseBuilderPage = forwardRef<
   CourseBuilderPageHandle,
   {
     embedded?: boolean;
     initialCourseId?: string | null;
+    initialStep?: BuilderStep;
   }
 >(function CourseBuilderPage(
   {
     embedded = false,
     initialCourseId = null,
+    initialStep = 1,
   }: {
     embedded?: boolean;
     initialCourseId?: string | null;
+    initialStep?: BuilderStep;
   },
   ref
 ) {
+  // Course shell state.
   const [message, setMessage] = useState("");
   const { showSuccessToast } = useAppToast();
-  const [activeStep, setActiveStep] = useState<BuilderStep>(1);
+  const [activeStep, setActiveStep] = useState<BuilderStep>(initialStep);
   const [currentCourseId, setCurrentCourseId] = useState<string | null>(null);
   const [isPersistingCourse, setIsPersistingCourse] = useState(false);
   const [isHydratingCourse, setIsHydratingCourse] = useState(Boolean(initialCourseId));
@@ -264,98 +115,57 @@ export const CourseBuilderPage = forwardRef<
   const draftCourseSessionIdRef = useRef(createLocalEntityId("draft-course"));
   const draftCourseSessionId = draftCourseSessionIdRef.current;
 
+  // Course basics state.
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseThumbnailPath, setCourseThumbnailPath] = useState<string | null>(null);
   const [isUploadingCourseMedia, setIsUploadingCourseMedia] = useState(false);
 
-  const [modules, setModules] = useState<Module[]>([]);
-  const [hasFetchedModules, setHasFetchedModules] = useState(false);
-  const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
-  const [isNewModuleComposerOpen, setIsNewModuleComposerOpen] = useState(false);
-  const [isCreatingModule, setIsCreatingModule] = useState(false);
-  const [newModuleTitle, setNewModuleTitle] = useState("");
-  const [editModuleId, setEditModuleId] = useState<string | null>(null);
-  const [editModuleTitle, setEditModuleTitle] = useState("");
+  const {
+    modules,
+    hasFetchedModules,
+    modulesLoadState,
+    expandedModuleId,
+    isNewModuleComposerOpen,
+    isCreatingModule,
+    newModuleTitle,
+    editModuleId,
+    editModuleTitle,
+    lessonsByModule,
+    testsByModule,
+    exercisesByModule,
+    moduleContentLoadStateByModule,
+    nextModuleOrder,
+    setModules,
+    setHasFetchedModules,
+    setModulesLoadState,
+    setNewModuleTitle,
+    setEditModuleId,
+    setEditModuleTitle,
+    setLessonsByModule,
+    setTestsByModule,
+    setExercisesByModule,
+    setModuleContentLoadStateByModule,
+    fetchModules,
+    fetchLessons,
+    fetchTests,
+    fetchExercises,
+    fetchModuleContent,
+    openNewModuleComposer,
+    handleSaveNewModule,
+    handleUpdateModule,
+    handleDeleteModule,
+    toggleModule,
+    setExpandedModuleId,
+  } = useCourseBuilderContentData({
+    currentCourseId,
+    draftCourseSessionId,
+    setMessage,
+    hydrateCourseTest,
+    onModuleDeleted: handleModuleDeletedUiCleanup,
+  });
 
-  const [lessonsByModule, setLessonsByModule] = useState<Record<string, Lesson[]>>({});
-  const [lessonEditorModuleId, setLessonEditorModuleId] = useState<string | null>(null);
-  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
-  const [isCreatingLesson, setIsCreatingLesson] = useState(false);
-  const [isLoadingLessonDraft, setIsLoadingLessonDraft] = useState(false);
-  const [lessonEditorNotice, setLessonEditorNotice] = useState("");
-  const [lessonTitle, setLessonTitle] = useState("");
-  const [lessonContent, setLessonContent] = useState("");
-  const [lessonVideoUrl, setLessonVideoUrl] = useState("");
-  const [lessonInitialDraft, setLessonInitialDraft] =
-    useState<LessonEditorDraft>(EMPTY_LESSON_EDITOR_DRAFT);
-  const [pendingLessonDraft, setPendingLessonDraft] = useState<{
-    moduleId: string;
-    draft: LessonEditorDraft;
-  } | null>(null);
-  const [expandedLessonIds, setExpandedLessonIds] = useState<Record<string, boolean>>({});
-
-  const [testsByModule, setTestsByModule] = useState<Record<string, CourseTest[]>>({});
-  const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
-  const [editingTestId, setEditingTestId] = useState<string | null>(null);
-  const [isSavingTest, setIsSavingTest] = useState(false);
-  const [isGeneratingAiQuestions, setIsGeneratingAiQuestions] = useState(false);
-  const [shouldPersistDraftAfterLessonSave, setShouldPersistDraftAfterLessonSave] =
-    useState(false);
-  const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
-  const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
-  const [testInitialDraft, setTestInitialDraft] = useState<TestEditorDraft | null>(null);
-  const [testAiGenerationMode, setTestAiGenerationMode] =
-    useState<AiQuestionGenerationMode>("single_choice");
-  const [testAiQuestionCount, setTestAiQuestionCount] = useState(5);
-  const [expandedTestIds, setExpandedTestIds] = useState<Record<string, boolean>>({});
-  const [testCreateInitialMode, setTestCreateInitialMode] = useState<CreateContentMode | null>(
-    null
-  );
-  const [exercisesByModule, setExercisesByModule] = useState<Record<string, CourseExercise[]>>(
-    {}
-  );
-  const [exerciseEditorModuleId, setExerciseEditorModuleId] = useState<string | null>(null);
-  const [exerciseCreateInitialMode, setExerciseCreateInitialMode] =
-    useState<CreateContentMode>("manual");
-  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
-  const [exerciseEditorInitialDraft, setExerciseEditorInitialDraft] =
-    useState<ExerciseEditorDraft | null>(null);
-  const [isSavingExercise, setIsSavingExercise] = useState(false);
-  const [isPreparingExerciseEditor, setIsPreparingExerciseEditor] = useState(false);
-  const [exerciseEditorError, setExerciseEditorError] = useState("");
-  const [expandedExerciseIds, setExpandedExerciseIds] = useState<Record<string, boolean>>({});
-  const lessonLoadRequestRef = useRef(0);
-  const hasShownExercisesPermissionWarningRef = useRef(false);
-  const exercisesPermissionWarningMessage =
-    "Exercises could not be loaded because the database permissions for the exercises table are misconfigured. The rest of the course content is still loaded.";
-
-  const activeTestModuleLessons = useMemo(
-    () => (testEditorModuleId ? lessonsByModule[testEditorModuleId] || [] : []),
-    [lessonsByModule, testEditorModuleId]
-  );
-  const testAiQuestionLimit = useMemo(() => {
-    if (!testEditorModuleId) {
-      return 0;
-    }
-
-    if (testAfterLessonId) {
-      const selectedLesson = activeTestModuleLessons.find(
-        (lesson) => lesson.id === testAfterLessonId
-      );
-
-      return selectedLesson ? getLessonAiQuestionLimit(selectedLesson.content ?? "") : 0;
-    }
-
-    return getModuleAiQuestionLimit(activeTestModuleLessons);
-  }, [activeTestModuleLessons, testAfterLessonId, testEditorModuleId]);
-  const canSaveCurrentTest = useMemo(
-    () => canSaveTestDraft(testQuestions),
-    [testQuestions]
-  );
-  const canGenerateTestAi =
-    testEditorModuleId !== null &&
-    testAiQuestionLimit > 0;
+  // Derived state.
   const courseThumbnailUrl = useMemo(
     () => getCourseMediaPublicUrl(courseThumbnailPath),
     [courseThumbnailPath]
@@ -366,26 +176,6 @@ export const CourseBuilderPage = forwardRef<
   );
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
-  const nextModuleOrder = useMemo(
-    () => modules.reduce((maxOrder, module) => Math.max(maxOrder, module.order), 0) + 1,
-    [modules]
-  );
-  const isLessonDirty = useMemo(
-    () =>
-      lessonTitle !== lessonInitialDraft.title ||
-      lessonContent !== lessonInitialDraft.content ||
-      lessonVideoUrl !== lessonInitialDraft.videoUrl,
-    [lessonContent, lessonInitialDraft, lessonTitle, lessonVideoUrl]
-  );
-  const hasMeaningfulNewLessonDraft = useMemo(
-    () =>
-      lessonTitle.trim().length > 0 ||
-      hasLessonContent(lessonContent) ||
-      lessonVideoUrl.trim().length > 0,
-    [lessonContent, lessonTitle, lessonVideoUrl]
-  );
-  const shouldGuardLessonDraft =
-    isLessonDirty && (editingLessonId !== null || hasMeaningfulNewLessonDraft);
   const currentCourseSnapshot = useMemo<SavedCourseSnapshot>(
     () => ({
       title: courseTitle.trim(),
@@ -409,16 +199,6 @@ export const CourseBuilderPage = forwardRef<
 
     return editModuleTitle.trim() !== activeModule.title.trim();
   }, [editModuleId, editModuleTitle, modules]);
-  const isTestDirty = useMemo(() => {
-    if (!testInitialDraft || testEditorModuleId === null) {
-      return false;
-    }
-
-    return !areTestDraftsEqual(testInitialDraft, {
-      afterLessonId: testAfterLessonId,
-      questions: testQuestions,
-    });
-  }, [testAfterLessonId, testEditorModuleId, testInitialDraft, testQuestions]);
   const hasStartedCourseDraft = useMemo(
     () =>
       currentCourseSnapshot.title.length > 0 ||
@@ -436,16 +216,12 @@ export const CourseBuilderPage = forwardRef<
         (savedCourseSnapshot.title !== currentCourseSnapshot.title ||
           savedCourseSnapshot.description !== currentCourseSnapshot.description ||
           savedCourseSnapshot.thumbnailPath !== currentCourseSnapshot.thumbnailPath);
-  const hasUnsavedChanges =
-    hasUnsavedCourseBasics ||
-    isNewModuleComposerDirty ||
-    isModuleEditDirty ||
-    shouldGuardLessonDraft ||
-    isTestDirty;
   const canSaveDraft =
     !isPersistingCourse &&
     !isHydratingCourse &&
     (hasStartedCourseDraft || currentCourseId !== null);
+
+  // Review state.
   const {
     totalModules,
     totalLessons,
@@ -470,31 +246,7 @@ export const CourseBuilderPage = forwardRef<
     courseThumbnailKind,
   });
 
-  const fetchModules = async (courseId: string) => {
-    try {
-      const data = await listModulesByCourse(courseId);
-      setModules(data);
-      setMessage("");
-    } catch {
-      setMessage("Unable to load modules.");
-    } finally {
-      setHasFetchedModules(true);
-    }
-  };
-
-  const fetchLessons = async (moduleId: string) => {
-    try {
-      const data = await listLessonsByModule(moduleId);
-      setLessonsByModule((prev) => ({ ...prev, [moduleId]: data }));
-      setMessage("");
-      return data;
-    } catch {
-      setMessage("Unable to load lessons.");
-      return null;
-    }
-  };
-
-  const hydrateCourseTest = async (testEntity: TestEntity): Promise<CourseTest> => {
+  async function hydrateCourseTest(testEntity: TestEntity): Promise<CourseTest> {
     const questions = await listTestQuestions(testEntity.id);
     const questionsWithAnswers = await Promise.all(
       questions.map(async (question) => ({
@@ -512,62 +264,15 @@ export const CourseBuilderPage = forwardRef<
         mapQuestionToCourseTestQuestion(question, answers)
       ),
     };
-  };
+  }
 
-  const fetchTests = async (moduleId: string) => {
-    try {
-      const entities = await listTestsByModule(moduleId);
-      const tests = await Promise.all(entities.map(hydrateCourseTest));
-      setTestsByModule((prev) => ({ ...prev, [moduleId]: tests }));
-      setMessage("");
-      return tests;
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Unable to load tests.");
-      }
-      return null;
-    }
-  };
-
-  const fetchExercises = async (moduleId: string) => {
-    try {
-      const exercises = await listExercisesByModule(moduleId);
-      const mappedExercises = exercises.map(mapExerciseToCourseExercise);
-      setExercisesByModule((prev) => ({ ...prev, [moduleId]: mappedExercises }));
-      setMessage((currentMessage) =>
-        currentMessage === exercisesPermissionWarningMessage ? currentMessage : ""
-      );
-      return mappedExercises;
-    } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.toLowerCase().includes("permission denied for table exercises")
-      ) {
-        const mappedExercises: CourseExercise[] = [];
-        setExercisesByModule((prev) => ({ ...prev, [moduleId]: mappedExercises }));
-        if (!hasShownExercisesPermissionWarningRef.current) {
-          setMessage(exercisesPermissionWarningMessage);
-          hasShownExercisesPermissionWarningRef.current = true;
-        }
-        return mappedExercises;
-      }
-
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Unable to load exercises.");
-      }
-      return null;
-    }
-  };
-
+  // Persistence helpers.
   const hydratePersistedCourse = async (
     courseId: string,
     courseSnapshot?: SavedCourseSnapshot
   ) => {
     setHasFetchedModules(false);
+    setModulesLoadState("loading");
 
     try {
       const persistedModules = await listModulesByCourse(courseId);
@@ -602,10 +307,18 @@ export const CourseBuilderPage = forwardRef<
         Object.fromEntries(moduleContent.map(({ moduleId, exercises }) => [moduleId, exercises]))
       );
       setHasFetchedModules(true);
+      setModulesLoadState("ready");
+      setModuleContentLoadStateByModule(
+        Object.fromEntries(
+          persistedModules.map((module) => [module.id, "ready" as const])
+        )
+      );
       setCurrentCourseId(courseId);
       setSavedCourseSnapshot(courseSnapshot ?? currentCourseSnapshot);
       setMessage("");
     } catch (error) {
+      setModulesLoadState("error");
+
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
         return;
@@ -640,40 +353,6 @@ export const CourseBuilderPage = forwardRef<
         });
       }
     }
-  };
-
-  const createLocalModuleDraft = (title: string): Module => {
-    const timestamp = new Date().toISOString();
-
-    return {
-      id: createLocalEntityId("module"),
-      course_id: draftCourseSessionId,
-      title,
-      order: nextModuleOrder,
-      created_at: timestamp,
-      updated_at: timestamp,
-    };
-  };
-
-  const createLocalLessonDraft = (moduleId: string): Lesson => {
-    const timestamp = new Date().toISOString();
-    const nextOrder =
-      (lessonsByModule[moduleId] || []).reduce(
-        (maxOrder, lesson) => Math.max(maxOrder, lesson.order),
-        0
-      ) + 1;
-
-    return {
-      id: createLocalEntityId("lesson"),
-      module_id: moduleId,
-      title: lessonTitle.trim(),
-      content: lessonContent,
-      video_url: lessonVideoUrl.trim() || null,
-      content_type: "rich_text",
-      order: nextOrder,
-      created_at: timestamp,
-      updated_at: timestamp,
-    };
   };
 
   const persistLocalCourseContent = async (courseId: string) => {
@@ -807,6 +486,168 @@ export const CourseBuilderPage = forwardRef<
     return data.user.id;
   };
 
+  const {
+    lessonEditorModuleId,
+    editingLessonId,
+    isCreatingLesson,
+    isLoadingLessonDraft,
+    lessonEditorNotice,
+    lessonTitle,
+    lessonContent,
+    lessonVideoUrl,
+    pendingLessonDraft,
+    expandedLessonIds,
+    shouldGuardLessonDraft,
+    setPendingLessonDraft,
+    setExpandedLessonIds,
+    openCreateLessonModal,
+    openEditLessonModal,
+    handleLessonTitleChange,
+    handleLessonContentChange,
+    handleLessonVideoUrlChange,
+    handleLessonEditorSelectLesson,
+    handleLessonEditorSelectDraft,
+    handleLessonEditorClose,
+    handleLessonContentImageUpload,
+    handleCreateLesson,
+    handleDeleteLesson,
+    toggleLessonPreview,
+  } = useCourseBuilderLessonEditor({
+    currentCourseId,
+    draftCourseSessionId,
+    lessonsByModule,
+    testsByModule,
+    setLessonsByModule,
+    setTestsByModule,
+    fetchLessons,
+    fetchTests,
+    fetchExercises,
+    persistDraftCourse: () => persistCourseAtFinalStep("draft"),
+    isPersistingCourse,
+    setMessage,
+  });
+
+  const {
+    testEditorModuleId,
+    editingTestId,
+    isSavingTest,
+    isGeneratingAiQuestions,
+    testAfterLessonId,
+    testQuestions,
+    testAiGenerationMode,
+    testAiQuestionCount,
+    expandedTestIds,
+    testCreateInitialMode,
+    activeTestModuleLessons,
+    testAiQuestionLimit,
+    canSaveCurrentTest,
+    canGenerateTestAi,
+    isTestDirty,
+    setTestAiGenerationMode,
+    setTestAiQuestionCount,
+    setTestAfterLessonId,
+    setExpandedTestIds,
+    closeCreateTestModal,
+    openEditTestModal,
+    handleOpenTestCreationChoice,
+    handleAddTestQuestion,
+    handleChangeTestQuestion,
+    handleDeleteTestQuestion,
+    handleGenerateTestQuestionsWithAi,
+    handleCreateTest,
+    handleDeleteTest,
+    toggleTestPreview,
+  } = useCourseBuilderTestEditor({
+    currentCourseId,
+    modules,
+    lessonsByModule,
+    testsByModule,
+    setTestsByModule,
+    fetchTests,
+    persistTestQuestions,
+    resolveAiGenerationTarget,
+    setMessage,
+  });
+
+  const {
+    exerciseEditorModuleId,
+    exerciseCreateInitialMode,
+    editingExerciseId,
+    exerciseEditorInitialDraft,
+    isSavingExercise,
+    isPreparingExerciseEditor,
+    exerciseEditorError,
+    expandedExerciseIds,
+    setExpandedExerciseIds,
+    closeCreateExerciseModal,
+    openEditExerciseModal,
+    handleOpenExerciseCreationChoice,
+    handleGenerateExerciseWithAi,
+    handleSaveExercise,
+    handleDeleteExercise,
+    toggleExercisePreview,
+  } = useCourseBuilderExerciseEditor({
+    currentCourseId,
+    lessonsByModule,
+    exercisesByModule,
+    setExercisesByModule,
+    fetchLessons,
+    fetchExercises,
+    resolveExerciseEditorModuleId,
+    resolveAiGenerationTarget,
+    setMessage,
+  });
+
+  function handleModuleDeletedUiCleanup({
+    moduleId,
+    lessonIds,
+    testIds,
+    exerciseIds,
+  }: {
+    moduleId: string;
+    lessonIds: string[];
+    testIds: string[];
+    exerciseIds: string[];
+  }) {
+    setExpandedLessonIds((prev) => {
+      const next = { ...prev };
+      lessonIds.forEach((lessonId) => {
+        delete next[lessonId];
+      });
+      return next;
+    });
+    setExpandedTestIds((prev) => {
+      const next = { ...prev };
+      testIds.forEach((testId) => {
+        delete next[testId];
+      });
+      return next;
+    });
+    setExpandedExerciseIds((prev) => {
+      const next = { ...prev };
+      exerciseIds.forEach((exerciseId) => {
+        delete next[exerciseId];
+      });
+      return next;
+    });
+
+    if (pendingLessonDraft?.moduleId === moduleId) {
+      setPendingLessonDraft(null);
+    }
+
+    if (exerciseEditorModuleId === moduleId) {
+      closeCreateExerciseModal();
+    }
+  }
+
+  const hasUnsavedChanges =
+    hasUnsavedCourseBasics ||
+    isNewModuleComposerDirty ||
+    isModuleEditDirty ||
+    shouldGuardLessonDraft ||
+    isTestDirty;
+
+  // Lifecycle effects.
   useEffect(() => {
     if (!initialCourseId) {
       setIsHydratingCourse(false);
@@ -818,6 +659,15 @@ export const CourseBuilderPage = forwardRef<
       setIsHydratingCourse(true);
       setMessage("");
       setActiveStep(1);
+      setHasFetchedModules(false);
+      setModulesLoadState("idle");
+      setModules([]);
+      setLessonsByModule({});
+      setTestsByModule({});
+      setExercisesByModule({});
+      setModuleContentLoadStateByModule({});
+      setExpandedModuleId(null);
+      setCurrentCourseId(null);
 
       try {
         const course = await getCourseById(initialCourseId);
@@ -834,7 +684,8 @@ export const CourseBuilderPage = forwardRef<
         setCourseTitle(snapshot.title);
         setCourseDescription(snapshot.description);
         setCourseThumbnailPath(snapshot.thumbnailPath);
-        await hydratePersistedCourse(initialCourseId, snapshot);
+        setCurrentCourseId(initialCourseId);
+        setSavedCourseSnapshot(snapshot);
       } catch (error) {
         if (isCancelled) {
           return;
@@ -876,40 +727,6 @@ export const CourseBuilderPage = forwardRef<
     };
   }, [hasUnsavedChanges]);
 
-  useEffect(() => {
-    setTestAiQuestionCount((previousCount) => {
-      if (testAiQuestionLimit <= 0) {
-        return 1;
-      }
-
-      if (previousCount > testAiQuestionLimit) {
-        return getDefaultAiQuestionCount(testAiQuestionLimit);
-      }
-
-      return previousCount;
-    });
-  }, [testAiQuestionLimit]);
-
-  useEffect(() => {
-    if (!shouldPersistDraftAfterLessonSave || currentCourseId !== null || isPersistingCourse) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    void (async () => {
-      await persistCourseAtFinalStep("draft");
-
-      if (!isCancelled) {
-        setShouldPersistDraftAfterLessonSave(false);
-      }
-    })();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [currentCourseId, isPersistingCourse, shouldPersistDraftAfterLessonSave]);
-
   useImperativeHandle(
     ref,
     () => ({
@@ -925,6 +742,7 @@ export const CourseBuilderPage = forwardRef<
     if (!currentCourseId) {
       queueMicrotask(() => {
         setHasFetchedModules(false);
+        setModulesLoadState("idle");
       });
       return;
     }
@@ -941,6 +759,7 @@ export const CourseBuilderPage = forwardRef<
   useEffect(() => {
     if (
       activeStep !== 2 ||
+      (currentCourseId ? modulesLoadState !== "ready" : false) ||
       (currentCourseId ? !hasFetchedModules : false) ||
       modules.length > 0 ||
       isNewModuleComposerOpen
@@ -948,19 +767,19 @@ export const CourseBuilderPage = forwardRef<
       return;
     }
 
-    setNewModuleTitle("");
-    setIsNewModuleComposerOpen(true);
+    openNewModuleComposer();
     setExpandedModuleId(null);
   }, [
     activeStep,
     currentCourseId,
     hasFetchedModules,
     isNewModuleComposerOpen,
+    modulesLoadState,
     modules.length,
   ]);
 
   useEffect(() => {
-    if (!currentCourseId) {
+    if (activeStep !== 3 || !currentCourseId || !hasFetchedModules) {
       return;
     }
 
@@ -1000,10 +819,10 @@ export const CourseBuilderPage = forwardRef<
     return () => {
       isCancelled = true;
     };
-  }, [currentCourseId, lessonsByModule, modules]);
+  }, [activeStep, currentCourseId, hasFetchedModules, lessonsByModule, modules]);
 
   useEffect(() => {
-    if (!currentCourseId) {
+    if (activeStep !== 3 || !currentCourseId || !hasFetchedModules) {
       return;
     }
 
@@ -1050,10 +869,10 @@ export const CourseBuilderPage = forwardRef<
     return () => {
       isCancelled = true;
     };
-  }, [currentCourseId, modules, testsByModule]);
+  }, [activeStep, currentCourseId, hasFetchedModules, modules, testsByModule]);
 
   useEffect(() => {
-    if (!currentCourseId) {
+    if (activeStep !== 3 || !currentCourseId || !hasFetchedModules) {
       return;
     }
 
@@ -1102,13 +921,15 @@ export const CourseBuilderPage = forwardRef<
     return () => {
       isCancelled = true;
     };
-  }, [currentCourseId, exercisesByModule, modules]);
+  }, [activeStep, currentCourseId, exercisesByModule, hasFetchedModules, modules]);
 
+  // Course actions.
   const handleSaveDraft = async () => {
     const courseId = await persistCourseAtFinalStep("draft");
     return Boolean(courseId);
   };
 
+  // Global keyboard shortcut.
   useEffect(() => {
     const handleSaveDraftShortcut = (event: KeyboardEvent) => {
       const isSaveShortcut =
@@ -1171,606 +992,14 @@ export const CourseBuilderPage = forwardRef<
     }
   };
 
-  const openNewModuleComposer = () => {
-    if (isNewModuleComposerOpen) {
-      return;
-    }
-
-    setNewModuleTitle("");
-    setIsNewModuleComposerOpen(true);
-  };
-
-  const closeNewModuleComposer = () => {
-    setIsNewModuleComposerOpen(false);
-    setNewModuleTitle("");
-  };
-
-  const handleSaveNewModule = async () => {
-    if (!newModuleTitle.trim()) return;
-
-    if (!currentCourseId) {
-      const module = createLocalModuleDraft(newModuleTitle.trim());
-      setModules((prev) => [...prev, module]);
-      setLessonsByModule((prev) => ({ ...prev, [module.id]: [] }));
-      setTestsByModule((prev) => ({ ...prev, [module.id]: [] }));
-      setExercisesByModule((prev) => ({ ...prev, [module.id]: [] }));
-      setExpandedModuleId(module.id);
-      closeNewModuleComposer();
-      setMessage("");
-      return;
-    }
-
-    try {
-      setIsCreatingModule(true);
-      const module = await createModule({
-        course_id: currentCourseId,
-        title: newModuleTitle.trim(),
-      });
-      setHasFetchedModules(false);
-      await fetchModules(currentCourseId);
-      setExpandedModuleId(module.id);
-      closeNewModuleComposer();
-      setMessage("");
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-        return;
-      }
-      setMessage("Unable to create module.");
-    } finally {
-      setIsCreatingModule(false);
-    }
-  };
-
-  const handleUpdateModule = async () => {
-    if (!editModuleId || !editModuleTitle.trim()) return;
-
-    if (!currentCourseId) {
-      setModules((prev) =>
-        prev.map((module) =>
-          module.id === editModuleId
-            ? {
-                ...module,
-                title: editModuleTitle.trim(),
-                updated_at: new Date().toISOString(),
-              }
-            : module
-        )
-      );
-      setEditModuleId(null);
-      setEditModuleTitle("");
-      setMessage("");
-      return;
-    }
-
-    try {
-      await updateModule(editModuleId, { title: editModuleTitle.trim() });
-      setEditModuleId(null);
-      setEditModuleTitle("");
-      setHasFetchedModules(false);
-      await fetchModules(currentCourseId);
-      setMessage("");
-    } catch {
-      setMessage("Unable to update module.");
-    }
-  };
-
-  const handleDeleteModule = async (moduleId: string) => {
-    if (!window.confirm("Delete this module?")) return;
-
-    if (!currentCourseId) {
-      setModules((prev) => prev.filter((module) => module.id !== moduleId));
-      setLessonsByModule((prev) => {
-        const next = { ...prev };
-        delete next[moduleId];
-        return next;
-      });
-      setTestsByModule((prev) => {
-        const next = { ...prev };
-        delete next[moduleId];
-        return next;
-      });
-      setExercisesByModule((prev) => {
-        const next = { ...prev };
-        delete next[moduleId];
-        return next;
-      });
-      setExpandedLessonIds((prev) => {
-        const next = { ...prev };
-        Object.keys(next).forEach((lessonId) => {
-          if ((lessonsByModule[moduleId] || []).some((lesson) => lesson.id === lessonId)) {
-            delete next[lessonId];
-          }
-        });
-        return next;
-      });
-      setExpandedTestIds((prev) => {
-        const next = { ...prev };
-        Object.keys(next).forEach((testId) => {
-          if ((testsByModule[moduleId] || []).some((test) => test.id === testId)) {
-            delete next[testId];
-          }
-        });
-        return next;
-      });
-      setExpandedExerciseIds((prev) => {
-        const next = { ...prev };
-        Object.keys(next).forEach((exerciseId) => {
-          if ((exercisesByModule[moduleId] || []).some((exercise) => exercise.id === exerciseId)) {
-            delete next[exerciseId];
-          }
-        });
-        return next;
-      });
-      if (expandedModuleId === moduleId) {
-        setExpandedModuleId(null);
-      }
-      if (pendingLessonDraft?.moduleId === moduleId) {
-        setPendingLessonDraft(null);
-      }
-      if (exerciseEditorModuleId === moduleId) {
-        setExerciseEditorModuleId(null);
-        setEditingExerciseId(null);
-        setExerciseEditorInitialDraft(null);
-        setExerciseEditorError("");
-      }
-      setMessage("");
-      return;
-    }
-
-    try {
-      const moduleExercises =
-        exercisesByModule[moduleId] ?? (await fetchExercises(moduleId)) ?? [];
-      for (const exercise of moduleExercises) {
-        await deleteExercise(exercise.id);
-      }
-      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
-      for (const test of moduleTests) {
-        await deleteTestEntity(test.id);
-      }
-      await deleteModule(moduleId);
-    } catch {
-      setMessage("Unable to delete module.");
-      return;
-    }
-    setLessonsByModule((prev) => {
-      const next = { ...prev };
-      delete next[moduleId];
-      return next;
-    });
-    setExpandedLessonIds((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((lessonId) => {
-        if ((lessonsByModule[moduleId] || []).some((lesson) => lesson.id === lessonId)) {
-          delete next[lessonId];
-        }
-      });
-      return next;
-    });
-    setTestsByModule((prev) => {
-      const next = { ...prev };
-      delete next[moduleId];
-      return next;
-    });
-    setExercisesByModule((prev) => {
-      const next = { ...prev };
-      delete next[moduleId];
-      return next;
-    });
-    setExpandedTestIds((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((testId) => {
-        if ((testsByModule[moduleId] || []).some((test) => test.id === testId)) {
-          delete next[testId];
-        }
-      });
-      return next;
-    });
-    setExpandedExerciseIds((prev) => {
-      const next = { ...prev };
-      Object.keys(next).forEach((exerciseId) => {
-        if ((exercisesByModule[moduleId] || []).some((exercise) => exercise.id === exerciseId)) {
-          delete next[exerciseId];
-        }
-      });
-      return next;
-    });
-    if (expandedModuleId === moduleId) {
-      setExpandedModuleId(null);
-    }
-    if (exerciseEditorModuleId === moduleId) {
-      setExerciseEditorModuleId(null);
-      setEditingExerciseId(null);
-      setExerciseEditorInitialDraft(null);
-      setExerciseEditorError("");
-    }
-    setHasFetchedModules(false);
-    await fetchModules(currentCourseId);
-    setMessage("");
-  };
-
-  const toggleModule = async (moduleId: string) => {
-    const nextId = expandedModuleId === moduleId ? null : moduleId;
-    setExpandedModuleId(nextId);
-    if (currentCourseId && nextId && !lessonsByModule[nextId]) {
-      await fetchLessons(nextId);
-    }
-    if (currentCourseId && nextId && !testsByModule[nextId]) {
-      await fetchTests(nextId);
-    }
-    if (currentCourseId && nextId && !exercisesByModule[nextId]) {
-      await fetchExercises(nextId);
-    }
-  };
-
-  const applyLessonDraft = (
-    moduleId: string,
-    lessonId: string | null,
-    draft: LessonEditorDraft
-  ) => {
-    setLessonEditorModuleId(moduleId);
-    setEditingLessonId(lessonId);
-    setLessonTitle(draft.title);
-    setLessonContent(draft.content);
-    setLessonVideoUrl(draft.videoUrl);
-    setLessonInitialDraft(draft);
-    setLessonEditorNotice("");
-  };
-
-  const openPendingLessonDraft = (moduleId: string) => {
-    lessonLoadRequestRef.current += 1;
-    setIsLoadingLessonDraft(false);
-    const nextDraft =
-      pendingLessonDraft?.moduleId === moduleId
-        ? pendingLessonDraft.draft
-        : EMPTY_LESSON_EDITOR_DRAFT;
-
-    setPendingLessonDraft({
-      moduleId,
-      draft: nextDraft,
-    });
-    applyLessonDraft(moduleId, null, nextDraft);
-  };
-
-  const closeCreateLessonModal = () => {
-    lessonLoadRequestRef.current += 1;
-    setLessonEditorModuleId(null);
-    setEditingLessonId(null);
-    setLessonTitle("");
-    setLessonContent("");
-    setLessonVideoUrl("");
-    setLessonInitialDraft(EMPTY_LESSON_EDITOR_DRAFT);
-    setPendingLessonDraft(null);
-    setLessonEditorNotice("");
-    setIsLoadingLessonDraft(false);
-  };
-
-  const openCreateLessonModal = (moduleId: string) => {
-    openPendingLessonDraft(moduleId);
-  };
-
-  const openEditLessonModal = async (moduleId: string, lesson: Lesson) => {
-    if (!currentCourseId) {
-      const fallbackDraft: LessonEditorDraft = {
-        title: lesson.title,
-        content: lesson.content || "",
-        videoUrl: lesson.video_url || "",
-      };
-
-      applyLessonDraft(moduleId, lesson.id, fallbackDraft);
-      return;
-    }
-
-    const requestId = lessonLoadRequestRef.current + 1;
-    lessonLoadRequestRef.current = requestId;
-
-    const fallbackDraft: LessonEditorDraft = {
-      title: lesson.title,
-      content: lesson.content || "",
-      videoUrl: lesson.video_url || "",
-    };
-
-    applyLessonDraft(moduleId, lesson.id, fallbackDraft);
-    setIsLoadingLessonDraft(true);
-
-    try {
-      const blocks = await listLessonBlocksByLesson(lesson.id);
-
-      if (lessonLoadRequestRef.current !== requestId) {
-        return;
-      }
-
-      const richTextBlock = blocks.find((block) => block.block_type === "rich_text");
-      const html =
-        richTextBlock && typeof richTextBlock.content.html === "string"
-          ? richTextBlock.content.html
-          : null;
-      const nextDraft =
-        html !== null
-          ? {
-              ...fallbackDraft,
-              content: html,
-            }
-          : fallbackDraft;
-
-      setLessonContent(nextDraft.content);
-      setLessonInitialDraft(nextDraft);
-    } catch {
-      // Keep the lesson.content fallback if blocks fail to load.
-    } finally {
-      if (lessonLoadRequestRef.current === requestId) {
-        setIsLoadingLessonDraft(false);
-      }
-    }
-  };
-
-  const handleLessonTitleChange = (value: string) => {
-    setLessonTitle(value);
-    if (editingLessonId === null && lessonEditorModuleId) {
-      setPendingLessonDraft({
-        moduleId: lessonEditorModuleId,
-        draft: {
-          title: value,
-          content: lessonContent,
-          videoUrl: lessonVideoUrl,
-        },
-      });
-    }
-    if (lessonEditorNotice) {
-      setLessonEditorNotice("");
-    }
-  };
-
-  const handleLessonContentChange = (value: string) => {
-    setLessonContent(value);
-    if (editingLessonId === null && lessonEditorModuleId) {
-      setPendingLessonDraft({
-        moduleId: lessonEditorModuleId,
-        draft: {
-          title: lessonTitle,
-          content: value,
-          videoUrl: lessonVideoUrl,
-        },
-      });
-    }
-    if (lessonEditorNotice) {
-      setLessonEditorNotice("");
-    }
-  };
-
-  const handleLessonVideoUrlChange = (value: string) => {
-    setLessonVideoUrl(value);
-    if (editingLessonId === null && lessonEditorModuleId) {
-      setPendingLessonDraft({
-        moduleId: lessonEditorModuleId,
-        draft: {
-          title: lessonTitle,
-          content: lessonContent,
-          videoUrl: value,
-        },
-      });
-    }
-    if (lessonEditorNotice) {
-      setLessonEditorNotice("");
-    }
-  };
-
-  const handleLessonEditorSelectLesson = (moduleId: string, lesson: Lesson) => {
-    if (editingLessonId === lesson.id) {
-      return;
-    }
-
-    if (shouldGuardLessonDraft) {
-      setLessonEditorNotice("Save or cancel the current lesson before switching to another one.");
-      return;
-    }
-
-    void openEditLessonModal(moduleId, lesson);
-  };
-
-  const handleLessonEditorSelectDraft = (moduleId: string) => {
-    if (lessonEditorModuleId === moduleId && editingLessonId === null) {
-      return;
-    }
-
-    if (shouldGuardLessonDraft) {
-      setLessonEditorNotice("Save or cancel the current lesson before switching to another one.");
-      return;
-    }
-
-    openPendingLessonDraft(moduleId);
-  };
-
-  const handleLessonEditorClose = () => {
-    if (shouldGuardLessonDraft && !window.confirm("Discard unsaved lesson changes?")) {
-      return;
-    }
-
-    closeCreateLessonModal();
-  };
-
-  const handleLessonContentImageUpload = async (file: File) => {
-    const imagePath = await uploadLessonContentImage(
-      currentCourseId ?? draftCourseSessionId,
-      file
-    );
-    const imageUrl = getCourseMediaPublicUrl(imagePath);
-
-    if (!imageUrl) {
-      throw new Error("Unable to resolve lesson image URL.");
-    }
-
-    return imageUrl;
-  };
-
-  const handleCreateLesson = async () => {
-    if (!lessonEditorModuleId || !lessonTitle.trim()) {
-      return null;
-    }
-    const moduleId = lessonEditorModuleId;
-
-    if (!currentCourseId) {
-      if (editingLessonId) {
-        const existingLesson = (lessonsByModule[moduleId] || []).find(
-          (lesson) => lesson.id === editingLessonId
-        );
-
-        if (!existingLesson) {
-          setMessage("Unable to resolve the selected lesson.");
-          return null;
-        }
-
-        const updatedLesson: Lesson = {
-          ...existingLesson,
-          title: lessonTitle.trim(),
-          content: lessonContent,
-          video_url: lessonVideoUrl.trim() || null,
-          content_type: "rich_text",
-          updated_at: new Date().toISOString(),
-        };
-
-        setLessonsByModule((prev) => ({
-          ...prev,
-          [moduleId]: (prev[moduleId] || []).map((lesson) =>
-            lesson.id === editingLessonId
-              ? updatedLesson
-              : lesson
-          ),
-        }));
-        setShouldPersistDraftAfterLessonSave(true);
-        closeCreateLessonModal();
-        setMessage("");
-        return {
-          moduleId,
-          lesson: updatedLesson,
-        };
-      } else {
-        const createdLesson = createLocalLessonDraft(moduleId);
-        setLessonsByModule((prev) => ({
-          ...prev,
-          [moduleId]: [...(prev[moduleId] || []), createdLesson],
-        }));
-        setPendingLessonDraft(null);
-        setShouldPersistDraftAfterLessonSave(true);
-        closeCreateLessonModal();
-        setMessage("");
-        return {
-          moduleId,
-          lesson: createdLesson,
-        };
-      }
-    }
-
-    try {
-      setIsCreatingLesson(true);
-      if (editingLessonId) {
-        const updatedLesson = await updateLesson(editingLessonId, {
-          title: lessonTitle.trim(),
-          content: lessonContent,
-          video_url: lessonVideoUrl.trim() || null,
-          content_type: "rich_text",
-        });
-        await upsertLessonPrimaryRichTextBlock(editingLessonId, lessonContent);
-        await fetchLessons(moduleId);
-        closeCreateLessonModal();
-        setMessage("");
-        return {
-          moduleId,
-          lesson: updatedLesson,
-        };
-      } else {
-        const createdLesson = await createLesson({
-          module_id: moduleId,
-          title: lessonTitle.trim(),
-          content: lessonContent,
-          video_url: lessonVideoUrl.trim() || null,
-          content_type: "rich_text",
-        });
-        await upsertLessonPrimaryRichTextBlock(createdLesson.id, lessonContent);
-        setPendingLessonDraft(null);
-        await fetchLessons(moduleId);
-        closeCreateLessonModal();
-        setMessage("");
-        return {
-          moduleId,
-          lesson: createdLesson,
-        };
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-        return null;
-      }
-      setMessage(editingLessonId ? "Unable to update lesson." : "Unable to create lesson.");
-      return null;
-    } finally {
-      setIsCreatingLesson(false);
-    }
-  };
-
-  const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
-    if (!window.confirm("Delete this lesson?")) return;
-
-    if (!currentCourseId) {
-      setLessonsByModule((prev) => ({
-        ...prev,
-        [moduleId]: (prev[moduleId] || []).filter((lesson) => lesson.id !== lessonId),
-      }));
-      setTestsByModule((prev) => ({
-        ...prev,
-        [moduleId]: (prev[moduleId] || []).map((test) =>
-          test.afterLessonId === lessonId ? { ...test, afterLessonId: null } : test
-        ),
-      }));
-      setExpandedLessonIds((prev) => {
-        const next = { ...prev };
-        delete next[lessonId];
-        return next;
-      });
-      setMessage("");
-      return;
-    }
-
-    try {
-      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
-      const linkedTests = moduleTests.filter((test) => test.afterLessonId === lessonId);
-
-      for (const test of linkedTests) {
-        await updateTestEntity(test.id, {
-          after_lesson_id: null,
-        });
-      }
-
-      await deleteLesson(lessonId);
-      await fetchLessons(moduleId);
-      await fetchTests(moduleId);
-      await fetchExercises(moduleId);
-      setExpandedLessonIds((prev) => {
-        const next = { ...prev };
-        delete next[lessonId];
-        return next;
-      });
-      setMessage("");
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-        return;
-      }
-      setMessage("Unable to delete lesson.");
-    }
-  };
-
-  const toggleLessonPreview = (lessonId: string) => {
-    setExpandedLessonIds((prev) => ({ ...prev, [lessonId]: !prev[lessonId] }));
-  };
-
-  const resolveAiGenerationTarget = async ({
+  // Shared persisted-target resolution for AI and exercise flows.
+  async function resolveAiGenerationTarget({
     moduleId,
     afterLessonId,
   }: {
     moduleId: string;
     afterLessonId: string | null;
-  }) => {
+  }) {
     const activeModule = modules.find((module) => module.id === moduleId);
 
     if (!activeModule) {
@@ -1825,9 +1054,9 @@ export const CourseBuilderPage = forwardRef<
       moduleId: persistedModule.id,
       afterLessonId: persistedLesson.id,
     };
-  };
+  }
 
-  const resolveExerciseEditorModuleId = async (moduleId: string) => {
+  async function resolveExerciseEditorModuleId(moduleId: string) {
     const activeModule = modules.find((module) => module.id === moduleId);
 
     if (!activeModule) {
@@ -1853,474 +1082,9 @@ export const CourseBuilderPage = forwardRef<
     }
 
     return persistedModule.id;
-  };
+  }
 
-  const closeCreateTestModal = () => {
-    setTestEditorModuleId(null);
-    setEditingTestId(null);
-    setTestAfterLessonId(null);
-    setTestQuestions([]);
-    setTestInitialDraft(null);
-    setTestCreateInitialMode(null);
-    setTestAiGenerationMode("single_choice");
-  };
-
-  const closeCreateExerciseModal = () => {
-    setExerciseEditorModuleId(null);
-    setEditingExerciseId(null);
-    setExerciseEditorInitialDraft(null);
-    setExerciseEditorError("");
-    setExerciseCreateInitialMode("manual");
-  };
-
-  const openCreateTestModal = (
-    moduleId: string,
-    options?: {
-      afterLessonId?: string | null;
-      initialMode?: CreateContentMode;
-    }
-  ) => {
-    const nextDraft = createEmptyTestEditorDraft();
-    const nextAfterLessonId = options?.afterLessonId ?? nextDraft.afterLessonId;
-    const moduleLessons = lessonsByModule[moduleId] || [];
-    const nextAiQuestionLimit = nextAfterLessonId
-      ? getLessonAiQuestionLimit(
-          moduleLessons.find((lesson) => lesson.id === nextAfterLessonId)?.content ?? ""
-        )
-      : getModuleAiQuestionLimit(moduleLessons);
-
-    setTestEditorModuleId(moduleId);
-    setTestCreateInitialMode(options?.initialMode ?? "manual");
-    setEditingTestId(null);
-    setTestAfterLessonId(nextAfterLessonId);
-    setTestQuestions(nextDraft.questions);
-    setTestAiGenerationMode("single_choice");
-    setTestAiQuestionCount(getDefaultAiQuestionCount(Math.max(nextAiQuestionLimit, 1)));
-    setTestInitialDraft({
-      afterLessonId: nextAfterLessonId,
-      questions: nextDraft.questions.map(cloneTestQuestion),
-    });
-  };
-
-  const openEditTestModal = (moduleId: string, test: CourseTest) => {
-    const nextQuestions = test.questions.map(cloneTestQuestion);
-    const moduleLessons = lessonsByModule[moduleId] || [];
-    const nextAiQuestionLimit = test.afterLessonId
-      ? getLessonAiQuestionLimit(
-          moduleLessons.find((lesson) => lesson.id === test.afterLessonId)?.content ?? ""
-        )
-      : getModuleAiQuestionLimit(moduleLessons);
-
-    setTestEditorModuleId(moduleId);
-    setTestCreateInitialMode("manual");
-    setEditingTestId(test.id);
-    setTestAfterLessonId(test.afterLessonId);
-    setTestQuestions(nextQuestions);
-    setTestAiGenerationMode("single_choice");
-    setTestAiQuestionCount(getDefaultAiQuestionCount(Math.max(nextAiQuestionLimit, 1)));
-    setTestInitialDraft({
-      afterLessonId: test.afterLessonId,
-      questions: nextQuestions.map(cloneTestQuestion),
-    });
-  };
-
-  const openCreateExerciseModal = async (
-    moduleId: string,
-    options?: {
-      initialMode?: CreateContentMode;
-    }
-  ) => {
-    if (isPreparingExerciseEditor) {
-      return;
-    }
-
-    setExerciseEditorError("");
-    setMessage("");
-    setIsPreparingExerciseEditor(true);
-
-    try {
-      const resolvedModuleId = await resolveExerciseEditorModuleId(moduleId);
-
-      await Promise.all([
-        lessonsByModule[resolvedModuleId] ? Promise.resolve() : fetchLessons(resolvedModuleId),
-        exercisesByModule[resolvedModuleId] ? Promise.resolve() : fetchExercises(resolvedModuleId),
-      ]);
-
-      setExerciseEditorModuleId(resolvedModuleId);
-      setExerciseCreateInitialMode(options?.initialMode ?? "manual");
-      setEditingExerciseId(null);
-      setExerciseEditorInitialDraft(createEmptyExerciseDraft());
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Unable to open the exercise editor.");
-      }
-    } finally {
-      setIsPreparingExerciseEditor(false);
-    }
-  };
-
-  const openEditExerciseModal = async (moduleId: string, exercise: CourseExercise) => {
-    setExerciseEditorError("");
-    setMessage("");
-
-    if (!lessonsByModule[moduleId] && currentCourseId) {
-      await fetchLessons(moduleId);
-    }
-
-    setExerciseEditorModuleId(moduleId);
-    setExerciseCreateInitialMode("manual");
-    setEditingExerciseId(exercise.id);
-    setExerciseEditorInitialDraft(mapCourseExerciseToDraft(exercise));
-  };
-
-  const handleOpenTestCreationChoice = (moduleId: string, mode: CreateContentMode) => {
-    openCreateTestModal(moduleId, { initialMode: mode });
-  };
-
-  const handleOpenExerciseCreationChoice = async (
-    moduleId: string,
-    mode: CreateContentMode
-  ) => {
-    await openCreateExerciseModal(moduleId, { initialMode: mode });
-  };
-
-  const handleAddTestQuestion = () => {
-    setTestQuestions((prev) => [...prev, createEmptyTestQuestion()]);
-  };
-
-  const handleChangeTestQuestion = (
-    questionId: string,
-    nextQuestion: CourseTestQuestion
-  ) => {
-    setTestQuestions((prev) =>
-      prev.map((question) => (question.id === questionId ? nextQuestion : question))
-    );
-  };
-
-  const handleDeleteTestQuestion = (questionId: string) => {
-    setTestQuestions((prev) => {
-      const remaining = prev.filter((question) => question.id !== questionId);
-      return remaining.length > 0 ? remaining : [createEmptyTestQuestion()];
-    });
-  };
-
-  const handleGenerateTestQuestionsWithAi = async () => {
-    if (!testEditorModuleId || !canGenerateTestAi || isGeneratingAiQuestions) {
-      return false;
-    }
-
-    if (
-      hasMeaningfulTestQuestionDraft(testQuestions) &&
-      !window.confirm("Replace the current test questions with AI-generated ones?")
-    ) {
-      return false;
-    }
-
-    setMessage("");
-    setIsGeneratingAiQuestions(true);
-
-    try {
-      const resolvedTarget = await resolveAiGenerationTarget({
-        moduleId: testEditorModuleId,
-        afterLessonId: testAfterLessonId,
-      });
-      const generatedQuestions = await generateTestQuestionsWithAi({
-        afterLessonId: resolvedTarget.afterLessonId ?? undefined,
-        moduleId: resolvedTarget.afterLessonId ? undefined : resolvedTarget.moduleId,
-        questionCount: testAiQuestionCount,
-        generationMode: testAiGenerationMode,
-      });
-
-      if (generatedQuestions.length === 0) {
-        throw new Error("AI did not return any questions.");
-      }
-
-      const normalizedQuestions =
-        mapGeneratedQuestionsToCourseTestQuestions(generatedQuestions);
-
-      setTestEditorModuleId(resolvedTarget.moduleId);
-      setTestAfterLessonId(resolvedTarget.afterLessonId);
-      setTestQuestions(normalizedQuestions.map(cloneTestQuestion));
-      setMessage("");
-      return true;
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Unable to generate questions with AI.");
-      }
-      return false;
-    } finally {
-      setIsGeneratingAiQuestions(false);
-    }
-  };
-
-  const handleGenerateExerciseWithAi = async (
-    draft: ExerciseEditorDraft
-  ): Promise<ExerciseEditorDraft> => {
-    if (!exerciseEditorModuleId) {
-      throw new Error("Unable to resolve the selected module.");
-    }
-
-    const resolvedTarget = await resolveAiGenerationTarget({
-      moduleId: exerciseEditorModuleId,
-      afterLessonId: draft.afterLessonId,
-    });
-
-    const generatedContent = await generateExerciseWithAi({
-      afterLessonId: resolvedTarget.afterLessonId ?? undefined,
-      moduleId: resolvedTarget.afterLessonId ? undefined : resolvedTarget.moduleId,
-      type: draft.type,
-    });
-
-    if (draft.type === "drag_drop_code" && generatedContent.type === "drag_drop_code") {
-      return {
-        ...draft,
-        content: generatedContent,
-      };
-    }
-
-    if (draft.type === "write_code" && generatedContent.type === "write_code") {
-      return {
-        ...draft,
-        content: generatedContent,
-      };
-    }
-
-    throw new Error("AI returned an exercise type that does not match the selected format.");
-  };
-
-  const handleCreateTest = async () => {
-    if (!testEditorModuleId || !canSaveCurrentTest) return;
-    const moduleId = testEditorModuleId;
-    const activeModule = modules.find((module) => module.id === moduleId);
-
-    if (!activeModule) {
-      setMessage("Unable to resolve the selected module.");
-      return;
-    }
-
-    const nextTestTitle = getGeneratedCourseTestTitle({
-      moduleOrder: activeModule.order,
-      lessons: lessonsByModule[moduleId] || [],
-      afterLessonId: testAfterLessonId,
-    });
-
-    if (!currentCourseId) {
-      const existingTests = testsByModule[moduleId] || [];
-
-      if (editingTestId) {
-        setTestsByModule((prev) => ({
-          ...prev,
-          [moduleId]: (prev[moduleId] || []).map((test) =>
-            test.id === editingTestId
-              ? {
-                  ...test,
-                  title: nextTestTitle,
-                  afterLessonId: testAfterLessonId,
-                  questions: testQuestions.map(cloneTestQuestion),
-                }
-              : test
-          ),
-        }));
-      } else {
-        setTestsByModule((prev) => ({
-          ...prev,
-          [moduleId]: [
-            ...(prev[moduleId] || []),
-            {
-              id: createLocalEntityId("test"),
-              title: nextTestTitle,
-              afterLessonId: testAfterLessonId,
-              order:
-                existingTests.reduce(
-                  (maxOrder, test) => Math.max(maxOrder, test.order),
-                  0
-                ) + 1,
-              questions: testQuestions.map(cloneTestQuestion),
-            },
-          ],
-        }));
-      }
-
-      closeCreateTestModal();
-      setMessage("");
-      return;
-    }
-
-    try {
-      setIsSavingTest(true);
-      const existingTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
-
-      const savedTest = editingTestId
-        ? await updateTestEntity(editingTestId, {
-            title: nextTestTitle,
-            after_lesson_id: testAfterLessonId,
-            order:
-              existingTests.find((test) => test.id === editingTestId)?.order ??
-              existingTests.length + 1,
-          })
-        : await createTestEntity({
-            module_id: moduleId,
-            title: nextTestTitle,
-            after_lesson_id: testAfterLessonId,
-            order: (existingTests.at(-1)?.order ?? 0) + 1,
-          });
-
-      await persistTestQuestions(savedTest.id, testQuestions);
-      await fetchTests(moduleId);
-      closeCreateTestModal();
-      setMessage("");
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage(editingTestId ? "Unable to update test." : "Unable to create test.");
-      }
-    } finally {
-      setIsSavingTest(false);
-    }
-  };
-
-  const handleSaveExercise = async (draft: ExerciseEditorDraft) => {
-    if (!exerciseEditorModuleId) {
-      setExerciseEditorError("Unable to resolve the selected module.");
-      return;
-    }
-
-    setExerciseEditorError("");
-
-    try {
-      setIsSavingExercise(true);
-      const resolvedModuleId = exerciseEditorModuleId;
-      const modulePayload =
-        draft.afterLessonId === null
-          ? {
-              moduleId: resolvedModuleId,
-            }
-          : {};
-
-      if (editingExerciseId) {
-        await updateExercise(editingExerciseId, {
-          afterLessonId: draft.afterLessonId,
-          ...modulePayload,
-          type: draft.type,
-          title: draft.title,
-          description: draft.description.trim() || null,
-          content: draft.content as ExerciseContent,
-        });
-      } else {
-        await createExercise({
-          afterLessonId: draft.afterLessonId ?? undefined,
-          ...modulePayload,
-          type: draft.type,
-          title: draft.title,
-          description: draft.description.trim() || null,
-          content: draft.content as ExerciseContent,
-        });
-      }
-
-      await fetchExercises(resolvedModuleId);
-      closeCreateExerciseModal();
-      setMessage("");
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setExerciseEditorError(error.message);
-      } else {
-        setExerciseEditorError(
-          editingExerciseId ? "Unable to update exercise." : "Unable to create exercise."
-        );
-      }
-    } finally {
-      setIsSavingExercise(false);
-    }
-  };
-
-  const handleDeleteTest = async (moduleId: string, testId: string) => {
-    if (!window.confirm("Delete this test?")) return;
-
-    if (!currentCourseId) {
-      setTestsByModule((prev) => ({
-        ...prev,
-        [moduleId]: (prev[moduleId] || []).filter((test) => test.id !== testId),
-      }));
-      setExpandedTestIds((prev) => {
-        const next = { ...prev };
-        delete next[testId];
-        return next;
-      });
-      setMessage("");
-      return;
-    }
-
-    try {
-      await deleteTestEntity(testId);
-      await fetchTests(moduleId);
-      setExpandedTestIds((prev) => {
-        const next = { ...prev };
-        delete next[testId];
-        return next;
-      });
-      setMessage("");
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Unable to delete test.");
-      }
-    }
-  };
-
-  const handleDeleteExercise = async (moduleId: string, exerciseId: string) => {
-    if (!window.confirm("Delete this exercise?")) return;
-
-    if (!currentCourseId) {
-      setExercisesByModule((prev) => ({
-        ...prev,
-        [moduleId]: (prev[moduleId] || []).filter((exercise) => exercise.id !== exerciseId),
-      }));
-      setExpandedExerciseIds((prev) => {
-        const next = { ...prev };
-        delete next[exerciseId];
-        return next;
-      });
-      setMessage("");
-      return;
-    }
-
-    try {
-      await deleteExercise(exerciseId);
-      await fetchExercises(moduleId);
-      setExpandedExerciseIds((prev) => {
-        const next = { ...prev };
-        delete next[exerciseId];
-        return next;
-      });
-
-      if (editingExerciseId === exerciseId) {
-        closeCreateExerciseModal();
-      }
-
-      setMessage("");
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Unable to delete exercise.");
-      }
-    }
-  };
-
-  const toggleTestPreview = (testId: string) => {
-    setExpandedTestIds((prev) => ({ ...prev, [testId]: !prev[testId] }));
-  };
-
-  const toggleExercisePreview = (exerciseId: string) => {
-    setExpandedExerciseIds((prev) => ({ ...prev, [exerciseId]: !prev[exerciseId] }));
-  };
-
+  // View model and final actions.
   const handlePublishCourse = async () => {
     if (publishBlockingIssues.length > 0) {
       setMessage("Resolve the blocking issues before publishing the course.");
@@ -2345,8 +1109,7 @@ export const CourseBuilderPage = forwardRef<
       : activeStep === 2
         ? ""
         : "Run a final pass on the structure and publish when everything is ready.";
-  const canRunHeaderAction =
-    canSaveDraft;
+  const canRunHeaderAction = canSaveDraft;
   const builderContentKey = currentCourseId ?? draftCourseSessionId;
 
   return (
@@ -2411,6 +1174,7 @@ export const CourseBuilderPage = forwardRef<
           <CourseBuilderContentStep
             title={currentStepTitle}
             modules={modules}
+            modulesLoadState={modulesLoadState}
             isCreatingModule={isCreatingModule}
             isNewModuleComposerOpen={isNewModuleComposerOpen}
             newModuleTitle={newModuleTitle}
@@ -2418,10 +1182,12 @@ export const CourseBuilderPage = forwardRef<
             lessonsByModule={lessonsByModule}
             testsByModule={testsByModule}
             exercisesByModule={exercisesByModule}
+            moduleContentLoadStateByModule={moduleContentLoadStateByModule}
             expandedModuleId={expandedModuleId}
             editModuleId={editModuleId}
             editModuleTitle={editModuleTitle}
             currentCourseId={builderContentKey}
+            isPersistedCourse={currentCourseId !== null}
             expandedLessonIds={expandedLessonIds}
             expandedTestIds={expandedTestIds}
             expandedExerciseIds={expandedExerciseIds}
@@ -2432,6 +1198,16 @@ export const CourseBuilderPage = forwardRef<
             }}
             onToggleModule={(moduleId) => {
               void toggleModule(moduleId);
+            }}
+            onRetryModules={() => {
+              if (!currentCourseId) {
+                return;
+              }
+
+              void fetchModules(currentCourseId);
+            }}
+            onRetryModuleContent={(moduleId) => {
+              void fetchModuleContent(moduleId);
             }}
             onStartEditModule={(moduleId, title) => {
               setEditModuleId(moduleId);
