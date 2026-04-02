@@ -94,6 +94,14 @@ export async function uploadCourseMedia(courseId: string, file: File) {
   return data.path;
 }
 
+export async function deleteCourseMedia(path: string) {
+  const { error } = await supabase.storage.from(COURSE_MEDIA_BUCKET).remove([path]);
+
+  if (error) {
+    throw new Error(`Unable to delete course media: ${error.message}`);
+  }
+}
+
 export async function uploadLessonContentImage(courseId: string, file: File) {
   const safeName = normalizeFileName(file.name) || "lesson-image";
   const path = `courses/${courseId}/lesson-content/${Date.now()}-${safeName}`;

@@ -1,4 +1,5 @@
 import { BadgeCheck, BookOpen, TriangleAlert } from "lucide-react";
+import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
 import type { CourseTest } from "./courseBuilderUiTypes";
 import {
@@ -105,9 +106,18 @@ export function CourseBuilderReviewInstructorView({
             </div>
             <div className="rounded-[1.5rem] border border-slate-100 bg-[#f9fbfd] p-5">
               <p className="text-sm font-semibold text-slate-400">Lessons</p>
-              <p className="mt-3 text-3xl font-bold text-[#14213d]">
-                {isReviewContentLoading ? "..." : totalLessons}
-              </p>
+              {isReviewContentLoading ? (
+                <div className="mt-3">
+                  <LoadingState
+                    variant="inline"
+                    size={80}
+                    className="min-h-[7rem] border-0 bg-transparent px-0 py-0"
+                    textClassName="text-[10px] tracking-[0.16em]"
+                  />
+                </div>
+              ) : (
+                <p className="mt-3 text-3xl font-bold text-[#14213d]">{totalLessons}</p>
+              )}
             </div>
             <div className="rounded-[1.5rem] border border-slate-100 bg-[#f9fbfd] p-5">
               <p className="text-sm font-semibold text-slate-400">Tests</p>

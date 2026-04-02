@@ -13,18 +13,20 @@ import {
 } from "../../courses/api/courseMediaStorage";
 import type { TeacherCourseSummary } from "./teacherCourseDashboard.types";
 import {
+  getCourseCardClassName,
   formatCourseRelativeTime,
   getCourseStatusClassName,
-  getCourseStatusLabel,
+  getCourseStatusFilterLabel,
   isPublishedCourse,
 } from "./teacherCourseDashboard.utils";
 
 type TeacherCourseCardProps = {
   course: TeacherCourseSummary;
   actionInFlight?: "delete" | "duplicate" | "publish" | "unpublish" | null;
+  showStatusBadge?: boolean;
   onOpenDetails: (course: TeacherCourseSummary) => void;
-  onOpenPublish: (courseId: string) => void;
-  onContinue: (courseId: string) => void;
+  onOpenPublish: (course: TeacherCourseSummary) => void;
+  onContinue: (course: TeacherCourseSummary) => void;
   onDelete: (course: TeacherCourseSummary) => void;
   onDuplicate: (course: TeacherCourseSummary) => void;
   onTogglePublish: (course: TeacherCourseSummary) => void;
@@ -62,6 +64,7 @@ function CourseThumbnail({
 export function TeacherCourseCard({
   course,
   actionInFlight = null,
+  showStatusBadge = false,
   onOpenDetails,
   onOpenPublish,
   onContinue,
@@ -110,8 +113,18 @@ export function TeacherCourseCard({
       tabIndex={0}
       onClick={() => onOpenDetails(course)}
       onKeyDown={handleKeyboardOpen}
-      className="group relative flex min-h-full cursor-pointer flex-col rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#13daec]/40"
+      className={`group relative flex min-h-full cursor-pointer flex-col rounded-xl border p-3.5 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#13daec]/40 ${getCourseCardClassName(course)}`}
     >
+      {showStatusBadge ? (
+        <div className="mb-3 flex justify-center">
+          <span
+            className={`inline-flex items-center rounded-full px-3.5 py-1 text-xs font-semibold ${getCourseStatusClassName(course)}`}
+          >
+            {getCourseStatusFilterLabel(course)}
+          </span>
+        </div>
+      ) : null}
+
       <div className="relative">
         <CourseThumbnail course={course} />
         <div className="absolute right-2.5 top-2.5" ref={menuRef}>
@@ -189,12 +202,6 @@ export function TeacherCourseCard({
       <div className="flex flex-1 flex-col pt-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${getCourseStatusClassName(course)}`}
-            >
-              {getCourseStatusLabel(course)}
-            </span>
-
             <h3 className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight text-slate-950">
               {course.title}
             </h3>
@@ -217,7 +224,7 @@ export function TeacherCourseCard({
             disabled={isActionBusy}
             onClick={(event) => {
               stopCardEvent(event);
-              onContinue(course.id);
+              onContinue(course);
             }}
             className="w-full"
           >
@@ -243,7 +250,7 @@ export function TeacherCourseCard({
               disabled={isActionBusy}
               onClick={(event) => {
                 stopCardEvent(event);
-                onOpenPublish(course.id);
+                onOpenPublish(course);
               }}
               className="w-full"
             >

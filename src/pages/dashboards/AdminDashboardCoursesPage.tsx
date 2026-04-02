@@ -2,6 +2,7 @@ import { Search } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { loadAdminCoursesData } from "../../features/admin-dashboard/api/adminDashboardApi";
 import { AdminCourseCatalog } from "../../features/admin-dashboard/components/AdminCourseCatalog";
 import { getAdminCourseAuthorName } from "../../features/admin-dashboard/lib/adminCoursePreview";
@@ -141,9 +142,7 @@ export function AdminDashboardCoursesPage() {
       </div>
 
       {isLoading ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          Loading courses...
-        </Card>
+        <LoadingState variant="section" />
       ) : filteredCourses.length === 0 ? (
         <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
           {deferredSearchValue.trim()

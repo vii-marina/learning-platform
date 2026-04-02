@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { loadAdminOverviewData } from "../../features/admin-dashboard/api/adminDashboardApi";
 import { AdminMetricCard } from "../../features/admin-dashboard/components/AdminMetricCard";
 import type { AdminDashboardOverviewData } from "../../features/admin-dashboard/types";
@@ -104,9 +105,7 @@ export function AdminDashboardPage() {
       ) : null}
 
       {isLoading ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          Loading dashboard overview...
-        </Card>
+        <LoadingState variant="section" />
       ) : data ? (
         <div className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAppToast } from "../../components/ui/AppToastProvider";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import {
   getCurrentUser,
   updateCurrentUserProfile,
@@ -198,9 +199,7 @@ export function StudentDashboardPage() {
             onClearSaveMessage={() => setProfileMessage(null)}
           />
         ) : (
-          <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-            Loading profile...
-          </Card>
+          <LoadingState variant="section" />
         );
       case "overview":
         return (
@@ -266,9 +265,7 @@ export function StudentDashboardPage() {
           ) : null}
 
           {isLoading ? (
-            <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-              Loading student dashboard...
-            </Card>
+            <LoadingState variant="page" />
           ) : hasAccess ? (
             renderStudentSection()
           ) : null}

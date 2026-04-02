@@ -2,6 +2,7 @@ import { ArrowLeft, BookOpen, UserRound } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import {
   loadAdminCourseDetailData,
   primeAdminCourseDetailCache,
@@ -178,9 +179,7 @@ export function AdminCoursePreviewPage() {
       ) : null}
 
       {isLoading ? (
-        <Card className="rounded-[1.5rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
-          Loading course preview...
-        </Card>
+        <LoadingState variant="card" className="rounded-[1.5rem] shadow-[0_18px_36px_rgba(15,23,42,0.06)]" />
       ) : !course || !previewData ? (
         <Card className="rounded-[1.5rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
           Course not found.

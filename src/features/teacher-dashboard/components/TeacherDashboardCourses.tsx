@@ -1,7 +1,8 @@
-import { BookOpen, LoaderCircle, Plus, X } from "lucide-react";
+import { BookOpen, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { LoadingState } from "../../../components/ui/LoadingState";
 import {
   duplicateCourse,
   listCourses,
@@ -31,6 +32,11 @@ import { getErrorMessage } from "../../auth/api/backendClient";
 import { TeacherContinueEditing } from "./TeacherContinueEditing";
 import { TeacherCourseCard } from "./TeacherCourseCard";
 import { TeacherCourseTabs } from "./TeacherCourseTabs";
+import {
+  getTeacherDraftCourseHistory,
+  rememberTeacherDraftCourse,
+  removeTeacherDraftCourseFromHistory,
+} from "../lib/draftCourseHistory";
 import type {
   TeacherCourseFilterId,
   TeacherCourseSummary,
@@ -188,8 +194,7 @@ function TeacherCourseDeleteModal({
               disabled={isDeleting}
               className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
             >
-              {isDeleting ? <LoaderCircle className="h-4 w-4 animate-spin" /> : null}
-              <span>{isDeleting ? "Deleting..." : "Delete"}</span>
+              Delete
             </Button>
           </div>
         </div>
@@ -211,7 +216,7 @@ function TeacherCourseDetailsModal({
   isLoading: boolean;
   message: string;
   onClose: () => void;
-  onContinue: (courseId: string) => void;
+  onContinue: (course: TeacherCourseSummary) => void;
 }) {
   const courseThumbnailUrl = getCourseMediaPublicUrl(course?.thumbnail_path ?? null);
   const courseThumbnailKind = getCourseMediaKind(course?.thumbnail_path ?? null);
@@ -279,7 +284,7 @@ function TeacherCourseDetailsModal({
           </div>
 
           <div className="flex items-center gap-3">
-            <Button type="button" size="lg" onClick={() => onContinue(course.id)}>
+            <Button type="button" size="lg" onClick={() => onContinue(course)}>
               Continue Editing
             </Button>
             <Button
@@ -301,12 +306,7 @@ function TeacherCourseDetailsModal({
               <p className="text-sm font-medium">{message}</p>
             </Card>
           ) : isLoading ? (
-            <Card className="p-10 text-sm text-slate-500">
-              <div className="flex items-center gap-3">
-                <LoaderCircle className="h-4 w-4 animate-spin" />
-                <span>Loading preview...</span>
-              </div>
-            </Card>
+            <LoadingState variant="modal" />
           ) : previewData ? (
             <StudentCoursePreview
               currentCourseName={course.title}
@@ -361,6 +361,7 @@ export function TeacherDashboardCourses({
   const [pendingCourseAction, setPendingCourseAction] =
     useState<PendingCourseAction>(null);
   const [isDeletingCourse, setIsDeletingCourse] = useState(false);
+  const [draftCourseHistory, setDraftCourseHistory] = useState<string[]>([]);
   const previewRequestIdRef = useRef(0);
 
   useEffect(() => {
@@ -411,7 +412,15 @@ export function TeacherDashboardCourses({
     };
   }, [teacherId]);
 
+  useEffect(() => {
+    setDraftCourseHistory(getTeacherDraftCourseHistory(teacherId));
+  }, [teacherId]);
+
   const sortedCourses = useMemo(() => [...courses].sort(sortCoursesByRecent), [courses]);
+  const draftCourses = useMemo(
+    () => sortedCourses.filter((course) => matchesCourseFilter(course, "drafts")),
+    [sortedCourses]
+  );
   const filteredCourses = useMemo(
     () => sortedCourses.filter((course) => matchesCourseFilter(course, activeTab)),
     [activeTab, sortedCourses]
@@ -421,19 +430,15 @@ export function TeacherDashboardCourses({
     [openCourseId, sortedCourses]
   );
   const continueEditingCourse = useMemo(
-    () => sortedCourses.find((course) => !isArchivedCourse(course)) ?? sortedCourses[0] ?? null,
-    [sortedCourses]
-  );
-  const draftCount = useMemo(
     () =>
-      sortedCourses.filter((course) => !isPublishedCourse(course) && !isArchivedCourse(course))
-        .length,
-    [sortedCourses]
+      draftCourseHistory
+        .map((courseId) => draftCourses.find((course) => course.id === courseId) ?? null)
+        .find((course) => course !== null) ??
+      draftCourses[0] ??
+      null,
+    [draftCourseHistory, draftCourses]
   );
-  const publishedCount = useMemo(
-    () => sortedCourses.filter((course) => isPublishedCourse(course) && !isArchivedCourse(course)).length,
-    [sortedCourses]
-  );
+
   const tabCounts = useMemo(
     () => ({
       all: sortedCourses.length,
@@ -515,6 +520,32 @@ export function TeacherDashboardCourses({
     }
   }
 
+  function rememberDraftCourseSelection(course: TeacherCourseSummary) {
+    if (!teacherId || isArchivedCourse(course) || isPublishedCourse(course)) {
+      return;
+    }
+
+    setDraftCourseHistory(rememberTeacherDraftCourse(teacherId, course.id));
+  }
+
+  function removeDraftCourseSelection(courseId: string) {
+    if (!teacherId) {
+      return;
+    }
+
+    setDraftCourseHistory(removeTeacherDraftCourseFromHistory(teacherId, courseId));
+  }
+
+  function handleContinueCourse(course: TeacherCourseSummary) {
+    rememberDraftCourseSelection(course);
+    onContinueCourse(course.id);
+  }
+
+  function handleOpenPublishCourse(course: TeacherCourseSummary) {
+    rememberDraftCourseSelection(course);
+    onOpenPublishCourse(course.id);
+  }
+
   async function handleTogglePublish(course: TeacherCourseSummary) {
     const nextAction = isPublishedCourse(course) ? "unpublish" : "publish";
 
@@ -540,6 +571,9 @@ export function TeacherDashboardCourses({
           )
           .sort(sortCoursesByRecent)
       );
+      if (nextAction === "publish") {
+        removeDraftCourseSelection(course.id);
+      }
       setMessage({
         type: "success",
         text: isPublishedCourse(course) ? "Course unpublished." : "Course published.",
@@ -572,6 +606,7 @@ export function TeacherDashboardCourses({
       setCourses((currentCourses) =>
         currentCourses.filter((course) => course.id !== courseId)
       );
+      removeDraftCourseSelection(courseId);
 
       if (openCourseId === courseId) {
         handleCloseCourseDetails();
@@ -604,14 +639,7 @@ export function TeacherDashboardCourses({
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="flex flex-wrap items-center gap-2">
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-                <p className="text-sm font-medium text-slate-950">Drafts {draftCount}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-2.5">
-                <p className="text-sm font-medium text-slate-950">Published {publishedCount}</p>
-              </div>
-            </div>
+
 
             <Button type="button" size="lg" onClick={onCreateCourse}>
               <Plus className="h-4 w-4" />
@@ -626,7 +654,7 @@ export function TeacherDashboardCourses({
             isPreviewLoading && continueEditingCourse?.id === selectedCourse?.id
           }
           onCreateCourse={onCreateCourse}
-          onContinue={onContinueCourse}
+          onContinue={handleContinueCourse}
           onPreview={(course) => {
             void handleOpenCourseDetails(course);
           }}
@@ -645,12 +673,7 @@ export function TeacherDashboardCourses({
         ) : null}
 
         {isLoading ? (
-          <Card className="p-8 text-sm text-slate-500">
-            <div className="flex items-center gap-3">
-              <LoaderCircle className="h-4 w-4 animate-spin" />
-              <span>Loading courses...</span>
-            </div>
-          </Card>
+          <LoadingState variant="section" />
         ) : filteredCourses.length === 0 ? (
           <section className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm">
             <div className="space-y-3">
@@ -681,11 +704,12 @@ export function TeacherDashboardCourses({
                     ? pendingCourseAction.action
                     : null
                 }
+                showStatusBadge={activeTab === "all"}
                 onOpenDetails={(nextCourse) => {
                   void handleOpenCourseDetails(nextCourse);
                 }}
-                onOpenPublish={onOpenPublishCourse}
-                onContinue={onContinueCourse}
+                onOpenPublish={handleOpenPublishCourse}
+                onContinue={handleContinueCourse}
                 onDelete={setPendingDeleteCourse}
                 onDuplicate={(nextCourse) => {
                   void handleDuplicateCourse(nextCourse);
@@ -705,7 +729,7 @@ export function TeacherDashboardCourses({
         isLoading={isPreviewLoading}
         message={previewMessage}
         onClose={handleCloseCourseDetails}
-        onContinue={onContinueCourse}
+        onContinue={handleContinueCourse}
       />
 
       <TeacherCourseDeleteModal

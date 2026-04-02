@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { useAppToast } from "../../components/ui/AppToastProvider";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import {
   loadAdminStudentDetailData,
   primeAdminStudentDetailCache,
@@ -137,9 +138,7 @@ export function AdminStudentDetailsPage() {
       ) : null}
 
       {isLoading ? (
-        <Card className="rounded-[1.5rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
-          Loading student details...
-        </Card>
+        <LoadingState variant="card" className="rounded-[1.5rem] shadow-[0_18px_36px_rgba(15,23,42,0.06)]" />
       ) : !student ? (
         <Card className="rounded-[1.5rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
           Student not found.

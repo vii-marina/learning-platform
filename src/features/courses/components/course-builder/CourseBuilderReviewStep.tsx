@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import { BadgeCheck, TriangleAlert } from "lucide-react";
+import { Button } from "../../../../components/ui/Button";
 import type { Lesson, Module } from "../../api";
 import type { CourseTest } from "./courseBuilderUiTypes";
 import type { ReviewPreviewData, ReviewPreviewSelection } from "./courseBuilderPageUtils";
@@ -83,7 +84,7 @@ export function CourseBuilderReviewStep({
           onItemSelect={onItemSelect}
         />
 
-        <div className="mt-8 flex flex-col gap-5 rounded-[1.75rem] border border-slate-200 bg-white px-6 py-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] lg:flex-row lg:items-center lg:justify-between">
+        <div className="mt-8 flex flex-col gap-5 rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">
           <div className="flex flex-wrap gap-2.5">
             {publishBlockingIssues.length === 0 ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-[#13daec]/10 px-4 py-2 text-sm font-semibold text-[#0f8ea0]">
@@ -104,21 +105,23 @@ export function CourseBuilderReviewStep({
           </div>
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row">
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="lg"
               onClick={onSaveDraft}
-              className="inline-flex min-h-[3.5rem] items-center justify-center rounded-[1.1rem] border border-slate-200 bg-white px-6 text-base font-semibold text-[#14213d] transition hover:border-slate-300 hover:bg-slate-50"
             >
               Save as Draft
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="accent"
+              size="lg"
               onClick={onPublish}
               disabled={!canPublish}
-              className="inline-flex min-h-[3.5rem] items-center justify-center rounded-[1.1rem] bg-[#13daec] px-6 text-base font-bold text-[#0f172a] shadow-[0_0_0_1px_rgba(19,218,236,0.28),0_18px_38px_rgba(19,218,236,0.34),0_0_28px_rgba(19,218,236,0.2)] transition hover:bg-[#22def0] hover:shadow-[0_0_0_1px_rgba(34,222,240,0.34),0_22px_46px_rgba(19,218,236,0.4),0_0_34px_rgba(34,222,240,0.28)] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-white disabled:shadow-none"
             >
               Publish Now
-            </button>
+            </Button>
           </div>
         </div>
       </div>

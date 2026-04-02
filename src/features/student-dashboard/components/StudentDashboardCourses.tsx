@@ -1,5 +1,6 @@
-import { BookOpen, GraduationCap, Layers3, LoaderCircle, Sparkles } from "lucide-react";
+import { BookOpen, GraduationCap, Layers3, Sparkles } from "lucide-react";
 import { Card } from "../../../components/ui/Card";
+import { LoadingState } from "../../../components/ui/LoadingState";
 import { getCourseMediaPublicUrl } from "../../courses/api/courseMediaStorage";
 import type { StudentDashboardCourseCatalogItem } from "../api/studentDashboardApi";
 
@@ -109,12 +110,7 @@ export function StudentDashboardCourses({
       ) : null}
 
       {isLoadingCourses ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center gap-3">
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-            <span>Loading published courses...</span>
-          </div>
-        </Card>
+        <LoadingState variant="section" />
       ) : courses.length === 0 ? (
         <Card className="rounded-[1.75rem] border-cyan-100 p-8 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
           <div className="space-y-3">

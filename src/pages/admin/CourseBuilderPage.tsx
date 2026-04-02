@@ -6,8 +6,9 @@ import {
   useRef,
   useState,
 } from "react";
-import { Card } from "../../components/ui/Card";
+import { useNavigate } from "react-router-dom";
 import { useAppToast } from "../../components/ui/AppToastProvider";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { supabase } from "../../lib/supabase";
 import {
   createCourse,
@@ -29,6 +30,7 @@ import {
   updateCourse,
 } from "../../features/courses/api";
 import {
+  deleteCourseMedia,
   getCourseMediaKind,
   getCourseMediaPublicUrl,
   uploadCourseMedia,
@@ -90,19 +92,23 @@ export const CourseBuilderPage = forwardRef<
     embedded?: boolean;
     initialCourseId?: string | null;
     initialStep?: BuilderStep;
+    onBackToCourses?: () => void;
   }
 >(function CourseBuilderPage(
   {
     embedded = false,
     initialCourseId = null,
     initialStep = 1,
+    onBackToCourses,
   }: {
     embedded?: boolean;
     initialCourseId?: string | null;
     initialStep?: BuilderStep;
+    onBackToCourses?: () => void;
   },
   ref
 ) {
+  const navigate = useNavigate();
   // Course shell state.
   const [message, setMessage] = useState("");
   const { showSuccessToast } = useAppToast();
@@ -992,6 +998,61 @@ export const CourseBuilderPage = forwardRef<
     }
   };
 
+  const handleCourseMediaRemove = async () => {
+    if (!courseThumbnailPath || isUploadingCourseMedia) {
+      return;
+    }
+
+    const mediaPathToRemove = courseThumbnailPath;
+
+    try {
+      setIsUploadingCourseMedia(true);
+
+      if (currentCourseId) {
+        await updateCourse(currentCourseId, {
+          thumbnail_path: null,
+        });
+      }
+
+      let storageCleanupMessage = "";
+
+      try {
+        await deleteCourseMedia(mediaPathToRemove);
+      } catch (error) {
+        storageCleanupMessage =
+          error instanceof Error && error.message.trim()
+            ? `${error.message} Course thumbnail reference was still removed.`
+            : "Course thumbnail reference was removed, but the old file could not be deleted.";
+      }
+
+      setCourseThumbnailPath(null);
+
+      if (currentCourseId) {
+        setSavedCourseSnapshot((previousSnapshot) =>
+          previousSnapshot
+            ? {
+                ...previousSnapshot,
+                thumbnailPath: null,
+              }
+            : {
+                ...currentCourseSnapshot,
+                thumbnailPath: null,
+              }
+        );
+      }
+
+      setMessage(storageCleanupMessage);
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to remove course media.");
+      }
+    } finally {
+      setIsUploadingCourseMedia(false);
+    }
+  };
+
   // Shared persisted-target resolution for AI and exercise flows.
   async function resolveAiGenerationTarget({
     moduleId,
@@ -1111,10 +1172,18 @@ export const CourseBuilderPage = forwardRef<
         : "Run a final pass on the structure and publish when everything is ready.";
   const canRunHeaderAction = canSaveDraft;
   const builderContentKey = currentCourseId ?? draftCourseSessionId;
+  const handleBackToCourses = () => {
+    if (onBackToCourses) {
+      onBackToCourses();
+      return;
+    }
+
+    navigate("/teacher/dashboard");
+  };
 
   return (
     <div
-      className={`${embedded ? "min-h-0 bg-transparent" : "min-h-screen bg-[#f6f8f8]"} text-[#0f172a]`}
+      className={`${embedded ? "min-h-0 bg-transparent" : "min-h-screen bg-[#f6f7fb]"} text-[#0f172a]`}
       style={{ fontFamily: '"Lexend", sans-serif' }}
     >
       <CourseBuilderHeader
@@ -1124,6 +1193,7 @@ export const CourseBuilderPage = forwardRef<
         canRunPrimaryAction={canRunHeaderAction}
         primaryActionLabel={isPersistingCourse ? "Saving..." : "Save Draft"}
         canNavigateToStep={(step) => step === 1 || isBasicsComplete}
+        onBackToCourses={handleBackToCourses}
         onStepChange={setActiveStep}
         onPrimaryAction={() => {
           void handleSaveDraft();
@@ -1135,7 +1205,7 @@ export const CourseBuilderPage = forwardRef<
         className={`flex w-full flex-col gap-8 ${
           embedded
             ? "px-4 py-6 md:px-6 md:py-8 xl:px-8"
-            : "mx-auto max-w-[92rem] px-6 py-8 lg:px-10"
+            : "mx-auto max-w-[92rem] px-4 py-6 md:px-6 md:py-8 lg:px-10"
         }`}
       >
         {message ? (
@@ -1145,9 +1215,7 @@ export const CourseBuilderPage = forwardRef<
         ) : null}
 
         {isHydratingCourse ? (
-          <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-            Loading course...
-          </Card>
+          <LoadingState variant="section" />
         ) : activeStep === 1 ? (
           <CourseBuilderCourseInfoStep
             title={currentStepTitle}
@@ -1163,6 +1231,9 @@ export const CourseBuilderPage = forwardRef<
             onCourseDescriptionChange={setCourseDescription}
             onCourseMediaSelect={(file) => {
               void handleCourseMediaUpload(file);
+            }}
+            onCourseMediaRemove={() => {
+              void handleCourseMediaRemove();
             }}
             onNext={() => {
               setActiveStep(2);

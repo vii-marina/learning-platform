@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, Outlet, useNavigate } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { AdminDashboardSidebar } from "../../features/admin-dashboard/components/AdminDashboardSidebar";
 import { getCurrentUser } from "../../features/auth/api/authApi";
 import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
@@ -83,9 +84,7 @@ export function AdminDashboardLayout() {
           ) : null}
 
           {isLoading ? (
-            <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-              Loading admin dashboard...
-            </Card>
+            <LoadingState variant="page" />
           ) : currentUser ? (
             <Outlet context={{ currentUser }} />
           ) : null}

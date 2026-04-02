@@ -7,14 +7,12 @@ import {
 import type { TeacherCourseSummary } from "./teacherCourseDashboard.types";
 import {
   formatCourseRelativeTime,
-  getCourseStatusClassName,
-  getCourseStatusLabel,
 } from "./teacherCourseDashboard.utils";
 
 type TeacherContinueEditingProps = {
   course: TeacherCourseSummary | null;
   isPreviewBusy?: boolean;
-  onContinue: (courseId: string) => void;
+  onContinue: (course: TeacherCourseSummary) => void;
   onPreview: (course: TeacherCourseSummary) => void;
   onCreateCourse: () => void;
 };
@@ -59,7 +57,7 @@ export function TeacherContinueEditing({
       <section className="rounded-xl border border-dashed border-slate-300 bg-[#13daec]/10p-6 md:p-8">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
-            <p className="text-s font-semibold  text-slate-500">
+            <p className="text-s font-semibold  text-slate-100">
               Continue Editing
             </p>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
@@ -80,16 +78,7 @@ export function TeacherContinueEditing({
     <section className="overflow-hidden rounded-xl border border-[#13daec] bg-[#13daec]/10 shadow-sm">
       <div className="grid gap-6 p-6 md:p-7 xl:grid-cols-[minmax(0,1.15fr)_18rem] xl:items-center">
         <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-s font-semibold  text-slate-500">
-              Continue editing
-            </span>
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${getCourseStatusClassName(course)}`}
-            >
-              {getCourseStatusLabel(course)}
-            </span>
-          </div>
+
 
           <div className="space-y-2">
             <h2 className="max-w-3xl text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
@@ -112,7 +101,7 @@ export function TeacherContinueEditing({
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <Button type="button" size="lg" onClick={() => onContinue(course.id)}>
+            <Button type="button" size="lg" onClick={() => onContinue(course)}>
               <Play className="h-4 w-4" />
               <span>Continue Editing</span>
             </Button>

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { LogoutButton } from "../../features/auth/components/LogoutButton";
 import { getCurrentUser } from "../../features/auth/api/authApi";
 import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
@@ -64,10 +65,9 @@ export function RoleDashboardPage({ role, greeting }: RoleDashboardPageProps) {
 
   if (isLoading) {
     return (
-      <DashboardShell
-        title="Loading dashboard"
-        description="Checking your account access."
-      />
+      <div className="flex min-h-screen items-center justify-center bg-slate-100 px-4 py-10">
+        <LoadingState variant="page" className="max-w-xl" />
+      </div>
     );
   }
 

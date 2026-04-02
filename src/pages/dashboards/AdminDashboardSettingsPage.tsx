@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useOutletContext } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { loadAdminSettingsData } from "../../features/admin-dashboard/api/adminDashboardApi";
 import type { AdminDashboardSettingsData } from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
@@ -60,9 +61,7 @@ export function AdminDashboardSettingsPage() {
       ) : null}
 
       {isLoading ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          Loading platform settings...
-        </Card>
+        <LoadingState variant="section" />
       ) : data ? (
         <Card className="rounded-[1.75rem] border-cyan-100 p-6 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

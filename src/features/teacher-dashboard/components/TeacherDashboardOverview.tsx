@@ -13,10 +13,7 @@ export function TeacherDashboardOverview({
           <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
             Build and maintain your courses
           </h1>
-          <p className="max-w-2xl text-sm leading-6 text-slate-500">
-            The course dashboard is designed around drafting, publishing, and jumping back into
-            your latest edits quickly.
-          </p>
+        
         </div>
 
         <div className="flex flex-wrap gap-3">

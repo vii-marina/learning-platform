@@ -501,9 +501,6 @@ export function StudentDashboardProfile({
                 <h2 className="text-lg font-semibold tracking-tight text-slate-950">
                   Personal Information
                 </h2>
-                <p className="text-sm text-slate-500">
-                  Core details associated with your learning profile.
-                </p>
               </div>
             </div>
 

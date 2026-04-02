@@ -115,12 +115,30 @@ export function getCourseStatusLabel(course: TeacherCourseSummary) {
   return isPublishedCourse(course) ? "Published" : "Draft";
 }
 
+export function getCourseStatusFilterLabel(course: TeacherCourseSummary) {
+  if (isArchivedCourse(course)) {
+    return "Archived";
+  }
+
+  return isPublishedCourse(course) ? "Published" : "Drafts";
+}
+
 export function getCourseStatusClassName(course: TeacherCourseSummary) {
   if (isArchivedCourse(course)) {
-    return "border border-slate-200 bg-slate-100 text-slate-600";
+    return "border border-slate-300 bg-slate-200 text-slate-700";
   }
 
   return isPublishedCourse(course)
-    ? "border border-slate-900 bg-slate-900 text-white"
-    : "border border-slate-200 bg-slate-50 text-slate-600";
+    ? "border border-violet-200 bg-violet-200 text-violet-800"
+    : "border border-amber-200 bg-amber-100 text-amber-800";
+}
+
+export function getCourseCardClassName(course: TeacherCourseSummary) {
+  if (isArchivedCourse(course)) {
+    return "border-slate-300 bg-[linear-gradient(180deg,#f1f5f9_0%,#ffffff_72%)] hover:border-slate-400";
+  }
+
+  return isPublishedCourse(course)
+    ? "border-violet-200 bg-[linear-gradient(180deg,#f7f3ff_0%,#ffffff_72%)] hover:border-violet-400"
+    : "border-amber-200 bg-[linear-gradient(180deg,#fff6e8_0%,#ffffff_72%)] hover:border-amber-400";
 }

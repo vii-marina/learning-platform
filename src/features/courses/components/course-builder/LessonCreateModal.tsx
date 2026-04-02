@@ -1,6 +1,7 @@
 import { Play, X } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
 import { Input } from "../../../../components/ui/Input";
+import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
 import type { CourseTest } from "./courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
@@ -120,55 +121,55 @@ export function LessonCreateModal({
               ) : null}
 
               {isLoadingLesson ? (
-                <div className="rounded-[1rem] border border-slate-200 bg-[#f9fbfd] px-4 py-3 text-sm text-slate-500">
-                  Loading lesson content...
-                </div>
-              ) : null}
+                <LoadingState variant="modal" />
+              ) : (
+                <>
+                  <div>
+                    <label className="text-sm font-semibold text-[#14213d]">
+                      Lesson Title
+                    </label>
+                    <Input
+                      value={title}
+                      onChange={(event) => onTitleChange(event.target.value)}
+                      placeholder="New Lesson"
+                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-2xl font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                      disabled={isLoadingLesson || isSaving}
+                      autoFocus
+                    />
+                  </div>
 
-              <div>
-                <label className="text-sm font-semibold text-[#14213d]">
-                  Lesson Title
-                </label>
-                <Input
-                  value={title}
-                  onChange={(event) => onTitleChange(event.target.value)}
-                  placeholder="New Lesson"
-                  className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-2xl font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
-                  disabled={isLoadingLesson || isSaving}
-                  autoFocus
-                />
-              </div>
+                  <div>
+                    <label className="text-sm font-semibold text-[#14213d]">
+                      Video Lesson Link (Optional)
+                    </label>
+                    <Input
+                      value={videoUrl}
+                      onChange={(event) => onVideoUrlChange(event.target.value)}
+                      placeholder="https://www.youtube.com/watch?v=..."
+                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-lg text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                      disabled={isLoadingLesson || isSaving}
+                    />
+                    <p className="mt-2 text-sm text-slate-500">
+                      Supported: YouTube, Vimeo, Loom, or MP4 direct link.
+                    </p>
+                  </div>
 
-              <div>
-                <label className="text-sm font-semibold text-[#14213d]">
-                  Video Lesson Link (Optional)
-                </label>
-                <Input
-                  value={videoUrl}
-                  onChange={(event) => onVideoUrlChange(event.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-lg text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
-                  disabled={isLoadingLesson || isSaving}
-                />
-                <p className="mt-2 text-sm text-slate-500">
-                  Supported: YouTube, Vimeo, Loom, or MP4 direct link.
-                </p>
-              </div>
-
-              <div>
-                <label className="text-sm font-semibold text-[#14213d]">
-                  Lesson Content
-                </label>
-                <div className="mt-3">
-                  <RichTextEditor
-                    value={content}
-                    onChange={onContentChange}
-                    placeholder="Start typing your lesson content here..."
-                    disabled={isLoadingLesson || isSaving}
-                    onImageUpload={onImageUpload}
-                  />
-                </div>
-              </div>
+                  <div>
+                    <label className="text-sm font-semibold text-[#14213d]">
+                      Lesson Content
+                    </label>
+                    <div className="mt-3">
+                      <RichTextEditor
+                        value={content}
+                        onChange={onContentChange}
+                        placeholder="Start typing your lesson content here..."
+                        disabled={isLoadingLesson || isSaving}
+                        onImageUpload={onImageUpload}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 

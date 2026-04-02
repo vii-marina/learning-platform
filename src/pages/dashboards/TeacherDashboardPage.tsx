@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { useAppToast } from "../../components/ui/AppToastProvider";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { supabase } from "../../lib/supabase";
 import {
   CourseBuilderPage,
@@ -297,9 +298,7 @@ export function TeacherDashboardPage() {
             onClearSaveMessage={() => setProfileMessage(null)}
           />
         ) : (
-          <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-            Loading profile...
-          </Card>
+          <LoadingState variant="section" />
         );
       case "overview":
         return (
@@ -324,6 +323,12 @@ export function TeacherDashboardPage() {
             embedded
             initialCourseId={builderCourseId}
             initialStep={builderInitialStep}
+            onBackToCourses={() =>
+              requestBuilderExit({
+                type: "section",
+                section: "courses",
+              })
+            }
           />
         );
       case "students":
@@ -379,9 +384,7 @@ export function TeacherDashboardPage() {
           ) : null}
 
           {isLoading ? (
-            <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-              Loading teacher dashboard...
-            </Card>
+            <LoadingState variant="page" />
           ) : hasAccess ? (
             renderTeacherSection()
           ) : null}

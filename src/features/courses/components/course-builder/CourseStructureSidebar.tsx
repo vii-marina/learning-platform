@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   BookOpen,
   ChevronDown,
@@ -8,6 +8,7 @@ import {
   PlayCircle,
 } from "lucide-react";
 import type { Lesson, Module } from "../../api";
+import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { CourseTest } from "./courseBuilderUiTypes";
 import {
   getGeneratedCourseTestTitle,
@@ -87,35 +88,16 @@ export function CourseStructureSidebar({
   onSelectDraftLesson,
   onSelectPreviewLesson,
 }: CourseStructureSidebarProps) {
-  const [collapsedModuleIds, setCollapsedModuleIds] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    if (!showTestSourcePreview || !activeModuleId) {
-      return;
-    }
-
-    setCollapsedModuleIds((prev) => {
-      if (Object.prototype.hasOwnProperty.call(prev, activeModuleId)) {
-        return prev;
-      }
-
-      return {
-        ...prev,
-        [activeModuleId]: false,
-      };
-    });
-  }, [activeModuleId, showTestSourcePreview]);
-
-  useEffect(() => {
-    if (!showTestSourcePreview || !activeModuleId || !selectedAfterLessonId) {
-      return;
-    }
-
-    setCollapsedModuleIds((prev) => ({
-      ...prev,
-      [activeModuleId]: true,
-    }));
-  }, [activeModuleId, selectedAfterLessonId, showTestSourcePreview]);
+  const [collapsedModuleIdsState, setCollapsedModuleIds] = useState<Record<string, boolean>>({});
+  const collapsedModuleIds =
+    showTestSourcePreview && activeModuleId
+      ? {
+          ...collapsedModuleIdsState,
+          [activeModuleId]: selectedAfterLessonId
+            ? true
+            : collapsedModuleIdsState[activeModuleId] ?? false,
+        }
+      : collapsedModuleIdsState;
 
   const totalLessons = modules.reduce(
     (sum, module) => sum + (lessonsByModule[module.id]?.length || 0),
@@ -190,7 +172,7 @@ export function CourseStructureSidebar({
                     <p className="text-xs text-slate-400">
                       {lessons && tests
                         ? `${lessons.length} lessons • ${tests.length} tests`
-                        : "Loading content..."}
+                        : "Loading . . ."}
                     </p>
                   </div>
                   {showTestSourcePreview ? (
@@ -216,7 +198,11 @@ export function CourseStructureSidebar({
 
                 {!isCollapsed ? (
                   <div className="mt-4 space-y-1.5">
-                    {items?.map((item) => {
+                    {!items ? (
+                      <LoadingState variant="inline" className="min-h-[8.5rem]" />
+                    ) : (
+                      <>
+                        {items.map((item) => {
                       if (item.type === "lesson") {
                         const isPlacementLesson = item.lesson.id === selectedAfterLessonId;
                         const isPreviewLesson =
@@ -370,58 +356,60 @@ export function CourseStructureSidebar({
                             {displayTitle}
                           </span>
                         </div>
-                      );
-                    })}
+                          );
+                        })}
 
-                    {showDraftRow
-                      ? onSelectDraftLesson
-                        ? (
-                          <button
-                            type="button"
-                            onClick={() => onSelectDraftLesson(module.id)}
-                            className={`flex w-full items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-left transition ${
-                              isDraftActive
-                                ? "border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
-                                : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-[#14213d]"
-                            }`}
-                          >
-                            <span
-                              className={`h-2.5 w-2.5 rounded-full ${
-                                isDraftActive ? "bg-[#13daec]" : "bg-slate-300"
-                              }`}
-                            />
-                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
-                              {draftLessonTitle.trim() || "New lesson"}
-                            </span>
-                            {isDirty ? (
-                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                                Unsaved
-                              </span>
-                            ) : null}
-                          </button>
-                        )
-                        : (
-                          <div className="rounded-xl border-l-4 border-[#13daec] bg-[#13daec]/12 px-3 py-2.5">
-                            <div className="flex items-center gap-3">
-                              <span className="h-2.5 w-2.5 rounded-full bg-[#13daec]" />
-                              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#14213d]">
-                                {draftLessonTitle.trim() || "New lesson"}
-                              </span>
-                              {isDirty ? (
-                                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
-                                  Unsaved
+                        {showDraftRow
+                          ? onSelectDraftLesson
+                            ? (
+                              <button
+                                type="button"
+                                onClick={() => onSelectDraftLesson(module.id)}
+                                className={`flex w-full items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-left transition ${
+                                  isDraftActive
+                                    ? "border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
+                                    : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-[#14213d]"
+                                }`}
+                              >
+                                <span
+                                  className={`h-2.5 w-2.5 rounded-full ${
+                                    isDraftActive ? "bg-[#13daec]" : "bg-slate-300"
+                                  }`}
+                                />
+                                <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                                  {draftLessonTitle.trim() || "New lesson"}
                                 </span>
-                              ) : null}
-                            </div>
-                          </div>
-                        )
-                      : null}
+                                {isDirty ? (
+                                  <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                    Unsaved
+                                  </span>
+                                ) : null}
+                              </button>
+                            )
+                            : (
+                              <div className="rounded-xl border-l-4 border-[#13daec] bg-[#13daec]/12 px-3 py-2.5">
+                                <div className="flex items-center gap-3">
+                                  <span className="h-2.5 w-2.5 rounded-full bg-[#13daec]" />
+                                  <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#14213d]">
+                                    {draftLessonTitle.trim() || "New lesson"}
+                                  </span>
+                                  {isDirty ? (
+                                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                                      Unsaved
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            )
+                          : null}
 
-                    {items && items.length === 0 && !showDraftRow ? (
-                      <div className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
-                        You can always add lessons or tests to this module later.
-                      </div>
-                    ) : null}
+                        {items.length === 0 && !showDraftRow ? (
+                          <div className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
+                            You can always add lessons or tests to this module later.
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </div>
                 ) : null}
               </section>

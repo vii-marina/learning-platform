@@ -30,7 +30,7 @@ export type CreateContentMode = "manual" | "ai";
 export const courseBuilderSteps = [
   { id: 1 as const, label: "Course Info", helper: "Title, description & media" },
   { id: 2 as const, label: "Course content", helper: "Modules, lessons & tests" },
-  { id: 3 as const, label: "Publish", helper: "Review & launch" },
+  { id: 3 as const, label: "Final Preview", helper: "Review & launch" },
 ];
 
 export type LessonEditorDraft = {

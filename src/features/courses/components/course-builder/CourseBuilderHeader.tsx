@@ -1,3 +1,5 @@
+import { ArrowLeft } from "lucide-react";
+import { Button } from "../../../../components/ui/Button";
 import type { BuilderStep } from "./courseBuilderPageUtils";
 
 type CourseBuilderHeaderProps = {
@@ -7,6 +9,7 @@ type CourseBuilderHeaderProps = {
   canRunPrimaryAction: boolean;
   primaryActionLabel: string;
   canNavigateToStep: (step: BuilderStep) => boolean;
+  onBackToCourses: () => void;
   onStepChange: (step: BuilderStep) => void;
   onPrimaryAction: () => void;
   embedded?: boolean;
@@ -18,18 +21,33 @@ export function CourseBuilderHeader({
   canRunPrimaryAction,
   primaryActionLabel,
   canNavigateToStep,
+  onBackToCourses,
   onStepChange,
   onPrimaryAction,
   embedded = false,
 }: CourseBuilderHeaderProps) {
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div
         className={`flex w-full items-center justify-between gap-4 px-6 py-4 ${
           embedded ? "xl:px-8" : "mx-auto max-w-[92rem] lg:px-10"
         }`}
       >
-        
+        <div className="flex min-w-0 items-center gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            size="lg"
+            onClick={onBackToCourses}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span className="hidden sm:inline">My Courses</span>
+            <span className="sm:hidden">Courses</span>
+          </Button>
+
+          
+        </div>
 
         <nav className="hidden flex-1 items-center justify-center xl:flex">
           <ol className="flex items-center gap-3">
@@ -38,23 +56,23 @@ export function CourseBuilderHeader({
               const isEnabled = canNavigateToStep(step.id);
               const isComplete = step.id < activeStep && isEnabled;
               const stepStateClass = isActive
-                ? "border-[#13daec]/70 bg-[#edfafd] shadow-[0_14px_28px_rgba(19,218,236,0.14)]"
+                ? "border-[#13daec]/45 bg-[#13daec]/10 shadow-sm"
                 : isComplete
-                  ? "border-slate-200 bg-white hover:border-slate-300"
+                  ? "border-slate-200 bg-white shadow-sm hover:border-slate-300"
                   : isEnabled
                     ? "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                    : "border-slate-200/70 bg-slate-50/90";
+                    : "border-slate-200 bg-slate-50";
               const badgeClass = isActive
-                ? "bg-[#13daec] text-[#0f172a] shadow-[0_8px_18px_rgba(19,218,236,0.2)]"
+                ? "bg-[#13daec] text-[#0f172a]"
                 : isComplete
-                  ? "bg-[#14213d] text-white"
+                  ? "bg-[#0f172a] text-white"
                   : isEnabled
                     ? "bg-slate-100 text-slate-500"
                     : "bg-slate-100 text-slate-300";
-              const labelClass = isActive || isComplete ? "text-[#14213d]" : "text-slate-500";
+              const labelClass = isActive || isComplete ? "text-slate-950" : "text-slate-500";
               const connectorClass =
                 step.id < activeStep
-                  ? "bg-[#13daec]/65"
+                  ? "bg-[#13daec]/55"
                   : "bg-slate-200";
 
               return (
@@ -64,7 +82,7 @@ export function CourseBuilderHeader({
                     disabled={!isEnabled}
                     aria-current={isActive ? "step" : undefined}
                     onClick={() => onStepChange(step.id)}
-                    className={`flex items-center gap-3 rounded-[1.35rem] border px-4 py-3 text-left transition ${
+                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
                       isEnabled ? stepStateClass : `${stepStateClass} cursor-not-allowed`
                     }`}
                   >
@@ -96,14 +114,14 @@ export function CourseBuilderHeader({
           <div className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 lg:block xl:hidden">
             {steps.find((step) => step.id === activeStep)?.label}
           </div>
-          <button
+          <Button
             type="button"
+            size="lg"
             disabled={!canRunPrimaryAction}
             onClick={onPrimaryAction}
-            className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#13daec] px-5 text-sm font-bold text-[#0f172a] shadow-[0_14px_28px_rgba(19,218,236,0.22)] transition hover:bg-[#10c6d7] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {primaryActionLabel}
-          </button>
+          </Button>
         </div>
       </div>
     </header>

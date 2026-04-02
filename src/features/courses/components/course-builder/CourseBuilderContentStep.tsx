@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "../../../../components/ui/Button";
 import { Input } from "../../../../components/ui/Input";
+import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
 import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
 import type { CreateContentMode } from "./courseBuilderPageUtils";
@@ -127,23 +128,22 @@ export function CourseBuilderContentStep({
 
         <div className="mt-8 space-y-4">
           {isPersistedCourse && modulesLoadState === "loading" && modules.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-[#d7eff4] bg-white px-5 py-6 text-sm font-medium text-slate-500 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
-              Loading course modules...
-            </div>
+            <LoadingState variant="section" className="min-h-[15rem]" />
           ) : null}
 
           {isPersistedCourse && modulesLoadState === "error" && modules.length === 0 ? (
-            <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-6 shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-6 shadow-sm">
               <p className="text-sm font-medium text-rose-700">
                 Unable to load the course modules.
               </p>
-              <button
+              <Button
                 type="button"
+                variant="secondary"
                 onClick={onRetryModules}
-                className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                className="mt-4 border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
               >
                 Try Again
-              </button>
+              </Button>
             </div>
           ) : null}
 
@@ -167,9 +167,9 @@ export function CourseBuilderContentStep({
             return (
               <article
                 key={module.id}
-                className="overflow-hidden rounded-[1.5rem] border border-[#16d0e7] bg-white shadow-[0_16px_36px_rgba(15,23,42,0.05)]"
+                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
               >
-                <div className="flex items-center gap-3 border-b border-[#d7eff4] bg-[#edfafd] px-4 py-4 md:px-5">
+                <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 md:px-5">
                   {editModuleId === module.id ? (
                     <div className="flex flex-1 flex-col gap-3">
                       <Input
@@ -181,19 +181,21 @@ export function CourseBuilderContentStep({
                             onSaveModule();
                           }
                         }}
-                        className="h-12 rounded-xl border border-slate-200 bg-white px-4 text-base font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                        className="h-12 text-base font-medium"
                       />
                       <div className="flex flex-wrap gap-2">
                         <Button
+                          type="button"
+                          size="md"
                           onClick={onSaveModule}
-                          className="h-10 rounded-xl bg-[#13daec] px-4 text-sm font-bold text-[#0f172a] hover:bg-[#10c6d7]"
                         >
                           Save Module
                         </Button>
                         <Button
+                          type="button"
                           variant="secondary"
+                          size="md"
                           onClick={onCancelEditModule}
-                          className="h-10 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-600 hover:bg-slate-50"
                         >
                           Cancel
                         </Button>
@@ -207,7 +209,7 @@ export function CourseBuilderContentStep({
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     >
                       <GripVertical className="h-5 w-5 shrink-0 text-slate-400" />
-                      <span className="truncate text-[1.4rem] font-bold tracking-tight text-[#14213d]">
+                      <span className="truncate text-xl font-semibold tracking-tight text-slate-950">
                         {`Module ${module.order}: ${module.title}`}
                       </span>
                       {isExpanded ? (
@@ -223,7 +225,7 @@ export function CourseBuilderContentStep({
                       type="button"
                       onClick={() => onStartEditModule(module.id, module.title)}
                       aria-label="Edit module"
-                      className="rounded-lg p-2 text-slate-400 transition hover:bg-white hover:text-[#08bfd4]"
+                      className="rounded-lg border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-white hover:text-slate-700"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -231,7 +233,7 @@ export function CourseBuilderContentStep({
                       type="button"
                       onClick={() => onDeleteModule(module.id)}
                       aria-label="Delete module"
-                      className="rounded-lg p-2 text-slate-400 transition hover:bg-white hover:text-rose-600"
+                      className="rounded-lg border border-transparent p-2 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -242,28 +244,21 @@ export function CourseBuilderContentStep({
                   <div className="flex flex-col">
                     <div className="max-h-[16rem] overflow-y-auto px-4 py-4 md:px-5 md:py-5">
                       {!hasLoadedModuleContent ? (
-                        <div
-                          className={`rounded-[1.25rem] px-5 py-4 text-sm font-medium ${
-                            hasModuleContentError
-                              ? "border border-rose-200 bg-rose-50 text-rose-700"
-                              : "bg-[#f8fafc] text-slate-500"
-                          }`}
-                        >
-                          <p>
-                            {hasModuleContentError
-                              ? "Some module content could not be loaded."
-                              : "Loading module content..."}
-                          </p>
-                          {hasModuleContentError ? (
-                            <button
+                        hasModuleContentError ? (
+                          <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700">
+                            <p>Some module content could not be loaded.</p>
+                            <Button
                               type="button"
+                              variant="secondary"
                               onClick={() => onRetryModuleContent(module.id)}
-                              className="mt-4 inline-flex h-10 items-center justify-center rounded-xl border border-rose-200 bg-white px-4 text-sm font-semibold text-rose-700 transition hover:bg-rose-100"
+                              className="mt-4 border-rose-200 text-rose-700 hover:border-rose-300 hover:bg-rose-100"
                             >
                               Try Again
-                            </button>
-                          ) : null}
-                        </div>
+                            </Button>
+                          </div>
+                        ) : (
+                          <LoadingState variant="inline" className="min-h-[11rem]" />
+                        )
                       ) : (
                         <ModuleContentList
                           moduleId={module.id}
@@ -288,31 +283,35 @@ export function CourseBuilderContentStep({
                     </div>
 
                     {hasLoadedModuleContent ? (
-                      <div className="border-t border-slate-200/80 bg-white/95 px-4 py-4 backdrop-blur md:px-5">
+                      <div className="border-t border-slate-200 px-4 py-4 md:px-5">
                         <div className="flex flex-wrap gap-3">
-                          <button
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="lg"
                             onClick={() => onCreateLesson(module.id)}
-                            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#13daec]/35 bg-[#eef8f9] px-4 text-sm font-bold text-[#08bfd4] transition hover:bg-[#def9fb]"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-4 w-4 text-slate-500" />
                             Add Lesson
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="lg"
                             onClick={() =>
                               setCreateContentChoice({
                                 kind: "test",
                                 moduleId: module.id,
                               })
                             }
-                            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#c4b5fd]/60 bg-[#f5f3ff] px-4 text-sm font-bold text-[#7c3aed] transition hover:bg-[#ede9fe]"
                           >
-                            <BadgeCheck className="h-4 w-4" />
+                            <BadgeCheck className="h-4 w-4 text-[#0f8ea0]" />
                             Add Test
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
+                            variant="secondary"
+                            size="lg"
                             onClick={() =>
                               setCreateContentChoice({
                                 kind: "exercise",
@@ -320,11 +319,10 @@ export function CourseBuilderContentStep({
                               })
                             }
                             disabled={isPreparingExercise || isModuleContentLoading}
-                            className="inline-flex h-11 items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[#f97316]/35 bg-[#fff7ed] px-4 text-sm font-bold text-[#c2410c] transition hover:bg-[#fed7aa]/40 disabled:cursor-not-allowed disabled:opacity-60"
                           >
-                            <Code2 className="h-4 w-4" />
+                            <Code2 className="h-4 w-4 text-amber-600" />
                             {isPreparingExercise ? "Saving Draft..." : "Add Exercise"}
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ) : null}
@@ -335,11 +333,11 @@ export function CourseBuilderContentStep({
           })}
 
           {isNewModuleComposerOpen ? (
-            <article className="overflow-hidden rounded-[1.5rem] border border-[#16d0e7] bg-white shadow-[0_16px_36px_rgba(15,23,42,0.05)]">
-              <div className="flex items-center gap-3 border-b border-[#d7eff4] bg-[#edfafd] px-4 py-4 md:px-5">
+            <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 md:px-5">
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <GripVertical className="h-5 w-5 shrink-0 text-slate-400" />
-                  <span className="shrink-0 text-[1.4rem] font-bold tracking-tight text-[#14213d]">
+                  <span className="shrink-0 text-xl font-semibold tracking-tight text-slate-950">
                     {`Module ${nextModuleOrder}:`}
                   </span>
                   <Input
@@ -353,7 +351,7 @@ export function CourseBuilderContentStep({
                     }}
                     autoFocus
                     disabled={isCreatingModule}
-                    className="h-12 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-base font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    className="h-12 flex-1 text-base font-medium"
                   />
                 </div>
               </div>
@@ -363,9 +361,9 @@ export function CourseBuilderContentStep({
               type="button"
               onClick={onCreateModule}
               disabled={!currentCourseId || (isPersistedCourse && modulesLoadState !== "ready")}
-              className="flex w-full items-center justify-center gap-3 rounded-[1.5rem] border-2 border-dashed border-slate-300/80 bg-white/70 px-6 py-7 text-lg font-bold text-slate-400 transition hover:border-[#13daec]/45 hover:bg-[#13daec]/5 hover:text-[#08bfd4] disabled:cursor-not-allowed disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-7 text-lg font-semibold text-slate-500 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-[#08bfd4]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
                 <Plus className="h-5 w-5" />
               </div>
               Add New Module
@@ -373,24 +371,26 @@ export function CourseBuilderContentStep({
           )}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/80 pt-5">
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="lg"
               onClick={onBack}
-              className="inline-flex h-11 items-center gap-2 rounded-xl px-1 text-base font-semibold text-slate-500 transition hover:text-[#14213d]"
+              className="px-0"
             >
               <ArrowLeft className="h-4 w-4" />
               Back to Course Info
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="button"
+              size="lg"
               onClick={onContinueToReview}
               disabled={!currentCourseId || (isPersistedCourse && modulesLoadState !== "ready")}
-              className="inline-flex h-12 items-center justify-center gap-3 rounded-xl bg-[#0f172a] px-7 text-base font-bold text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition hover:bg-[#111f39] disabled:cursor-not-allowed disabled:opacity-60"
             >
               Continue to Review
               <ArrowRight className="h-4 w-4" />
-            </button>
+            </Button>
           </div>
         </div>
       </section>

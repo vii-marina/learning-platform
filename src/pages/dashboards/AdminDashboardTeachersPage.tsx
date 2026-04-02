@@ -1,6 +1,7 @@
 import { Search } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/Card";
+import { LoadingState } from "../../components/ui/LoadingState";
 import {
   deleteAdminTeacher,
   loadAdminTeachersData,
@@ -142,9 +143,7 @@ export function AdminDashboardTeachersPage() {
       </div>
 
       {isLoading ? (
-        <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          Loading teachers...
-        </Card>
+        <LoadingState variant="section" />
       ) : filteredTeachers.length === 0 ? (
         <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
           No teachers match your search.

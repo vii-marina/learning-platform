@@ -3,12 +3,12 @@ import {
   BookOpen,
   GraduationCap,
   Layers3,
-  LoaderCircle,
   MessageSquareText,
   Sparkles,
 } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { Card } from "../../../components/ui/Card";
+import { LoadingState } from "../../../components/ui/LoadingState";
 import { getCourseMediaPublicUrl } from "../../courses/api/courseMediaStorage";
 import type { StudentDashboardCourseCatalogItem } from "../api/studentDashboardApi";
 import { studentDashboardMessages } from "../mock/studentDashboardMock";
@@ -28,14 +28,10 @@ export function StudentDashboardOverview({
 }: StudentDashboardOverviewProps) {
   const featuredCourse = courses[0] ?? null;
   const featuredThumbnailUrl = getCourseMediaPublicUrl(featuredCourse?.thumbnail_path ?? null);
-  const highlightTitle = isLoadingCourses
-    ? "Loading published courses"
-    : courses.length > 0
-      ? "Discover published courses"
-      : "Waiting for the next release";
-  const highlightDescription = isLoadingCourses
-    ? "The platform is loading the latest public catalog for students."
-    : courses.length > 0
+  const highlightTitle =
+    courses.length > 0 ? "Discover published courses" : "Waiting for the next release";
+  const highlightDescription =
+    courses.length > 0
       ? "Teachers have already published courses that are visible to every student on the platform."
       : "Once a teacher publishes a public course, it will appear here and in the platform course catalog.";
   const highlightButtonLabel = courses.length > 0 ? "Open catalog" : "Browse courses";
@@ -80,7 +76,7 @@ export function StudentDashboardOverview({
               </Button>
               <div className="rounded-2xl bg-white/12 px-4 py-3 text-sm leading-6 text-white/82 backdrop-blur-sm">
                 {isLoadingCourses
-                  ? "Loading course catalog..."
+                  ? "Refreshing the student catalog."
                   : `${courses.length} published ${courses.length === 1 ? "course" : "courses"} available now.`}
               </div>
             </div>
@@ -125,9 +121,8 @@ export function StudentDashboardOverview({
             <p className="text-sm font-medium">{coursesMessage}</p>
           </div>
         ) : isLoadingCourses ? (
-          <div className="mt-6 flex items-center gap-3 rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-5 text-sm text-slate-500">
-            <LoaderCircle className="h-4 w-4 animate-spin" />
-            <span>Loading latest published course...</span>
+          <div className="mt-6">
+            <LoadingState variant="card" className="min-h-[12rem]" />
           </div>
         ) : featuredCourse ? (
           <div className="mt-6 flex flex-col gap-6 rounded-[1.5rem] border border-slate-200 bg-slate-50/70 p-4 md:flex-row md:items-start md:p-5">
@@ -223,12 +218,7 @@ export function StudentDashboardOverview({
         <div className="snap-x snap-mandatory overflow-x-auto px-6 py-6 pb-7 [scrollbar-width:thin] md:px-8">
           <div className="grid min-w-full grid-flow-col auto-cols-[88%] gap-4 md:auto-cols-[calc((100%-1rem)/2.15)] xl:auto-cols-[calc((100%-2rem)/3.2)]">
             {isLoadingCourses ? (
-              <div className="flex min-h-[16rem] items-center justify-center rounded-[1.5rem] border border-slate-200 bg-white px-6 text-sm text-slate-500">
-                <div className="flex items-center gap-3">
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                  <span>Loading course catalog...</span>
-                </div>
-              </div>
+              <LoadingState variant="card" className="min-h-[16rem]" />
             ) : courses.length === 0 ? (
               <div className="flex min-h-[16rem] items-center rounded-[1.5rem] border border-slate-200 bg-white px-6 text-sm leading-7 text-slate-600">
                 Published courses will appear here once teachers make them public.

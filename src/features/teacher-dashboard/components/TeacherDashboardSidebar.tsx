@@ -7,6 +7,7 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { LoadingState } from "../../../components/ui/LoadingState";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import type { CurrentUser } from "../../auth/types";
 import { getTeacherAvatarPublicUrl } from "../api/teacherProfileStorage";
@@ -122,10 +123,9 @@ export function TeacherDashboardSidebar({
         >
           
           <div className={compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}>
-            <p className="text-ml font-semibold  text-slate-400">
-              Teacher
+            <p className="text-ml font-semibold  text-slate-950 ">
+              Teacher Workspace
             </p>
-            <p className="text-ml font-semibold text-slate-950">Workspace</p>
           </div>
         </div>
 
@@ -150,7 +150,7 @@ export function TeacherDashboardSidebar({
             title={compactOnDesktop ? "My Profile" : undefined}
             onClick={onOpenProfile}
             aria-current={activeSection === "profile" ? "page" : undefined}
-            className={`flex w-full items-center gap-3 rounded-[1.5rem] bg-slate-50 px-3 py-3 text-left transition hover:bg-slate-100 ${
+            className={`flex w-full items-center gap-3 rounded-[0.5rem] border bg-[#13daec]/10 px-3 py-3 text-left transition hover:bg-slate-100 ${
               compactOnDesktop
                 ? "lg:justify-center lg:px-2 lg:group-hover:justify-start lg:group-hover:px-3"
                 : ""
@@ -164,12 +164,23 @@ export function TeacherDashboardSidebar({
             <div
               className={`min-w-0 ${compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}`}
             >
-              <p className="truncate text-sm font-semibold text-slate-950">
-                {getProfileDisplayName(currentUser)}
-              </p>
-              <p className="mt-1 truncate text-xs text-slate-500">
-                {currentUser?.email ?? "Loading profile..."}
-              </p>
+              {currentUser ? (
+                <>
+                  <p className="truncate text-sm font-semibold text-slate-950">
+                    {getProfileDisplayName(currentUser)}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {currentUser.email}
+                  </p>
+                </>
+              ) : (
+                <LoadingState
+                  variant="inline"
+                  size={64}
+                  className="min-h-[5.5rem] border-0 bg-transparent px-0 py-0"
+                  textClassName="text-[10px] tracking-[0.14em]"
+                />
+              )}
             </div>
           </button>
 

@@ -6,6 +6,7 @@ import { Sidebar } from "../../components/layout/Sidebar";
 import { Card } from "../../components/ui/Card";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
+import { LoadingState } from "../../components/ui/LoadingState";
 import {
   getCurrentUser,
   listAdminUsers,
@@ -279,7 +280,9 @@ export function AdminPage() {
               </p>
             </div>
             {isLoading ? (
-              <div className="px-6 py-10 text-sm text-slate-500">Loading admin data...</div>
+              <div className="px-6 py-6">
+                <LoadingState variant="card" className="min-h-[13rem]" />
+              </div>
             ) : users.length === 0 ? (
               <div className="px-6 py-10 text-sm text-slate-500">
                 No managed users were found yet.

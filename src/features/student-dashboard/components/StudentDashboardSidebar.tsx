@@ -7,6 +7,7 @@ import {
   Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { LoadingState } from "../../../components/ui/LoadingState";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import { LogoutButton } from "../../auth/components/LogoutButton";
 import type { CurrentUser } from "../../auth/types";
@@ -145,12 +146,23 @@ export function StudentDashboardSidebar({
           <div
             className={`min-w-0 ${compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}`}
           >
-            <p className="truncate text-sm font-black text-[#14213d]">
-              {getProfileDisplayName(currentUser)}
-            </p>
-            <p className="mt-1 truncate text-xs text-slate-500">
-              {currentUser?.email ?? "Loading profile..."}
-            </p>
+            {currentUser ? (
+              <>
+                <p className="truncate text-sm font-black text-[#14213d]">
+                  {getProfileDisplayName(currentUser)}
+                </p>
+                <p className="mt-1 truncate text-xs text-slate-500">
+                  {currentUser.email}
+                </p>
+              </>
+            ) : (
+              <LoadingState
+                variant="inline"
+                size={64}
+                className="min-h-[5.5rem] border-0 bg-transparent px-0 py-0"
+                textClassName="text-[10px] tracking-[0.14em]"
+              />
+            )}
           </div>
         </button>
 
