@@ -1,4 +1,4 @@
-import { BookOpen, Copy, Ellipsis, LoaderCircle, Trash2, Upload } from "lucide-react";
+import { BookOpen, Ellipsis, LoaderCircle, Trash2, Upload } from "lucide-react";
 import {
   useEffect,
   useRef,
@@ -15,20 +15,20 @@ import type { TeacherCourseSummary } from "./teacherCourseDashboard.types";
 import {
   getCourseCardClassName,
   formatCourseRelativeTime,
-  getCourseStatusClassName,
-  getCourseStatusFilterLabel,
+  getCourseStatusDotClassName,
+  getCourseStatusLabel,
+  getCourseStatusThumbnailClassName,
   isPublishedCourse,
 } from "./teacherCourseDashboard.utils";
 
 type TeacherCourseCardProps = {
   course: TeacherCourseSummary;
-  actionInFlight?: "delete" | "duplicate" | "publish" | "unpublish" | null;
+  actionInFlight?: "delete" | "publish" | "unpublish" | null;
   showStatusBadge?: boolean;
   onOpenDetails: (course: TeacherCourseSummary) => void;
   onOpenPublish: (course: TeacherCourseSummary) => void;
   onContinue: (course: TeacherCourseSummary) => void;
   onDelete: (course: TeacherCourseSummary) => void;
-  onDuplicate: (course: TeacherCourseSummary) => void;
   onTogglePublish: (course: TeacherCourseSummary) => void;
 };
 
@@ -38,8 +38,10 @@ function stopCardEvent(event: ReactMouseEvent | ReactKeyboardEvent) {
 
 function CourseThumbnail({
   course,
+  showStatusBadge = true,
 }: {
   course: TeacherCourseSummary;
+  showStatusBadge?: boolean;
 }) {
   const thumbnailUrl = getCourseMediaPublicUrl(course.thumbnail_path);
   const thumbnailKind = getCourseMediaKind(course.thumbnail_path);
@@ -48,12 +50,14 @@ function CourseThumbnail({
     return (
       <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-slate-100">
         <img src={thumbnailUrl} alt={course.title} className="h-full w-full object-cover" />
+        {showStatusBadge ? <CourseStatusChip course={course} /> : null}
       </div>
     );
   }
 
   return (
-    <div className="flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50">
+    <div className="relative flex aspect-[16/9] items-center justify-center rounded-lg border border-dashed border-slate-300 bg-slate-50">
+      {showStatusBadge ? <CourseStatusChip course={course} /> : null}
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-slate-100 text-slate-600">
         <BookOpen className="h-5 w-5" />
       </div>
@@ -61,15 +65,29 @@ function CourseThumbnail({
   );
 }
 
+function CourseStatusChip({
+  course,
+}: {
+  course: TeacherCourseSummary;
+}) {
+  return (
+    <span
+      className={`absolute left-2.5 top-2.5 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-sm backdrop-blur-sm ${getCourseStatusThumbnailClassName(course)}`}
+    >
+      <span className={`h-2 w-2 rounded-full ${getCourseStatusDotClassName(course)}`} />
+      <span>{getCourseStatusLabel(course)}</span>
+    </span>
+  );
+}
+
 export function TeacherCourseCard({
   course,
   actionInFlight = null,
-  showStatusBadge = false,
+  showStatusBadge = true,
   onOpenDetails,
   onOpenPublish,
   onContinue,
   onDelete,
-  onDuplicate,
   onTogglePublish,
 }: TeacherCourseCardProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -115,18 +133,8 @@ export function TeacherCourseCard({
       onKeyDown={handleKeyboardOpen}
       className={`group relative flex min-h-full cursor-pointer flex-col rounded-xl border p-3.5 shadow-sm transition hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#13daec]/40 ${getCourseCardClassName(course)}`}
     >
-      {showStatusBadge ? (
-        <div className="mb-3 flex justify-center">
-          <span
-            className={`inline-flex items-center rounded-full px-3.5 py-1 text-xs font-semibold ${getCourseStatusClassName(course)}`}
-          >
-            {getCourseStatusFilterLabel(course)}
-          </span>
-        </div>
-      ) : null}
-
       <div className="relative">
-        <CourseThumbnail course={course} />
+        <CourseThumbnail course={course} showStatusBadge={showStatusBadge} />
         <div className="absolute right-2.5 top-2.5" ref={menuRef}>
           <button
             type="button"
@@ -142,23 +150,6 @@ export function TeacherCourseCard({
 
           {isMenuOpen ? (
             <div className="absolute right-0 top-10 z-10 w-44 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
-              <button
-                type="button"
-                disabled={isActionBusy}
-                onClick={(event) => {
-                  stopCardEvent(event);
-                  runMenuAction(() => onDuplicate(course));
-                }}
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {actionInFlight === "duplicate" ? (
-                  <LoaderCircle className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-                <span>Duplicate</span>
-              </button>
-
               {isCoursePublished ? (
                 <button
                   type="button"

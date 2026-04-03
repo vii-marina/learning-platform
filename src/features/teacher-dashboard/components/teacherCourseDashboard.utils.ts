@@ -115,14 +115,6 @@ export function getCourseStatusLabel(course: TeacherCourseSummary) {
   return isPublishedCourse(course) ? "Published" : "Draft";
 }
 
-export function getCourseStatusFilterLabel(course: TeacherCourseSummary) {
-  if (isArchivedCourse(course)) {
-    return "Archived";
-  }
-
-  return isPublishedCourse(course) ? "Published" : "Drafts";
-}
-
 export function getCourseStatusClassName(course: TeacherCourseSummary) {
   if (isArchivedCourse(course)) {
     return "border border-slate-300 bg-slate-200 text-slate-700";
@@ -131,6 +123,24 @@ export function getCourseStatusClassName(course: TeacherCourseSummary) {
   return isPublishedCourse(course)
     ? "border border-violet-200 bg-violet-200 text-violet-800"
     : "border border-amber-200 bg-amber-100 text-amber-800";
+}
+
+export function getCourseStatusThumbnailClassName(course: TeacherCourseSummary) {
+  if (isArchivedCourse(course)) {
+    return "border border-slate-300/90 bg-slate-100/95 text-slate-700";
+  }
+
+  return isPublishedCourse(course)
+    ? "border border-violet-200/90 bg-violet-100/95 text-violet-800"
+    : "border border-amber-200/90 bg-amber-100/95 text-amber-800";
+}
+
+export function getCourseStatusDotClassName(course: TeacherCourseSummary) {
+  if (isArchivedCourse(course)) {
+    return "bg-slate-500";
+  }
+
+  return isPublishedCourse(course) ? "bg-violet-600" : "bg-amber-500";
 }
 
 export function getCourseCardClassName(course: TeacherCourseSummary) {

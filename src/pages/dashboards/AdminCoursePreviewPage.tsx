@@ -16,8 +16,9 @@ import type {
   AdminDashboardCourseSummary,
 } from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
-import { StudentCoursePreview } from "../../features/courses/components/course-builder/StudentCoursePreview";
-import { useCourseBuilderReviewState } from "../../features/courses/components/course-builder/useCourseBuilderReviewState";
+import { listExercisesByModule, type Exercise } from "../../features/courses/api";
+import { CoursePreviewPage } from "../../features/courses/components/course-builder/CoursePreviewPage";
+import type { CourseExercise } from "../../features/courses/components/course-builder/courseBuilderUiTypes";
 
 type CoursePreviewLocationState = {
   course?: AdminDashboardCourseSummary;
@@ -47,6 +48,19 @@ function getStatusTone(course: AdminDashboardCourseSummary) {
   return "bg-amber-100 text-amber-800";
 }
 
+function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
+  return {
+    id: exercise.id,
+    title: exercise.title,
+    description: exercise.description,
+    afterLessonId: exercise.after_lesson_id,
+    type: exercise.type,
+    content: exercise.content,
+    createdAt: exercise.created_at,
+    updatedAt: exercise.updated_at,
+  };
+}
+
 export function AdminCoursePreviewPage() {
   const { courseId } = useParams<{ courseId: string }>();
   const location = useLocation();
@@ -55,7 +69,9 @@ export function AdminCoursePreviewPage() {
   const initialCourseSummary = stateCourse && stateCourse.id === courseId ? stateCourse : null;
 
   const [course, setCourse] = useState<AdminDashboardCourse | null>(null);
+  const [exercisesByModule, setExercisesByModule] = useState<Record<string, CourseExercise[]>>({});
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingExercises, setIsLoadingExercises] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -102,27 +118,60 @@ export function AdminCoursePreviewPage() {
     () => (course ? mapAdminDashboardCourseToPreview(course) : null),
     [course]
   );
-  const {
-    totalModules,
-    totalLessons,
-    totalTests,
-    expandedReviewModuleId,
-    resolvedReviewSelection,
-    reviewPreviewData,
-    heroBackgroundStyle,
-    currentLessonEmbedUrl,
-    currentLessonPosition,
-    currentTestLinkedLesson,
-    handleReviewModuleToggle,
-    handleReviewItemSelect,
-  } = useCourseBuilderReviewState({
-    activeStep: 3,
-    modules: previewData?.modules ?? [],
-    lessonsByModule: previewData?.lessonsByModule ?? {},
-    testsByModule: previewData?.testsByModule ?? {},
-    courseThumbnailUrl: previewData?.courseThumbnailUrl ?? null,
-    courseThumbnailKind: previewData?.courseThumbnailKind ?? "file",
-  });
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!previewData) {
+      setExercisesByModule({});
+      setIsLoadingExercises(false);
+      return;
+    }
+
+    const previewModules = previewData.modules;
+
+    async function hydrateExercises() {
+      try {
+        setIsLoadingExercises(true);
+        const resolvedExercises = await Promise.all(
+          previewModules.map(async (module) => ({
+            moduleId: module.id,
+            exercises: await listExercisesByModule(module.id),
+          }))
+        );
+
+        if (!isMounted) {
+          return;
+        }
+
+        setExercisesByModule(
+          Object.fromEntries(
+            resolvedExercises.map(({ moduleId, exercises }) => [
+              moduleId,
+              exercises.map(mapExerciseToCourseExercise),
+            ])
+          ) as Record<string, CourseExercise[]>
+        );
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setExercisesByModule({});
+        setMessage(getErrorMessage(error, "Some exercises could not be loaded."));
+      } finally {
+        if (isMounted) {
+          setIsLoadingExercises(false);
+        }
+      }
+    }
+
+    void hydrateExercises();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [previewData]);
 
   if (!courseId) {
     return <Navigate to="/admin/dashboard/courses" replace />;
@@ -178,35 +227,23 @@ export function AdminCoursePreviewPage() {
         </Card>
       ) : null}
 
-      {isLoading ? (
+      {isLoading || isLoadingExercises ? (
         <LoadingState variant="card" className="rounded-[1.5rem] shadow-[0_18px_36px_rgba(15,23,42,0.06)]" />
       ) : !course || !previewData ? (
         <Card className="rounded-[1.5rem] border-cyan-100 p-8 text-sm text-slate-500 shadow-[0_18px_36px_rgba(15,23,42,0.06)]">
           Course not found.
         </Card>
       ) : (
-        <>
-          <StudentCoursePreview
-            currentCourseName={course.title}
-            courseThumbnailUrl={previewData.courseThumbnailUrl}
-            courseThumbnailKind={previewData.courseThumbnailKind}
-            heroBackgroundStyle={heroBackgroundStyle}
-            modules={previewData.modules}
-            lessonsByModule={previewData.lessonsByModule}
-            testsByModule={previewData.testsByModule}
-            totalModules={totalModules}
-            totalLessons={totalLessons}
-            totalTests={totalTests}
-            expandedReviewModuleId={expandedReviewModuleId}
-            resolvedReviewSelection={resolvedReviewSelection}
-            reviewPreviewData={reviewPreviewData}
-            currentLessonEmbedUrl={currentLessonEmbedUrl}
-            currentLessonPosition={currentLessonPosition}
-            currentTestLinkedLesson={currentTestLinkedLesson}
-            onModuleToggle={handleReviewModuleToggle}
-            onItemSelect={handleReviewItemSelect}
-          />
-        </>
+        <CoursePreviewPage
+          courseId={course.id}
+          courseTitle={course.title}
+          courseDescription={course.description}
+          modules={previewData.modules}
+          lessonsByModule={previewData.lessonsByModule}
+          testsByModule={previewData.testsByModule}
+          exercisesByModule={exercisesByModule}
+          initialMode="teacher"
+        />
       )}
     </div>
   );

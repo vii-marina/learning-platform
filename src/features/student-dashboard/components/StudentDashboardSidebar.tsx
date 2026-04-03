@@ -7,7 +7,6 @@ import {
   Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { LoadingState } from "../../../components/ui/LoadingState";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import { LogoutButton } from "../../auth/components/LogoutButton";
 import type { CurrentUser } from "../../auth/types";
@@ -64,6 +63,15 @@ function SidebarLabel({
     >
       {children}
     </span>
+  );
+}
+
+function SidebarProfilePlaceholder() {
+  return (
+    <div className="flex min-h-[2.75rem] flex-col justify-center gap-2" aria-hidden="true">
+      <div className="h-3.5 w-28 rounded-full bg-slate-200" />
+      <div className="h-2.5 w-36 rounded-full bg-slate-100" />
+    </div>
   );
 }
 
@@ -146,22 +154,17 @@ export function StudentDashboardSidebar({
           <div
             className={`min-w-0 ${compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}`}
           >
-            {currentUser ? (
-              <>
-                <p className="truncate text-sm font-black text-[#14213d]">
-                  {getProfileDisplayName(currentUser)}
-                </p>
-                <p className="mt-1 truncate text-xs text-slate-500">
-                  {currentUser.email}
-                </p>
-              </>
-            ) : (
-              <LoadingState
-                variant="inline"
-                size={64}
-                className="min-h-[5.5rem] border-0 bg-transparent px-0 py-0"
-                textClassName="text-[10px] tracking-[0.14em]"
-              />
+              {currentUser ? (
+                <>
+                  <p className="truncate text-sm font-black text-[#14213d]">
+                    {getProfileDisplayName(currentUser)}
+                  </p>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {currentUser.email}
+                  </p>
+                </>
+              ) : (
+                <SidebarProfilePlaceholder />
             )}
           </div>
         </button>

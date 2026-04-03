@@ -112,7 +112,7 @@ export function CourseBuilderReviewInstructorView({
                     variant="inline"
                     size={80}
                     className="min-h-[7rem] border-0 bg-transparent px-0 py-0"
-                    textClassName="text-[10px] tracking-[0.16em]"
+                    textClassName="text-[10px]"
                   />
                 </div>
               ) : (

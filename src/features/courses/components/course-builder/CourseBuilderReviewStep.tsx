@@ -1,33 +1,20 @@
-import type { CSSProperties } from "react";
 import { BadgeCheck, TriangleAlert } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
 import type { Lesson, Module } from "../../api";
-import type { CourseTest } from "./courseBuilderUiTypes";
-import type { ReviewPreviewData, ReviewPreviewSelection } from "./courseBuilderPageUtils";
+import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
-import { StudentCoursePreview } from "./StudentCoursePreview";
+import { CoursePreviewPage } from "./CoursePreviewPage";
 
 type CourseBuilderReviewStepProps = {
   title: string;
   publishBlockingIssues: string[];
+  courseId: string | null;
   currentCourseName: string;
-  courseThumbnailUrl: string | null;
-  courseThumbnailKind: "image" | "video" | "file";
-  heroBackgroundStyle?: CSSProperties;
+  courseDescription: string;
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
-  totalModules: number;
-  totalLessons: number;
-  totalTests: number;
-  expandedReviewModuleId: string | null;
-  resolvedReviewSelection: ReviewPreviewSelection | null;
-  reviewPreviewData: ReviewPreviewData | null;
-  currentLessonEmbedUrl: string | null;
-  currentLessonPosition: number;
-  currentTestLinkedLesson: Lesson | null;
-  onModuleToggle: (moduleId: string) => void;
-  onItemSelect: (selection: ReviewPreviewSelection) => void;
+  exercisesByModule: Record<string, CourseExercise[]>;
   onSaveDraft: () => void;
   onPublish: () => void;
   canPublish: boolean;
@@ -36,52 +23,32 @@ type CourseBuilderReviewStepProps = {
 export function CourseBuilderReviewStep({
   title,
   publishBlockingIssues,
+  courseId,
   currentCourseName,
-  courseThumbnailUrl,
-  courseThumbnailKind,
-  heroBackgroundStyle,
+  courseDescription,
   modules,
   lessonsByModule,
   testsByModule,
-  totalModules,
-  totalLessons,
-  totalTests,
-  expandedReviewModuleId,
-  resolvedReviewSelection,
-  reviewPreviewData,
-  currentLessonEmbedUrl,
-  currentLessonPosition,
-  currentTestLinkedLesson,
-  onModuleToggle,
-  onItemSelect,
+  exercisesByModule,
   onSaveDraft,
   onPublish,
   canPublish,
 }: CourseBuilderReviewStepProps) {
   return (
-    <section className="mx-auto w-full max-w-[64rem]">
+    <section className="mx-auto w-full max-w-[72rem]">
       <CourseBuilderStepHeading title={title} />
 
       <div className="mt-8">
-        <StudentCoursePreview
-          currentCourseName={currentCourseName}
-          courseThumbnailUrl={courseThumbnailUrl}
-          courseThumbnailKind={courseThumbnailKind}
-          heroBackgroundStyle={heroBackgroundStyle}
+        <CoursePreviewPage
+          courseId={courseId}
+          courseTitle={currentCourseName}
+          courseDescription={courseDescription}
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
-          totalModules={totalModules}
-          totalLessons={totalLessons}
-          totalTests={totalTests}
-          expandedReviewModuleId={expandedReviewModuleId}
-          resolvedReviewSelection={resolvedReviewSelection}
-          reviewPreviewData={reviewPreviewData}
-          currentLessonEmbedUrl={currentLessonEmbedUrl}
-          currentLessonPosition={currentLessonPosition}
-          currentTestLinkedLesson={currentTestLinkedLesson}
-          onModuleToggle={onModuleToggle}
-          onItemSelect={onItemSelect}
+          exercisesByModule={exercisesByModule}
+          initialMode="student"
+          allowModeSelection
         />
 
         <div className="mt-8 flex flex-col gap-5 rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">

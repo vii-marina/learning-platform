@@ -31,7 +31,6 @@ import {
 } from "../../features/courses/api";
 import {
   deleteCourseMedia,
-  getCourseMediaKind,
   getCourseMediaPublicUrl,
   uploadCourseMedia,
 } from "../../features/courses/api/courseMediaStorage";
@@ -50,7 +49,6 @@ import { useCourseBuilderContentData } from "../../features/courses/components/c
 import { useCourseBuilderExerciseEditor } from "../../features/courses/components/course-builder/useCourseBuilderExerciseEditor";
 import { useCourseBuilderLessonEditor } from "../../features/courses/components/course-builder/useCourseBuilderLessonEditor";
 import { useCourseBuilderTestEditor } from "../../features/courses/components/course-builder/useCourseBuilderTestEditor";
-import { useCourseBuilderReviewState } from "../../features/courses/components/course-builder/useCourseBuilderReviewState";
 import type {
   CourseExercise,
   CourseTest,
@@ -176,10 +174,6 @@ export const CourseBuilderPage = forwardRef<
     () => getCourseMediaPublicUrl(courseThumbnailPath),
     [courseThumbnailPath]
   );
-  const courseThumbnailKind = useMemo(
-    () => getCourseMediaKind(courseThumbnailPath),
-    [courseThumbnailPath]
-  );
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
   const currentCourseSnapshot = useMemo<SavedCourseSnapshot>(
@@ -228,29 +222,35 @@ export const CourseBuilderPage = forwardRef<
     (hasStartedCourseDraft || currentCourseId !== null);
 
   // Review state.
-  const {
-    totalModules,
-    totalLessons,
-    totalTests,
-    expandedReviewModuleId,
-    resolvedReviewSelection,
-    reviewPreviewData,
-    isReviewContentLoading,
-    publishBlockingIssues,
-    heroBackgroundStyle,
-    currentLessonEmbedUrl,
-    currentLessonPosition,
-    currentTestLinkedLesson,
-    handleReviewModuleToggle,
-    handleReviewItemSelect,
-  } = useCourseBuilderReviewState({
-    activeStep,
-    modules,
-    lessonsByModule,
-    testsByModule,
-    courseThumbnailUrl,
-    courseThumbnailKind,
-  });
+  const totalLessons = useMemo(
+    () =>
+      modules.reduce((sum, module) => sum + (lessonsByModule[module.id]?.length || 0), 0),
+    [lessonsByModule, modules]
+  );
+  const isReviewContentLoading = useMemo(
+    () =>
+      modules.some(
+        (module) =>
+          lessonsByModule[module.id] === undefined ||
+          testsByModule[module.id] === undefined ||
+          exercisesByModule[module.id] === undefined
+      ),
+    [exercisesByModule, lessonsByModule, modules, testsByModule]
+  );
+  const publishBlockingIssues = useMemo(() => {
+    const issues: string[] = [];
+
+    if (modules.length === 0) {
+      issues.push("Add at least one module before publishing the course.");
+      return issues;
+    }
+
+    if (!isReviewContentLoading && totalLessons === 0) {
+      issues.push("Add at least one lesson so at least one module contains lesson content.");
+    }
+
+    return issues;
+  }, [isReviewContentLoading, modules.length, totalLessons]);
 
   async function hydrateCourseTest(testEntity: TestEntity): Promise<CourseTest> {
     const questions = await listTestQuestions(testEntity.id);
@@ -1325,24 +1325,13 @@ export const CourseBuilderPage = forwardRef<
           <CourseBuilderReviewStep
             title="Final Preview"
             publishBlockingIssues={publishBlockingIssues}
+            courseId={currentCourseId}
             currentCourseName={currentCourseName}
-            courseThumbnailUrl={courseThumbnailUrl}
-            courseThumbnailKind={courseThumbnailKind}
-            heroBackgroundStyle={heroBackgroundStyle}
+            courseDescription={courseDescription}
             modules={modules}
             lessonsByModule={lessonsByModule}
             testsByModule={testsByModule}
-            totalModules={totalModules}
-            totalLessons={totalLessons}
-            totalTests={totalTests}
-            expandedReviewModuleId={expandedReviewModuleId}
-            resolvedReviewSelection={resolvedReviewSelection}
-            reviewPreviewData={reviewPreviewData}
-            currentLessonEmbedUrl={currentLessonEmbedUrl}
-            currentLessonPosition={currentLessonPosition}
-            currentTestLinkedLesson={currentTestLinkedLesson}
-            onModuleToggle={handleReviewModuleToggle}
-            onItemSelect={handleReviewItemSelect}
+            exercisesByModule={exercisesByModule}
             onSaveDraft={() => {
               void handleSaveDraft();
             }}

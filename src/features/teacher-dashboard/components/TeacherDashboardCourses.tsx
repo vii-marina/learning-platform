@@ -4,8 +4,8 @@ import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/Card";
 import { LoadingState } from "../../../components/ui/LoadingState";
 import {
-  duplicateCourse,
   listCourses,
+  listExercisesByModule,
   listLessonsByModule,
   listModulesByCourse,
   listTestAnswers,
@@ -15,19 +15,15 @@ import {
   softDeleteCourse,
   unpublishCourse,
   type Course,
+  type Exercise,
   type Lesson,
   type Module,
 } from "../../courses/api";
-import {
-  getCourseMediaKind,
-  getCourseMediaPublicUrl,
-} from "../../courses/api/courseMediaStorage";
-import { StudentCoursePreview } from "../../courses/components/course-builder/StudentCoursePreview";
+import { CoursePreviewPage } from "../../courses/components/course-builder/CoursePreviewPage";
 import {
   mapQuestionToCourseTestQuestion,
 } from "../../courses/components/course-builder/courseBuilderPageUtils";
-import type { CourseTest } from "../../courses/components/course-builder/courseBuilderUiTypes";
-import { useCourseBuilderReviewState } from "../../courses/components/course-builder/useCourseBuilderReviewState";
+import type { CourseExercise, CourseTest } from "../../courses/components/course-builder/courseBuilderUiTypes";
 import { getErrorMessage } from "../../auth/api/backendClient";
 import { TeacherContinueEditing } from "./TeacherContinueEditing";
 import { TeacherCourseCard } from "./TeacherCourseCard";
@@ -63,17 +59,31 @@ type TeacherCoursePreviewData = {
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
+  exercisesByModule: Record<string, CourseExercise[]>;
 };
 
 type PendingCourseAction = {
   courseId: string;
-  action: "delete" | "duplicate" | "publish" | "unpublish";
+  action: "delete" | "publish" | "unpublish";
 } | null;
 
 function buildAlertClassName(type: "error" | "success") {
   return type === "error"
     ? "border-rose-200 bg-rose-50 text-rose-700"
     : "border-[#13daec]/30 bg-[#13daec]/10 text-slate-800";
+}
+
+function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
+  return {
+    id: exercise.id,
+    title: exercise.title,
+    description: exercise.description,
+    afterLessonId: exercise.after_lesson_id,
+    type: exercise.type,
+    content: exercise.content,
+    createdAt: exercise.created_at,
+    updatedAt: exercise.updated_at,
+  };
 }
 
 async function loadTeacherCourseSummary(course: Course): Promise<TeacherCourseSummary> {
@@ -98,9 +108,10 @@ async function loadTeacherCoursePreview(
   const modules = await listModulesByCourse(course.id);
   const moduleContent = await Promise.all(
     modules.map(async (module) => {
-      const [lessons, tests] = await Promise.all([
+      const [lessons, tests, exercises] = await Promise.all([
         listLessonsByModule(module.id),
         listTestsByModule(module.id),
+        listExercisesByModule(module.id),
       ]);
 
       const resolvedTests = await Promise.all(
@@ -129,6 +140,7 @@ async function loadTeacherCoursePreview(
         moduleId: module.id,
         lessons,
         tests: resolvedTests,
+        exercises: exercises.map(mapExerciseToCourseExercise),
       };
     })
   );
@@ -142,6 +154,9 @@ async function loadTeacherCoursePreview(
     testsByModule: Object.fromEntries(
       moduleContent.map(({ moduleId, tests }) => [moduleId, tests])
     ) as Record<string, CourseTest[]>,
+    exercisesByModule: Object.fromEntries(
+      moduleContent.map(({ moduleId, exercises }) => [moduleId, exercises])
+    ) as Record<string, CourseExercise[]>,
   };
 }
 
@@ -218,30 +233,6 @@ function TeacherCourseDetailsModal({
   onClose: () => void;
   onContinue: (course: TeacherCourseSummary) => void;
 }) {
-  const courseThumbnailUrl = getCourseMediaPublicUrl(course?.thumbnail_path ?? null);
-  const courseThumbnailKind = getCourseMediaKind(course?.thumbnail_path ?? null);
-  const {
-    totalModules,
-    totalLessons,
-    totalTests,
-    expandedReviewModuleId,
-    resolvedReviewSelection,
-    reviewPreviewData,
-    heroBackgroundStyle,
-    currentLessonEmbedUrl,
-    currentLessonPosition,
-    currentTestLinkedLesson,
-    handleReviewModuleToggle,
-    handleReviewItemSelect,
-  } = useCourseBuilderReviewState({
-    activeStep: 3,
-    modules: previewData?.modules ?? [],
-    lessonsByModule: previewData?.lessonsByModule ?? {},
-    testsByModule: previewData?.testsByModule ?? {},
-    courseThumbnailUrl,
-    courseThumbnailKind,
-  });
-
   if (!course) {
     return null;
   }
@@ -308,25 +299,15 @@ function TeacherCourseDetailsModal({
           ) : isLoading ? (
             <LoadingState variant="modal" />
           ) : previewData ? (
-            <StudentCoursePreview
-              currentCourseName={course.title}
-              courseThumbnailUrl={courseThumbnailUrl}
-              courseThumbnailKind={courseThumbnailKind}
-              heroBackgroundStyle={heroBackgroundStyle}
+            <CoursePreviewPage
+              courseId={course.id}
+              courseTitle={course.title}
+              courseDescription={course.description}
               modules={previewData.modules}
               lessonsByModule={previewData.lessonsByModule}
               testsByModule={previewData.testsByModule}
-              totalModules={totalModules}
-              totalLessons={totalLessons}
-              totalTests={totalTests}
-              expandedReviewModuleId={expandedReviewModuleId}
-              resolvedReviewSelection={resolvedReviewSelection}
-              reviewPreviewData={reviewPreviewData}
-              currentLessonEmbedUrl={currentLessonEmbedUrl}
-              currentLessonPosition={currentLessonPosition}
-              currentTestLinkedLesson={currentTestLinkedLesson}
-              onModuleToggle={handleReviewModuleToggle}
-              onItemSelect={handleReviewItemSelect}
+              exercisesByModule={previewData.exercisesByModule}
+              initialMode="teacher"
             />
           ) : (
             <Card className="p-10 text-sm text-slate-500">
@@ -485,39 +466,6 @@ export function TeacherDashboardCourses({
     setPreviewData(null);
     setPreviewMessage("");
     setIsPreviewLoading(false);
-  }
-
-  async function handleDuplicateCourse(course: TeacherCourseSummary) {
-    try {
-      setPendingCourseAction({
-        courseId: course.id,
-        action: "duplicate",
-      });
-
-      const duplicatedCourse = await duplicateCourse(course.id);
-
-      setCourses((currentCourses) =>
-        [
-          {
-            ...duplicatedCourse,
-            modulesCount: course.modulesCount,
-            lessonsCount: course.lessonsCount,
-          },
-          ...currentCourses,
-        ].sort(sortCoursesByRecent)
-      );
-      setMessage({
-        type: "success",
-        text: "Course duplicated.",
-      });
-    } catch (error) {
-      setMessage({
-        type: "error",
-        text: getErrorMessage(error, "Unable to duplicate course."),
-      });
-    } finally {
-      setPendingCourseAction(null);
-    }
   }
 
   function rememberDraftCourseSelection(course: TeacherCourseSummary) {
@@ -704,16 +652,12 @@ export function TeacherDashboardCourses({
                     ? pendingCourseAction.action
                     : null
                 }
-                showStatusBadge={activeTab === "all"}
                 onOpenDetails={(nextCourse) => {
                   void handleOpenCourseDetails(nextCourse);
                 }}
                 onOpenPublish={handleOpenPublishCourse}
                 onContinue={handleContinueCourse}
                 onDelete={setPendingDeleteCourse}
-                onDuplicate={(nextCourse) => {
-                  void handleDuplicateCourse(nextCourse);
-                }}
                 onTogglePublish={(nextCourse) => {
                   void handleTogglePublish(nextCourse);
                 }}

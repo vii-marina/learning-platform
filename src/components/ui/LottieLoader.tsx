@@ -24,7 +24,7 @@ export function LottieLoader({
         src={loaderCatAnimation}
         autoplay
         loop
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, backgroundColor: "transparent" }}
       />
       {label ? (
         <p className={`text-sm font-medium text-slate-500 ${textClassName}`}>

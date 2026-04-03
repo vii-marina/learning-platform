@@ -72,7 +72,7 @@ export const createEmptyExerciseDraft = (): ExerciseEditorDraft =>
   ({
     afterLessonId: null,
     type: "drag_drop_code",
-    title: "Fill Missing Code Exercise",
+    title: "Fill Missing Code",
     description: "",
     content: {
       type: "drag_drop_code",

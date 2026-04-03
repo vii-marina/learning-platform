@@ -48,16 +48,14 @@ const loadingVariantConfig: Record<LoadingStateVariant, LoadingVariantConfig> = 
   inline: {
     size: 104,
     surface: "plain",
-    className:
-      "flex min-h-[10rem] w-full items-center justify-center bg-[#f9fbfd] px-4 py-5",
+    className: "flex min-h-[10rem] w-full items-center justify-center bg-transparent px-4 py-5",
     loaderClassName: "gap-3",
     textClassName: "text-xs font-semibold text-slate-500",
   },
   modal: {
     size: 128,
     surface: "plain",
-    className:
-      "flex min-h-[15rem] w-full items-center justify-center bg-[#f9fbfd] px-6 py-8",
+    className: "flex min-h-[15rem] w-full items-center justify-center bg-transparent px-6 py-8",
     loaderClassName: "gap-3.5",
     textClassName: "text-sm font-semibold text-slate-500",
   },

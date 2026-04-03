@@ -7,7 +7,6 @@ import {
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { LoadingState } from "../../../components/ui/LoadingState";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import type { CurrentUser } from "../../auth/types";
 import { getTeacherAvatarPublicUrl } from "../api/teacherProfileStorage";
@@ -57,6 +56,15 @@ function SidebarLabel({
     <span className={compactOnDesktop ? "lg:hidden lg:group-hover:inline" : ""}>
       {children}
     </span>
+  );
+}
+
+function SidebarProfilePlaceholder() {
+  return (
+    <div className="flex min-h-[2.75rem] flex-col justify-center gap-2" aria-hidden="true">
+      <div className="h-3.5 w-28 rounded-full bg-slate-200" />
+      <div className="h-2.5 w-36 rounded-full bg-slate-100" />
+    </div>
   );
 }
 
@@ -174,12 +182,7 @@ export function TeacherDashboardSidebar({
                   </p>
                 </>
               ) : (
-                <LoadingState
-                  variant="inline"
-                  size={64}
-                  className="min-h-[5.5rem] border-0 bg-transparent px-0 py-0"
-                  textClassName="text-[10px] tracking-[0.14em]"
-                />
+                <SidebarProfilePlaceholder />
               )}
             </div>
           </button>

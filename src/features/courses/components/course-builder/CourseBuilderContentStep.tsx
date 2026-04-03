@@ -121,10 +121,18 @@ export function CourseBuilderContentStep({
     moduleId: string;
   } | null>(null);
   const moduleCardClassName =
-    "overflow-hidden rounded-[0.75rem] border border-[#13daec] bg-[#13daec]/5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]";
+    "overflow-hidden rounded-[0.75rem] border border-[#13daec] shadow-[0_18px_45px_rgba(15,23,42,0.06)]";
   const moduleHeaderClassName =
-    "flex items-center gap-3 border-b border-[#13daec]/20 px-4 py-4 md:px-5";
-  const moduleSectionDividerClassName = "border-t border-[#13daec]/20 px-4 py-4 md:px-5";
+    "flex items-center gap-3 bg-[#13daec]/5 px-4 py-4 md:px-5";
+  const moduleHeaderDividerClassName = "border-b border-[#13daec]";
+  const moduleSectionDividerClassName =
+    "border-t border-[#13daec] bg-[#13daec]/5 px-4 py-4 md:px-5";
+  const lessonActionButtonClassName =
+    "border-2 border-emerald-300 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100";
+  const testActionButtonClassName =
+    "border-2 border-[#a78bfa] bg-[#f5f3ff] text-[#6d28d9] hover:border-[#a78bfa] hover:bg-[#ede9fe]";
+  const exerciseActionButtonClassName =
+    "border-2 border-[#fdba74] bg-[#fff7ed] text-[#c2410c] hover:border-[#fb923c] hover:bg-[#ffedd5]";
   const isFirstModuleComposerOpen = isNewModuleComposerOpen && modules.length === 0;
   const canSaveFirstModule = newModuleTitle.trim().length > 0 && !isCreatingModule;
 
@@ -184,7 +192,11 @@ export function CourseBuilderContentStep({
                 key={module.id}
                 className={moduleCardClassName}
               >
-                <div className={moduleHeaderClassName}>
+                <div
+                  className={`${moduleHeaderClassName} ${
+                    isExpanded ? moduleHeaderDividerClassName : ""
+                  }`}
+                >
                   {editModuleId === module.id ? (
                     <div className="flex flex-1 flex-col gap-3">
                       <Input
@@ -305,8 +317,9 @@ export function CourseBuilderContentStep({
                             variant="secondary"
                             size="lg"
                             onClick={() => onCreateLesson(module.id)}
+                            className={lessonActionButtonClassName}
                           >
-                            <Plus className="h-4 w-4 text-slate-500" />
+                            <Plus className="h-4 w-4 text-emerald-600" />
                             Add Lesson
                           </Button>
                           <Button
@@ -319,8 +332,9 @@ export function CourseBuilderContentStep({
                                 moduleId: module.id,
                               })
                             }
+                            className={testActionButtonClassName}
                           >
-                            <BadgeCheck className="h-4 w-4 text-[#0f8ea0]" />
+                            <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
                             Add Test
                           </Button>
                           <Button
@@ -334,8 +348,9 @@ export function CourseBuilderContentStep({
                               })
                             }
                             disabled={isPreparingExercise || isModuleContentLoading}
+                            className={exerciseActionButtonClassName}
                           >
-                            <Code2 className="h-4 w-4 text-amber-600" />
+                            <Code2 className="h-4 w-4 text-[#f97316]" />
                             {isPreparingExercise ? "Saving Draft..." : "Add Exercise"}
                           </Button>
                         </div>
@@ -349,7 +364,7 @@ export function CourseBuilderContentStep({
 
           {isFirstModuleComposerOpen ? (
             <article className={moduleCardClassName}>
-              <div className={moduleHeaderClassName}>
+              <div className={`${moduleHeaderClassName} ${moduleHeaderDividerClassName}`}>
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
                   <span className="shrink-0 text-xl font-semibold tracking-tight text-slate-950">
@@ -423,8 +438,9 @@ export function CourseBuilderContentStep({
                         })();
                       }}
                       disabled={!canSaveFirstModule}
+                      className={lessonActionButtonClassName}
                     >
-                      <Plus className="h-4 w-4 text-slate-500" />
+                      <Plus className="h-4 w-4 text-emerald-600" />
                       Add Lesson
                     </Button>
                     <Button
@@ -445,8 +461,9 @@ export function CourseBuilderContentStep({
                         })();
                       }}
                       disabled={!canSaveFirstModule}
+                      className={testActionButtonClassName}
                     >
-                      <BadgeCheck className="h-4 w-4 text-[#0f8ea0]" />
+                      <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
                       Add Test
                     </Button>
                     <Button
@@ -467,8 +484,9 @@ export function CourseBuilderContentStep({
                         })();
                       }}
                       disabled={!canSaveFirstModule}
+                      className={exerciseActionButtonClassName}
                     >
-                      <Code2 className="h-4 w-4 text-amber-600" />
+                      <Code2 className="h-4 w-4 text-[#f97316]" />
                       Add Exercise
                     </Button>
                   </div>

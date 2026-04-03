@@ -132,7 +132,7 @@ export function LessonCreateModal({
                       value={title}
                       onChange={(event) => onTitleChange(event.target.value)}
                       placeholder="New Lesson"
-                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-2xl font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-ml font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
                       disabled={isLoadingLesson || isSaving}
                       autoFocus
                     />
@@ -146,7 +146,7 @@ export function LessonCreateModal({
                       value={videoUrl}
                       onChange={(event) => onVideoUrlChange(event.target.value)}
                       placeholder="https://www.youtube.com/watch?v=..."
-                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-lg text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-sm text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
                       disabled={isLoadingLesson || isSaving}
                     />
                     <p className="mt-2 text-sm text-slate-500">
