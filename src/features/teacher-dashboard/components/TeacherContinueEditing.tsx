@@ -1,5 +1,5 @@
 import { BookOpen, Eye, Layers3, Play } from "lucide-react";
-import { Button } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/button";
 import {
   getCourseMediaKind,
   getCourseMediaPublicUrl,

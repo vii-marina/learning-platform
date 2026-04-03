@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
-import { Button } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/Card";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import type { CurrentUser, UpdateCurrentUserProfileInput } from "../../auth/types";

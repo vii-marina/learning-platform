@@ -1,6 +1,6 @@
 import type { CSSProperties } from "react";
 import { BadgeCheck, TriangleAlert } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "../../../../components/ui/button";
 import type { Lesson, Module } from "../../api";
 import type { CourseTest } from "./courseBuilderUiTypes";
 import type { ReviewPreviewData, ReviewPreviewSelection } from "./courseBuilderPageUtils";

@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../../lib/supabase";
-import { Button } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/button";
 import { clearAdminDashboardCache } from "../../admin-dashboard/api/adminDashboardApi";
 import { clearCurrentUserCache } from "../api/authApi";
 

@@ -1,5 +1,5 @@
 import { Plus, Sparkles, X } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "../../../../components/ui/button";
 import type { CourseTestQuestion } from "./courseBuilderUiTypes";
 import { TestQuestionEditor } from "./TestQuestionEditor";
 import { canSaveTestDraft } from "./courseBuilderPageUtils";

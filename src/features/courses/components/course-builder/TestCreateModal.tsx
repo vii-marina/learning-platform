@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Plus, Sparkles, X } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "../../../../components/ui/button";
 import type { AiQuestionGenerationMode, Lesson, Module } from "../../api";
 import type { CourseTest, CourseTestQuestion } from "./courseBuilderUiTypes";
 import type { CreateContentMode } from "./courseBuilderPageUtils";

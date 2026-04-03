@@ -186,7 +186,7 @@ export function useCourseBuilderContentData({
 
   const handleSaveNewModule = async () => {
     if (!newModuleTitle.trim()) {
-      return;
+      return null;
     }
 
     if (!currentCourseId) {
@@ -199,7 +199,7 @@ export function useCourseBuilderContentData({
       setExpandedModuleId(module.id);
       closeNewModuleComposer();
       setMessage("");
-      return;
+      return module.id;
     }
 
     try {
@@ -208,18 +208,24 @@ export function useCourseBuilderContentData({
         course_id: currentCourseId,
         title: newModuleTitle.trim(),
       });
+      setLessonsByModule((prev) => ({ ...prev, [module.id]: [] }));
+      setTestsByModule((prev) => ({ ...prev, [module.id]: [] }));
+      setExercisesByModule((prev) => ({ ...prev, [module.id]: [] }));
+      setModuleContentLoadStateByModule((prev) => ({ ...prev, [module.id]: "ready" }));
       setHasFetchedModules(false);
       await fetchModules(currentCourseId);
       setExpandedModuleId(module.id);
       closeNewModuleComposer();
       setMessage("");
+      return module.id;
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
-        return;
+        return null;
       }
 
       setMessage("Unable to create module.");
+      return null;
     } finally {
       setIsCreatingModule(false);
     }

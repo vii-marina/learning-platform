@@ -1,6 +1,6 @@
 import { BookOpen, Plus, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/Card";
 import { LoadingState } from "../../../components/ui/LoadingState";
 import {

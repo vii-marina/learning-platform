@@ -1,6 +1,6 @@
 import { Play, X } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
-import { Input } from "../../../../components/ui/Input";
+import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
 import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
 import type { CourseTest } from "./courseBuilderUiTypes";

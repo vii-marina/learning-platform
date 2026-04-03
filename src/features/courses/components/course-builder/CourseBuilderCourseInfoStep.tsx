@@ -1,6 +1,6 @@
 import { ArrowRight } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
-import { Input } from "../../../../components/ui/Input";
+import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
 import { CourseMediaUpload } from "./CourseMediaUpload";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 
@@ -41,7 +41,7 @@ export function CourseBuilderCourseInfoStep({
     <section className="mx-auto w-full max-w-[72rem]">
       <CourseBuilderStepHeading title={title} description={description} />
 
-      <div className="mt-8 rounded-[1.75rem] border border-[#13daec] bg-[#13daec]/5 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="mt-8 rounded-[0.75rem] border border-[#13daec] bg-[#13daec]/5 p-5 shadow-[0_18px_45px_rgba(15,23,42,0.06)] md:p-6">
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1.22fr)_minmax(320px,0.82fr)]">
           <div className="space-y-5">
             <div className="space-y-2.5">

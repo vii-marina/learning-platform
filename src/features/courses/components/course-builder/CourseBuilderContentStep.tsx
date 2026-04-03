@@ -11,8 +11,8 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
-import { Input } from "../../../../components/ui/Input";
+import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
 import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
 import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
@@ -43,7 +43,7 @@ type CourseBuilderContentStepProps = {
   expandedExerciseIds: Record<string, boolean>;
   isPreparingExercise: boolean;
   onNewModuleTitleChange: (value: string) => void;
-  onSaveNewModule: () => void;
+  onSaveNewModule: () => Promise<string | null>;
   onToggleModule: (moduleId: string) => void;
   onRetryModules: () => void;
   onRetryModuleContent: (moduleId: string) => void;
@@ -120,10 +120,25 @@ export function CourseBuilderContentStep({
     kind: "test" | "exercise";
     moduleId: string;
   } | null>(null);
+  const moduleCardClassName =
+    "overflow-hidden rounded-[0.75rem] border border-[#13daec] bg-[#13daec]/5 shadow-[0_18px_45px_rgba(15,23,42,0.06)]";
+  const moduleHeaderClassName =
+    "flex items-center gap-3 border-b border-[#13daec]/20 px-4 py-4 md:px-5";
+  const moduleSectionDividerClassName = "border-t border-[#13daec]/20 px-4 py-4 md:px-5";
+  const isFirstModuleComposerOpen = isNewModuleComposerOpen && modules.length === 0;
+  const canSaveFirstModule = newModuleTitle.trim().length > 0 && !isCreatingModule;
+
+  const ensureNewModuleExists = async () => {
+    if (!canSaveFirstModule) {
+      return null;
+    }
+
+    return onSaveNewModule();
+  };
 
   return (
     <>
-      <section className="mx-auto w-full max-w-[64rem]">
+      <section className="mx-auto w-full max-w-[72rem]">
         <CourseBuilderStepHeading title={title} />
 
         <div className="mt-8 space-y-4">
@@ -167,9 +182,9 @@ export function CourseBuilderContentStep({
             return (
               <article
                 key={module.id}
-                className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                className={moduleCardClassName}
               >
-                <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 md:px-5">
+                <div className={moduleHeaderClassName}>
                   {editModuleId === module.id ? (
                     <div className="flex flex-1 flex-col gap-3">
                       <Input
@@ -181,7 +196,7 @@ export function CourseBuilderContentStep({
                             onSaveModule();
                           }
                         }}
-                        className="h-12 text-base font-medium"
+                        className="h-12 border-slate-200 bg-white text-base font-medium"
                       />
                       <div className="flex flex-wrap gap-2">
                         <Button
@@ -208,14 +223,14 @@ export function CourseBuilderContentStep({
                       aria-label={isExpanded ? "Collapse module" : "Expand module"}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     >
-                      <GripVertical className="h-5 w-5 shrink-0 text-slate-400" />
+                      <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
                       <span className="truncate text-xl font-semibold tracking-tight text-slate-950">
                         {`Module ${module.order}: ${module.title}`}
                       </span>
                       {isExpanded ? (
-                        <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-[#90a0b7]" />
                       ) : (
-                        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-slate-400" />
+                        <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-[#90a0b7]" />
                       )}
                     </button>
                   )}
@@ -225,7 +240,7 @@ export function CourseBuilderContentStep({
                       type="button"
                       onClick={() => onStartEditModule(module.id, module.title)}
                       aria-label="Edit module"
-                      className="rounded-lg border border-transparent p-2 text-slate-400 transition hover:border-slate-200 hover:bg-white hover:text-slate-700"
+                      className="rounded-lg border border-transparent p-2 text-[#90a0b7] transition hover:border-[#13daec]/20 hover:bg-white/80 hover:text-slate-700"
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
@@ -233,7 +248,7 @@ export function CourseBuilderContentStep({
                       type="button"
                       onClick={() => onDeleteModule(module.id)}
                       aria-label="Delete module"
-                      className="rounded-lg border border-transparent p-2 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                      className="rounded-lg border border-transparent p-2 text-[#90a0b7] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -283,7 +298,7 @@ export function CourseBuilderContentStep({
                     </div>
 
                     {hasLoadedModuleContent ? (
-                      <div className="border-t border-slate-200 px-4 py-4 md:px-5">
+                      <div className={moduleSectionDividerClassName}>
                         <div className="flex flex-wrap gap-3">
                           <Button
                             type="button"
@@ -332,11 +347,11 @@ export function CourseBuilderContentStep({
             );
           })}
 
-          {isNewModuleComposerOpen ? (
-            <article className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-              <div className="flex items-center gap-3 border-b border-slate-200 bg-slate-50 px-4 py-4 md:px-5">
+          {isFirstModuleComposerOpen ? (
+            <article className={moduleCardClassName}>
+              <div className={moduleHeaderClassName}>
                 <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <GripVertical className="h-5 w-5 shrink-0 text-slate-400" />
+                  <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
                   <span className="shrink-0 text-xl font-semibold tracking-tight text-slate-950">
                     {`Module ${nextModuleOrder}:`}
                   </span>
@@ -346,29 +361,163 @@ export function CourseBuilderContentStep({
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         event.preventDefault();
-                        onSaveNewModule();
+                        void onSaveNewModule();
                       }
                     }}
                     autoFocus
                     disabled={isCreatingModule}
-                    className="h-12 flex-1 text-base font-medium"
+                    className="h-12 flex-1 border-slate-200 bg-white text-base font-medium"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1 text-[#bdd1e1]">
+                  <span className="rounded-lg p-2">
+                    <ChevronDown className="h-4 w-4" />
+                  </span>
+                  <span className="rounded-lg p-2">
+                    <Pencil className="h-4 w-4" />
+                  </span>
+                  <span className="rounded-lg p-2">
+                    <Trash2 className="h-4 w-4" />
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col">
+                <div className="max-h-[16rem] overflow-y-auto px-4 py-4 md:px-5 md:py-5">
+                  <ModuleContentList
+                    moduleId=""
+                    moduleOrder={nextModuleOrder}
+                    lessons={[]}
+                    tests={[]}
+                    exercises={[]}
+                    expandedLessonIds={{}}
+                    expandedTestIds={{}}
+                    expandedExerciseIds={{}}
+                    onToggleLesson={() => {}}
+                    onEditLesson={() => {}}
+                    onDeleteLesson={() => {}}
+                    onToggleTest={() => {}}
+                    onEditTest={() => {}}
+                    onDeleteTest={() => {}}
+                    onToggleExercise={() => {}}
+                    onEditExercise={() => {}}
+                    onDeleteExercise={() => {}}
+                  />
+                </div>
+
+                <div className={moduleSectionDividerClassName}>
+                  <div className="flex flex-wrap gap-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => {
+                        void (async () => {
+                          const moduleId = await ensureNewModuleExists();
+                          if (!moduleId) {
+                            return;
+                          }
+
+                          onCreateLesson(moduleId);
+                        })();
+                      }}
+                      disabled={!canSaveFirstModule}
+                    >
+                      <Plus className="h-4 w-4 text-slate-500" />
+                      Add Lesson
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => {
+                        void (async () => {
+                          const moduleId = await ensureNewModuleExists();
+                          if (!moduleId) {
+                            return;
+                          }
+
+                          setCreateContentChoice({
+                            kind: "test",
+                            moduleId,
+                          });
+                        })();
+                      }}
+                      disabled={!canSaveFirstModule}
+                    >
+                      <BadgeCheck className="h-4 w-4 text-[#0f8ea0]" />
+                      Add Test
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="lg"
+                      onClick={() => {
+                        void (async () => {
+                          const moduleId = await ensureNewModuleExists();
+                          if (!moduleId) {
+                            return;
+                          }
+
+                          setCreateContentChoice({
+                            kind: "exercise",
+                            moduleId,
+                          });
+                        })();
+                      }}
+                      disabled={!canSaveFirstModule}
+                    >
+                      <Code2 className="h-4 w-4 text-amber-600" />
+                      Add Exercise
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </article>
+          ) : isNewModuleComposerOpen ? (
+            <article className={moduleCardClassName}>
+              <div className={moduleHeaderClassName}>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
+                  <span className="shrink-0 text-xl font-semibold tracking-tight text-slate-950">
+                    {`Module ${nextModuleOrder}:`}
+                  </span>
+                  <Input
+                    value={newModuleTitle}
+                    onChange={(event) => onNewModuleTitleChange(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        void onSaveNewModule();
+                      }
+                    }}
+                    autoFocus
+                    disabled={isCreatingModule}
+                    className="h-12 flex-1 border-slate-200 bg-white text-base font-medium"
                   />
                 </div>
               </div>
             </article>
-          ) : (
+          ) : null}
+
+          {!isNewModuleComposerOpen || isFirstModuleComposerOpen ? (
             <button
               type="button"
               onClick={onCreateModule}
-              disabled={!currentCourseId || (isPersistedCourse && modulesLoadState !== "ready")}
+              disabled={
+                isFirstModuleComposerOpen ||
+                !currentCourseId ||
+                (isPersistedCourse && modulesLoadState !== "ready")
+              }
               className="flex w-full items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white px-6 py-7 text-lg font-semibold text-slate-500 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#13daec] text-slate-600">
                 <Plus className="h-5 w-5" />
               </div>
               Add New Module
             </button>
-          )}
+          ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200/80 pt-5">
             <Button
@@ -386,7 +535,14 @@ export function CourseBuilderContentStep({
               type="button"
               size="lg"
               onClick={onContinueToReview}
-              disabled={!currentCourseId || (isPersistedCourse && modulesLoadState !== "ready")}
+              disabled={
+                isFirstModuleComposerOpen ||
+                isNewModuleComposerOpen ||
+                isCreatingModule ||
+                modules.length === 0 ||
+                !currentCourseId ||
+                (isPersistedCourse && modulesLoadState !== "ready")
+              }
             >
               Continue to Review
               <ArrowRight className="h-4 w-4" />

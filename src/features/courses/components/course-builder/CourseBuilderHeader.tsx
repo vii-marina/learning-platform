@@ -1,5 +1,5 @@
 import { ArrowLeft } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "../../../../components/ui/button";
 import type { BuilderStep } from "./courseBuilderPageUtils";
 
 type CourseBuilderHeaderProps = {

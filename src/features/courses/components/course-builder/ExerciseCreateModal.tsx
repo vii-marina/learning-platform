@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { Code2, Plus, Sparkles, X } from "lucide-react";
-import { Button } from "../../../../components/ui/Button";
+import { Button } from "../../../../components/ui/button";
 import type {
   DragDropCodeExerciseBlank,
   DragDropCodeExerciseContent,
@@ -38,8 +38,8 @@ const WRITE_CODE_SLOT_PATTERN = /___|{{blank_\d+}}|{{answer}}/;
 const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
 const AUTHOR_BLANK_TOKEN = "___";
 const DEFAULT_EXERCISE_TITLES: Record<ExerciseType, string> = {
-  drag_drop_code: "Fill Missing Code Exercise",
-  write_code: "Write Code Exercise",
+  drag_drop_code: "Fill Missing Code",
+  write_code: "Write Code",
 };
 
 function createBlankId() {

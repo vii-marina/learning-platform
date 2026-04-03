@@ -6,7 +6,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { Button } from "../../../components/ui/Button";
+import { Button } from "../../../components/ui/button";
 import {
   getCourseMediaKind,
   getCourseMediaPublicUrl,

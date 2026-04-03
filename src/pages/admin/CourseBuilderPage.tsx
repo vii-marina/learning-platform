@@ -1264,9 +1264,7 @@ export const CourseBuilderPage = forwardRef<
             expandedExerciseIds={expandedExerciseIds}
             isPreparingExercise={isPreparingExerciseEditor}
             onNewModuleTitleChange={setNewModuleTitle}
-            onSaveNewModule={() => {
-              void handleSaveNewModule();
-            }}
+            onSaveNewModule={handleSaveNewModule}
             onToggleModule={(moduleId) => {
               void toggleModule(moduleId);
             }}

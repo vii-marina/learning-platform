@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from "lucide-react";
-import { Input } from "../../../../components/ui/Input";
+import { Input } from "../../../../components/ui/input";
 import type { TestQuestionType } from "../../api";
 import type { CourseTestQuestion } from "./courseBuilderUiTypes";
 
