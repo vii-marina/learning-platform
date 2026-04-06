@@ -46,10 +46,6 @@ export function CoursePreviewSidebarNavigation({
 }: CoursePreviewSidebarNavigationProps) {
   return (
     <aside className="border-b border-slate-200 bg-[#f9fbfd] lg:w-[20rem] lg:flex-shrink-0 lg:border-b-0 lg:border-r">
-      <div className="border-b border-slate-200 px-4 py-4 md:px-5">
-        <h3 className="text-lg font-semibold tracking-tight text-slate-950">Course Content</h3>
-      </div>
-
       <div className="space-y-3 px-4 py-4 md:px-5">
         {modules.length === 0 ? (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">

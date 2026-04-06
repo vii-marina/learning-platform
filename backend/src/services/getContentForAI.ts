@@ -17,7 +17,8 @@ function extractPlainText(content: unknown) {
         ? JSON.parse(content)
         : content;
 
-    const html = typeof parsed === "object" && parsed !== null ? parsed.html : "";
+    const html =
+      typeof parsed === "object" && parsed !== null ? parsed.html : "";
 
     if (typeof html !== "string") {
       return "";
@@ -25,13 +26,12 @@ function extractPlainText(content: unknown) {
 
     return decodeHtmlEntities(html)
       .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(p|div|h1|h2|h3|h4|h5|h6|ul|ol|pre|blockquote)>/gi, "\n")
+      .replace(/<\/(p|div|h\d|ul|ol|pre|blockquote)>/gi, "\n")
       .replace(/<li\b[^>]*>/gi, "- ")
       .replace(/<\/li>/gi, "\n")
       .replace(/<\/?code\b[^>]*>/gi, "")
       .replace(/<[^>]*>/g, " ")
       .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n[ \t]+/g, "\n")
       .replace(/\n{3,}/g, "\n\n")
       .replace(/[ \t]{2,}/g, " ")
       .trim();
@@ -40,62 +40,64 @@ function extractPlainText(content: unknown) {
   }
 }
 
-function countWords(text: string) {
+function cleanText(text: string) {
   return text
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean).length;
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 20) // прибираємо шум
+    .join("\n");
 }
 
-function getMaxQuestionCount(text: string, hardLimit: number) {
-  const wordCount = countWords(text);
+function splitIntoSections(text: string) {
+  const rawSections = text.split("\n\n");
 
-  if (wordCount === 0) {
-    return 0;
+  const sections = rawSections
+    .map((s) => s.trim())
+    .filter((s) => s.length > 30);
+
+  return sections.map((section, index) => {
+    return `SECTION ${index + 1}:\n${section}`;
+  });
+}
+
+function limitTextLength(sections: string[], maxChars = 6000) {
+  let result: string[] = [];
+  let total = 0;
+
+  for (const section of sections) {
+    if (total + section.length > maxChars) break;
+
+    result.push(section);
+    total += section.length;
   }
 
-  if (wordCount <= 10) {
-    return 1;
-  }
+  return result.join("\n\n");
+}
 
-  if (wordCount <= 40) {
-    return Math.min(hardLimit, 2);
-  }
+function countWords(text: string) {
+  return text.split(/\s+/).filter(Boolean).length;
+}
 
-  if (wordCount <= 90) {
-    return Math.min(hardLimit, 3);
-  }
-
-  if (wordCount <= 160) {
-    return Math.min(hardLimit, 5);
-  }
-
-  if (wordCount <= 280) {
-    return Math.min(hardLimit, 8);
-  }
-
-  if (wordCount <= 450) {
-    return Math.min(hardLimit, 10);
-  }
-
+function getMaxQuestionCount(wordCount: number, hardLimit: number) {
+  if (wordCount <= 20) return 1;
+  if (wordCount <= 60) return Math.min(2, hardLimit);
+  if (wordCount <= 120) return Math.min(4, hardLimit);
+  if (wordCount <= 250) return Math.min(6, hardLimit);
+  if (wordCount <= 400) return Math.min(8, hardLimit);
   return hardLimit;
 }
 
 function resolveQuestionCount(
-  requestedQuestionCount: number | undefined,
-  maxQuestionCount: number,
-  fallbackQuestionCount: number
+  requested: number | undefined,
+  max: number,
+  fallback: number
 ) {
-  if (maxQuestionCount <= 0) {
-    return 0;
-  }
+  const safeRequested =
+    typeof requested === "number" && Number.isFinite(requested)
+      ? Math.floor(requested)
+      : fallback;
 
-  const normalizedRequestedQuestionCount =
-    typeof requestedQuestionCount === "number" && Number.isFinite(requestedQuestionCount)
-      ? Math.floor(requestedQuestionCount)
-      : fallbackQuestionCount;
-
-  return Math.max(1, Math.min(normalizedRequestedQuestionCount, maxQuestionCount));
+  return Math.max(1, Math.min(safeRequested, max));
 }
 
 export async function getContentForAI({
@@ -107,7 +109,10 @@ export async function getContentForAI({
   moduleId?: string;
   questionCount?: number;
 }): Promise<{ text: string; questionCount: number }> {
-  // 👉 Випадок: тест після уроку
+
+  // =========================
+  // LESSON MODE
+  // =========================
   if (afterLessonId) {
     const { data, error } = await supabaseAdmin
       .from("lesson_blocks")
@@ -119,19 +124,27 @@ export async function getContentForAI({
       throw new Error("Lesson blocks not found");
     }
 
-    const combinedText = data
-      .map((block: { content: unknown }) => extractPlainText(block.content))
+    const rawText = data
+      .map((b) => extractPlainText(b.content))
       .filter(Boolean)
       .join("\n\n");
-    const maxQuestionCount = getMaxQuestionCount(combinedText, 5);
+
+    const cleaned = cleanText(rawText);
+    const sections = splitIntoSections(cleaned);
+    const finalText = limitTextLength(sections);
+
+    const wordCount = countWords(finalText);
+    const maxQuestions = getMaxQuestionCount(wordCount, 5);
 
     return {
-      text: combinedText,
-      questionCount: resolveQuestionCount(questionCount, maxQuestionCount, 5),
+      text: finalText,
+      questionCount: resolveQuestionCount(questionCount, maxQuestions, 5),
     };
   }
 
-  // 👉 Випадок: тест після модуля
+  // =========================
+  // MODULE MODE
+  // =========================
   if (moduleId) {
     const { data: lessons, error: lessonsError } = await supabaseAdmin
       .from("lessons")
@@ -144,13 +157,11 @@ export async function getContentForAI({
     }
 
     if (lessons.length === 0) {
-      return {
-        text: "",
-        questionCount: 0,
-      };
+      return { text: "", questionCount: 0 };
     }
 
-    const lessonIds = lessons.map((lesson) => lesson.id);
+    const lessonIds = lessons.map((l) => l.id);
+
     const { data: blocks, error: blocksError } = await supabaseAdmin
       .from("lesson_blocks")
       .select("lesson_id, content, order")
@@ -158,30 +169,38 @@ export async function getContentForAI({
       .order("order", { ascending: true });
 
     if (blocksError || !blocks) {
-      throw new Error("Module lessons not found");
+      throw new Error("Module lesson blocks not found");
     }
 
-    const blocksByLessonId = new Map<string, Array<{ content: unknown }>>();
-    blocks.forEach((block) => {
-      const currentBlocks = blocksByLessonId.get(block.lesson_id) ?? [];
-      currentBlocks.push({ content: block.content });
-      blocksByLessonId.set(block.lesson_id, currentBlocks);
-    });
+    const grouped = new Map<string, string[]>();
+
+    for (const block of blocks) {
+      const text = extractPlainText(block.content);
+      if (!text) continue;
+
+      const arr = grouped.get(block.lesson_id) || [];
+      arr.push(text);
+      grouped.set(block.lesson_id, arr);
+    }
 
     const combinedText = lessons
-      .map((lesson) =>
-        (blocksByLessonId.get(lesson.id) ?? [])
-          .map((block) => extractPlainText(block.content))
-          .filter(Boolean)
-          .join("\n\n")
-      )
-      .filter(Boolean)
+      .map((lesson, index) => {
+        const lessonText = (grouped.get(lesson.id) || []).join("\n\n");
+
+        return `LESSON ${index + 1}:\n${lessonText}`;
+      })
       .join("\n\n");
-    const maxQuestionCount = getMaxQuestionCount(combinedText, 15);
+
+    const cleaned = cleanText(combinedText);
+    const sections = splitIntoSections(cleaned);
+    const finalText = limitTextLength(sections, 8000);
+
+    const wordCount = countWords(finalText);
+    const maxQuestions = getMaxQuestionCount(wordCount, 15);
 
     return {
-      text: combinedText,
-      questionCount: resolveQuestionCount(questionCount, maxQuestionCount, 15),
+      text: finalText,
+      questionCount: resolveQuestionCount(questionCount, maxQuestions, 15),
     };
   }
 

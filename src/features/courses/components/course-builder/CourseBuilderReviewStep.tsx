@@ -1,8 +1,7 @@
-import { BadgeCheck, TriangleAlert } from "lucide-react";
+import { BadgeCheck, Eye, TriangleAlert } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
 import type { Lesson, Module } from "../../api";
 import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
-import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 import { CoursePreviewPage } from "./CoursePreviewPage";
 
 type CourseBuilderReviewStepProps = {
@@ -11,6 +10,8 @@ type CourseBuilderReviewStepProps = {
   courseId: string | null;
   currentCourseName: string;
   courseDescription: string;
+  courseThumbnailPath: string | null;
+  courseThumbnailUrl: string | null;
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
@@ -26,6 +27,8 @@ export function CourseBuilderReviewStep({
   courseId,
   currentCourseName,
   courseDescription,
+  courseThumbnailPath,
+  courseThumbnailUrl,
   modules,
   lessonsByModule,
   testsByModule,
@@ -36,19 +39,34 @@ export function CourseBuilderReviewStep({
 }: CourseBuilderReviewStepProps) {
   return (
     <section className="mx-auto w-full max-w-[72rem]">
-      <CourseBuilderStepHeading title={title} />
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
+          {title}
+        </h1>
+
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          onClick={() => undefined}
+          className="md:self-start"
+        >
+          <Eye className="h-4 w-4" />
+          <span>View as Student</span>
+        </Button>
+      </div>
 
       <div className="mt-8">
         <CoursePreviewPage
           courseId={courseId}
           courseTitle={currentCourseName}
           courseDescription={courseDescription}
+          courseThumbnailPath={courseThumbnailPath}
+          courseThumbnailUrl={courseThumbnailUrl}
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
           exercisesByModule={exercisesByModule}
-          initialMode="student"
-          allowModeSelection
         />
 
         <div className="mt-8 flex flex-col gap-5 rounded-xl border border-slate-200 bg-white px-6 py-5 shadow-sm lg:flex-row lg:items-center lg:justify-between">

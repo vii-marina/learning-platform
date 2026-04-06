@@ -19,6 +19,7 @@ import {
   type Lesson,
   type Module,
 } from "../../courses/api";
+import { getCourseMediaPublicUrl } from "../../courses/api/courseMediaStorage";
 import { CoursePreviewPage } from "../../courses/components/course-builder/CoursePreviewPage";
 import {
   mapQuestionToCourseTestQuestion,
@@ -303,11 +304,12 @@ function TeacherCourseDetailsModal({
               courseId={course.id}
               courseTitle={course.title}
               courseDescription={course.description}
+              courseThumbnailPath={course.thumbnail_path}
+              courseThumbnailUrl={getCourseMediaPublicUrl(course.thumbnail_path)}
               modules={previewData.modules}
               lessonsByModule={previewData.lessonsByModule}
               testsByModule={previewData.testsByModule}
               exercisesByModule={previewData.exercisesByModule}
-              initialMode="teacher"
             />
           ) : (
             <Card className="p-10 text-sm text-slate-500">

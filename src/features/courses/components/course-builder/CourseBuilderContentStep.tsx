@@ -128,11 +128,11 @@ export function CourseBuilderContentStep({
   const moduleSectionDividerClassName =
     "border-t border-[#13daec] bg-[#13daec]/5 px-4 py-4 md:px-5";
   const lessonActionButtonClassName =
-    "border-2 border-emerald-300 bg-emerald-50 text-emerald-800 hover:border-emerald-400 hover:bg-emerald-100";
+    "!border-2 !border-emerald-300 !bg-emerald-50 !text-emerald-800 hover:!border-emerald-400 hover:!bg-emerald-100";
   const testActionButtonClassName =
-    "border-2 border-[#a78bfa] bg-[#f5f3ff] text-[#6d28d9] hover:border-[#a78bfa] hover:bg-[#ede9fe]";
+    "!border-2 !border-[#a78bfa] !bg-[#f5f3ff] !text-[#6d28d9] hover:!border-[#8b5cf6] hover:!bg-[#ede9fe]";
   const exerciseActionButtonClassName =
-    "border-2 border-[#fdba74] bg-[#fff7ed] text-[#c2410c] hover:border-[#fb923c] hover:bg-[#ffedd5]";
+    "!border-2 !border-[#fdba74] !bg-[#fff7ed] !text-[#c2410c] hover:!border-[#fb923c] hover:!bg-[#ffedd5]";
   const isFirstModuleComposerOpen = isNewModuleComposerOpen && modules.length === 0;
   const canSaveFirstModule = newModuleTitle.trim().length > 0 && !isCreatingModule;
 

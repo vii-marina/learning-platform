@@ -18,6 +18,8 @@ export type GeneratedQuestion = {
   options: GeneratedOption[];
 };
 
+const lessonTextPlaceholder = "__LESSON_TEXT__";
+
 function normalizeJsonResponse(response: string) {
   const trimmedResponse = response.trim();
 
@@ -40,14 +42,15 @@ function isGeneratedQuestionType(value: unknown): value is GeneratedQuestionType
   );
 }
 
-function normalizeOption(option: unknown) {
+function normalizeOption(option: unknown): GeneratedOption | null {
   if (!option || typeof option !== "object") {
     return null;
   }
 
-  const text = "text" in option && typeof option.text === "string"
-    ? option.text.trim()
-    : "";
+  const text =
+    "text" in option && typeof option.text === "string"
+      ? option.text.trim()
+      : "";
 
   if (!text) {
     return null;
@@ -59,7 +62,7 @@ function normalizeOption(option: unknown) {
   };
 }
 
-function normalizeTrueFalseQuestion(rawQuestion: unknown) {
+function normalizeTrueFalseQuestion(rawQuestion: unknown): GeneratedQuestion | null {
   if (!rawQuestion || typeof rawQuestion !== "object") {
     return null;
   }
@@ -96,7 +99,7 @@ function normalizeTrueFalseQuestion(rawQuestion: unknown) {
   }
 
   return {
-    type: "true_false" as const,
+    type: "true_false",
     question_text: questionText,
     options: [
       { text: "True", correct: correctIndex === 0 },
@@ -108,7 +111,7 @@ function normalizeTrueFalseQuestion(rawQuestion: unknown) {
 function normalizeChoiceQuestion(
   rawQuestion: unknown,
   fallbackType: "single_choice" | "multiple_choice"
-) {
+): GeneratedQuestion | null {
   if (!rawQuestion || typeof rawQuestion !== "object") {
     return null;
   }
@@ -149,9 +152,82 @@ function normalizeChoiceQuestion(
   };
 }
 
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizeForComparison(value: string) {
+  return normalizeWhitespace(value).toLowerCase();
+}
+
+function questionLooksTooSimilarToLesson(questionText: string, lessonText: string) {
+  const normalizedQuestion = normalizeForComparison(questionText);
+  const normalizedLesson = normalizeForComparison(lessonText);
+
+  if (!normalizedQuestion || !normalizedLesson) {
+    return false;
+  }
+
+  return normalizedLesson.includes(normalizedQuestion);
+}
+
+function deduplicateQuestions(questions: GeneratedQuestion[]) {
+  const seen = new Set<string>();
+  const uniqueQuestions: GeneratedQuestion[] = [];
+
+  for (const question of questions) {
+    const optionsKey = question.options
+      .map((option) => `${normalizeForComparison(option.text)}:${option.correct ? "1" : "0"}`)
+      .join("|");
+
+    const key = `${question.type}::${normalizeForComparison(question.question_text)}::${optionsKey}`;
+
+    if (seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    uniqueQuestions.push(question);
+  }
+
+  return uniqueQuestions;
+}
+
+function filterLowQualityQuestions(
+  questions: GeneratedQuestion[],
+  lessonText: string
+): GeneratedQuestion[] {
+  return questions.filter((question) => {
+    const questionText = question.question_text.trim();
+
+    if (!questionText) {
+      return false;
+    }
+
+    if (questionText.length < 12) {
+      return false;
+    }
+
+    if (questionLooksTooSimilarToLesson(questionText, lessonText)) {
+      return false;
+    }
+
+    const uniqueOptionTexts = new Set(
+      question.options.map((option) => normalizeForComparison(option.text))
+    );
+
+    if (uniqueOptionTexts.size !== question.options.length) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
 function normalizeGeneratedQuestions(
   parsed: unknown,
-  generationMode: AiQuestionGenerationMode
+  generationMode: AiQuestionGenerationMode,
+  lessonText: string
 ): GeneratedQuestion[] {
   if (!Array.isArray(parsed)) {
     throw new Error("AI returned an invalid question list");
@@ -167,12 +243,15 @@ function normalizeGeneratedQuestions(
     const normalizedOptions = (Array.isArray(rawOptions) ? rawOptions : [])
       .map(normalizeOption)
       .filter((option): option is GeneratedOption => option !== null);
+
     const correctCount = normalizedOptions.filter((option) => option.correct).length;
+
     const hasTrueFalseOptions =
       normalizedOptions.length === 2 &&
       normalizedOptions.every((option) =>
         ["true", "false"].includes(option.text.trim().toLowerCase())
       );
+
     const requestedType =
       generationMode === "mixed"
         ? isGeneratedQuestionType(rawType)
@@ -202,30 +281,76 @@ function normalizeGeneratedQuestions(
     return questions;
   }, []);
 
-  if (normalizedQuestions.length === 0) {
+  const qualityFiltered = filterLowQualityQuestions(normalizedQuestions, lessonText);
+  const deduplicated = deduplicateQuestions(qualityFiltered);
+
+  if (deduplicated.length === 0) {
     throw new Error("AI did not return valid questions");
   }
 
-  return normalizedQuestions;
+  return deduplicated;
 }
 
 function buildPrompt(questionCount: number, generationMode: AiQuestionGenerationMode) {
   const baseRules = `
-You are an educational assistant.
+You generate quiz questions for a beginner-friendly educational platform.
 
-Generate ${questionCount} quiz questions based on the lesson content.
+Generate exactly ${questionCount} quiz questions based ONLY on the lesson content.
 
-Rules:
-- Questions must test understanding of the lesson
-- Do not repeat questions
+Main goal:
+- Questions must be clear, natural, and not too easy
+- Questions must require a little thinking
+- Questions must NOT be copied or paraphrased too directly from the lesson
+- Questions must test understanding, not just memorization
+
+Strict content rules:
+- Use ONLY concepts, syntax, and facts that are present in the lesson
+- Do NOT introduce outside topics
+- If the lesson is simple, keep the questions simple but still thoughtful
+- Do NOT make tricky, confusing, or overly academic questions
+- Avoid overly theoretical wording
+- Avoid textbook-style copied definitions
+- Avoid asking the same idea in different wording
+- Each question must test a different point when possible
+- Prefer practical understanding over definition recall
+
+Question design rules:
+- Prefer questions about:
+  - understanding code
+  - predicting output
+  - choosing correct logic
+  - identifying a mistake
+  - applying a concept in a small example
+- Avoid generic questions like:
+  - "What is Python?"
+  - "What is a variable?" unless the lesson is extremely short and simple
+- If the lesson contains code examples, include code-based questions where appropriate
+- Make distractors plausible and based on common beginner mistakes
+- Distractors must not be random, silly, or obviously wrong
+
+Anti-copy rules:
+- Do NOT copy whole phrases from the lesson into question_text
+- Do NOT turn a lesson sentence into a question with only 1-2 words changed
+- Rewrite naturally and test understanding from another angle
+
+Output rules:
 - Return ONLY valid JSON
-- Every question must include a "type" field
-- Allowed types: "true_false", "single_choice", "multiple_choice"
+- Do not use markdown
+- Every question must include:
+  - "type"
+  - "question_text"
+  - "options"
+
+Allowed types:
+- "true_false"
+- "single_choice"
+- "multiple_choice"
 `;
 
   const modeRules =
     generationMode === "true_false"
       ? `
+Type rules:
 - Every question must have type "true_false"
 - Every question must have exactly 2 options
 - The options must be exactly "True" and "False"
@@ -233,19 +358,22 @@ Rules:
 `
       : generationMode === "single_choice"
         ? `
+Type rules:
 - Every question must have type "single_choice"
 - Every question must have exactly 4 options
 - Exactly one option must be correct
 `
         : generationMode === "multiple_choice"
           ? `
+Type rules:
 - Every question must have type "multiple_choice"
 - Every question must have exactly 4 options
 - At least 2 options must be correct
 `
           : `
-- Use a mix of question types across the full set
-- Include more than one question type when the question count allows it
+Type rules:
+- Use a mix of question types when possible
+- Include more than one question type if the lesson supports it
 - "true_false" questions must have exactly 2 options: "True" and "False"
 - "single_choice" questions must have exactly 4 options and exactly 1 correct answer
 - "multiple_choice" questions must have exactly 4 options and at least 2 correct answers
@@ -256,18 +384,17 @@ ${baseRules}
 ${modeRules}
 
 Return format:
-
 [
- {
-  "type": "single_choice",
-  "question_text": "Question here",
-  "options": [
-   {"text":"Option A","correct":false},
-   {"text":"Option B","correct":true},
-   {"text":"Option C","correct":false},
-   {"text":"Option D","correct":false}
-  ]
- }
+  {
+    "type": "single_choice",
+    "question_text": "Question here",
+    "options": [
+      { "text": "Option A", "correct": false },
+      { "text": "Option B", "correct": true },
+      { "text": "Option C", "correct": false },
+      { "text": "Option D", "correct": false }
+    ]
+  }
 ]
 
 Lesson content:
@@ -276,8 +403,6 @@ ${lessonTextPlaceholder}
 """
 `;
 }
-
-const lessonTextPlaceholder = "__LESSON_TEXT__";
 
 export async function generateQuestionsFromLesson(
   lessonText: string,
@@ -291,15 +416,37 @@ export async function generateQuestionsFromLesson(
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0.4,
+    temperature: 0.7,
+    response_format: {
+      type: "json_object",
+    },
     messages: [
       {
         role: "system",
-        content: "You generate quiz questions for educational platforms.",
+        content:
+          "You generate high-quality quiz questions for beginner programming courses. Your questions should be clear, slightly thought-provoking, not copied from the lesson, and grounded only in the provided content.",
       },
       {
         role: "user",
-        content: prompt,
+        content: `
+Return this exact JSON object shape:
+{
+  "questions": [
+    {
+      "type": "single_choice",
+      "question_text": "Question here",
+      "options": [
+        { "text": "Option A", "correct": false },
+        { "text": "Option B", "correct": true },
+        { "text": "Option C", "correct": false },
+        { "text": "Option D", "correct": false }
+      ]
+    }
+  ]
+}
+
+${prompt}
+`,
       },
     ],
   });
@@ -312,8 +459,27 @@ export async function generateQuestionsFromLesson(
 
   try {
     const parsed = JSON.parse(normalizeJsonResponse(response));
-    return normalizeGeneratedQuestions(parsed, generationMode);
-  } catch (err) {
+    const rawQuestions =
+      parsed && typeof parsed === "object" && Array.isArray(parsed.questions)
+        ? parsed.questions
+        : null;
+
+    if (!rawQuestions) {
+      throw new Error("AI returned invalid response format");
+    }
+
+    const normalized = normalizeGeneratedQuestions(
+      rawQuestions,
+      generationMode,
+      lessonText
+    );
+
+    return normalized.slice(0, questionCount);
+  } catch (error) {
+    if (error instanceof Error && error.message.trim()) {
+      throw error;
+    }
+
     throw new Error("Failed to parse AI response");
   }
 }

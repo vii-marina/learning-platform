@@ -81,7 +81,7 @@ export function CoursePreviewLessonContent({
 
   return (
     <div id="course-preview-main" className="min-w-0 flex-1 bg-white">
-      <div className="mx-auto w-full max-w-[44rem] px-6 py-8">
+      <div className="mx-auto w-full max-w-[58rem] px-6 py-8">
         <div className="flex flex-col gap-4 border-b border-slate-200 pb-6">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">

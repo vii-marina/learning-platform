@@ -1,4 +1,6 @@
+import { BadgeCheck, Code2, FileImage, Layers3, Play } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { getCourseMediaKind, getCourseMediaLabel } from "../../api/courseMediaStorage";
 import { getErrorMessage } from "../../../auth/api/backendClient";
 import {
   generateExerciseWithAi,
@@ -10,9 +12,16 @@ import {
   createLocalEntityId,
   mapGeneratedQuestionsToCourseTestQuestions,
 } from "./courseBuilderPageUtils";
-import { CoursePreviewAskTeacherModal, type CoursePreviewChatContext, type CoursePreviewChatMessage } from "./CoursePreviewAskTeacherModal";
+import {
+  CoursePreviewAskTeacherModal,
+  type CoursePreviewChatContext,
+  type CoursePreviewChatMessage,
+} from "./CoursePreviewAskTeacherModal";
 import { CoursePreviewLessonContent } from "./CoursePreviewLessonContent";
-import { CoursePreviewModeSwitch } from "./CoursePreviewModeSwitch";
+import {
+  CoursePreviewOverviewModal,
+  type CoursePreviewOverviewTab,
+} from "./CoursePreviewOverviewModal";
 import { CoursePreviewSidebarNavigation } from "./CoursePreviewSidebarNavigation";
 import { CoursePreviewTestModal } from "./CoursePreviewTestModal";
 import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
@@ -24,24 +33,21 @@ import {
   getPreviewProgressStorageKey,
   isGeneratedCoursePreviewItem,
   type CoursePreviewLessonRef,
-  type CoursePreviewMode,
 } from "./coursePreviewUtils";
 
 type CoursePreviewPageProps = {
   courseId?: string | null;
   courseTitle: string;
   courseDescription?: string | null;
+  courseThumbnailPath?: string | null;
+  courseThumbnailUrl?: string | null;
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
   exercisesByModule: Record<string, CourseExercise[]>;
-  initialMode?: CoursePreviewMode;
-  allowModeSelection?: boolean;
 };
 
 type StoredPreviewProgress = {
-  mode?: string;
-  viewAsStudent?: boolean;
   moduleId?: string | null;
   lessonId?: string | null;
   revealedTestIds?: string[];
@@ -52,38 +58,12 @@ type StoredPreviewProgress = {
 
 type OpenTestState = {
   moduleId: string;
-  lessonId: string;
+  lessonId: string | null;
   testId: string;
 };
 
-const previewModeMeta: Record<
-  CoursePreviewMode,
-  {
-    label: string;
-    description: string;
-  }
-> = {
-  student: {
-    label: "Student Mode",
-    description: "Read lessons, answer practice, and resume where you left off.",
-  },
-  teacher: {
-    label: "Teacher Preview",
-    description: "Review the learning flow and validate generated practice before publishing.",
-  },
-};
-
-function resolveStoredPreviewMode(mode: string | undefined): CoursePreviewMode | null {
-  if (mode === "student" || mode === "teacher") {
-    return mode;
-  }
-
-  if (mode === "admin") {
-    return "teacher";
-  }
-
-  return null;
-}
+const EMPTY_DESCRIPTION =
+  "Review the learning flow and validate generated practice before publishing.";
 
 function mergeCoursePreviewContent<T>(
   base: Record<string, T[]>,
@@ -104,19 +84,36 @@ function toRecord(ids: string[] | undefined) {
   return Object.fromEntries((ids ?? []).map((id) => [id, true])) as Record<string, boolean>;
 }
 
+function getOverviewButtonClassName(tab: CoursePreviewOverviewTab) {
+  const baseClassName =
+    "inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition";
+
+  if (tab === "modules") {
+    return `${baseClassName} border-[#13daec]/30 bg-[#13daec]/10 text-[#0f8ea0] hover:border-[#13daec]/45 hover:bg-[#13daec]/15`;
+  }
+
+  if (tab === "lessons") {
+    return `${baseClassName} border-emerald-200 bg-emerald-50 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-100`;
+  }
+
+  if (tab === "exercises") {
+    return `${baseClassName} border-amber-200 bg-amber-50 text-amber-800 hover:border-amber-300 hover:bg-amber-100`;
+  }
+
+  return `${baseClassName} border-violet-200 bg-violet-50 text-violet-800 hover:border-violet-300 hover:bg-violet-100`;
+}
+
 export function CoursePreviewPage({
   courseId = null,
   courseTitle,
   courseDescription = null,
+  courseThumbnailPath = null,
+  courseThumbnailUrl = null,
   modules,
   lessonsByModule,
   testsByModule,
   exercisesByModule,
-  initialMode = "student",
-  allowModeSelection = false,
 }: CoursePreviewPageProps) {
-  const [baseMode, setBaseMode] = useState<CoursePreviewMode>(initialMode);
-  const [viewAsStudent, setViewAsStudent] = useState(false);
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
   const [activeExerciseId, setActiveExerciseId] = useState<string | null>(null);
@@ -137,6 +134,8 @@ export function CoursePreviewPage({
   const [chatMessagesByReference, setChatMessagesByReference] = useState<
     Record<string, CoursePreviewChatMessage[]>
   >({});
+  const [overviewModalTab, setOverviewModalTab] =
+    useState<CoursePreviewOverviewTab | null>(null);
   const initializedProgressKeyRef = useRef<string | null>(null);
 
   const progressStorageKey = useMemo(
@@ -158,7 +157,10 @@ export function CoursePreviewPage({
   const lessonRefById = useMemo(
     () =>
       new Map(
-        lessonSequence.map((lessonRef) => [lessonRef.lesson.id, lessonRef] satisfies [string, CoursePreviewLessonRef])
+        lessonSequence.map((lessonRef) => [lessonRef.lesson.id, lessonRef] satisfies [
+          string,
+          CoursePreviewLessonRef,
+        ])
       ),
     [lessonSequence]
   );
@@ -175,8 +177,14 @@ export function CoursePreviewPage({
       Object.values(mergedTestsByModule).reduce((total, tests) => total + tests.length, 0),
     [mergedTestsByModule]
   );
-  const resolvedMode = viewAsStudent ? "student" : baseMode;
-  const modeMeta = previewModeMeta[resolvedMode];
+  const thumbnailKind = useMemo(
+    () => getCourseMediaKind(courseThumbnailPath),
+    [courseThumbnailPath]
+  );
+  const thumbnailLabel = useMemo(
+    () => getCourseMediaLabel(courseThumbnailPath),
+    [courseThumbnailPath]
+  );
   const activeLessonRef =
     (activeLessonId ? lessonRefById.get(activeLessonId) : null) ?? lessonSequence[0] ?? null;
   const activeModule = activeLessonRef?.module ?? modules[0] ?? null;
@@ -209,17 +217,12 @@ export function CoursePreviewPage({
   const chatMessages = chatContext ? chatMessagesByReference[chatContext.reference] ?? [] : [];
 
   useEffect(() => {
-    if (baseMode === "student" && viewAsStudent) {
-      setViewAsStudent(false);
-    }
-  }, [baseMode, viewAsStudent]);
-
-  useEffect(() => {
     setGeneratedExercisesByModule({});
     setGeneratedTestsByModule({});
     setOpenTest(null);
     setChatContext(null);
     setChatMessagesByReference({});
+    setOverviewModalTab(null);
     initializedProgressKeyRef.current = null;
   }, [progressStorageKey]);
 
@@ -263,15 +266,6 @@ export function CoursePreviewPage({
           ? lessonRefById.get(resolvedLessonId)?.module.id ?? fallbackLesson?.module.id ?? null
           : modules[0]?.id ?? null;
 
-    const storedMode = resolveStoredPreviewMode(storedProgress?.mode);
-
-    if (allowModeSelection && storedMode) {
-      setBaseMode(storedMode);
-    } else {
-      setBaseMode(initialMode);
-    }
-
-    setViewAsStudent(Boolean(storedProgress?.viewAsStudent));
     setExpandedModuleId(resolvedModuleId);
     setActiveLessonId(resolvedLessonId);
     setActiveExerciseId(null);
@@ -279,20 +273,10 @@ export function CoursePreviewPage({
     setCompletedLessonIds(toRecord(storedProgress?.completedLessonIds));
     setCompletedExerciseIds(toRecord(storedProgress?.completedExerciseIds));
     setCompletedTestIds(toRecord(storedProgress?.completedTestIds));
-  }, [
-    activeLessonId,
-    allowModeSelection,
-    initialMode,
-    lessonRefById,
-    lessonSequence,
-    modules,
-    progressStorageKey,
-  ]);
+  }, [activeLessonId, lessonRefById, lessonSequence, modules, progressStorageKey]);
 
   useEffect(() => {
     const payload: StoredPreviewProgress = {
-      mode: baseMode,
-      viewAsStudent,
       moduleId: activeModule?.id ?? expandedModuleId ?? null,
       lessonId: activeLesson?.id ?? null,
       revealedTestIds: Object.keys(revealedTestIds),
@@ -309,14 +293,12 @@ export function CoursePreviewPage({
   }, [
     activeLesson,
     activeModule,
-    baseMode,
     completedExerciseIds,
     completedLessonIds,
     completedTestIds,
     expandedModuleId,
     progressStorageKey,
     revealedTestIds,
-    viewAsStudent,
   ]);
 
   useEffect(() => {
@@ -395,7 +377,10 @@ export function CoursePreviewPage({
             id: createLocalEntityId("generated-test"),
             title: "AI Practice Test",
             afterLessonId: lesson.id,
-            order: (mergedTestsByModule[module.id] ?? []).length + (currentMap[module.id] ?? []).length + 1,
+            order:
+              (mergedTestsByModule[module.id] ?? []).length +
+              (currentMap[module.id] ?? []).length +
+              1,
             questions: mapGeneratedQuestionsToCourseTestQuestions(generatedQuestions),
           },
         ],
@@ -409,10 +394,6 @@ export function CoursePreviewPage({
       setGeneratingLessonId(null);
     }
   }
-
-
-
-  
 
   function handleOpenChat(context: CoursePreviewChatContext) {
     setChatContext(context);
@@ -441,9 +422,44 @@ export function CoursePreviewPage({
     }));
   }
 
-  function handleOpenTest(module: Module, lesson: Lesson, test: CourseTest) {
+  function handleSelectModule(moduleId: string) {
+    setExpandedModuleId(moduleId);
+    setOverviewModalTab(null);
+
+    const nextLesson = (lessonsByModule[moduleId] ?? [])[0] ?? null;
+
+    if (!nextLesson) {
+      return;
+    }
+
+    setActiveLessonId(nextLesson.id);
+    setActiveExerciseId(null);
+    setOpenTest(null);
+  }
+
+  function handleSelectLesson(moduleId: string, lessonId: string) {
+    setExpandedModuleId(moduleId);
+    setActiveLessonId(lessonId);
+    setActiveExerciseId(null);
+    setOpenTest(null);
+    setOverviewModalTab(null);
+  }
+
+  function handleSelectExercise(moduleId: string, lessonId: string, exerciseId: string) {
+    setExpandedModuleId(moduleId);
+    setActiveLessonId(lessonId);
+    setActiveExerciseId(exerciseId);
+    setOpenTest(null);
+    setOverviewModalTab(null);
+  }
+
+  function handleOpenTest(module: Module, lesson: Lesson | null, test: CourseTest) {
     setExpandedModuleId(module.id);
-    setActiveLessonId(lesson.id);
+
+    if (lesson) {
+      setActiveLessonId(lesson.id);
+    }
+
     setActiveExerciseId(null);
     setRevealedTestIds((currentMap) => ({
       ...currentMap,
@@ -451,72 +467,119 @@ export function CoursePreviewPage({
     }));
     setOpenTest({
       moduleId: module.id,
-      lessonId: lesson.id,
+      lessonId: lesson?.id ?? null,
       testId: test.id,
     });
   }
 
+  function handleSelectTest(moduleId: string, lessonId: string | null, testId: string) {
+    const module = modules.find((currentModule) => currentModule.id === moduleId);
+    const lesson = lessonId ? lessonRefById.get(lessonId)?.lesson ?? null : null;
+    const test = (mergedTestsByModule[moduleId] ?? []).find(
+      (currentTest) => currentTest.id === testId
+    );
+
+    if (!module || !test) {
+      return;
+    }
+
+    handleOpenTest(module, lesson, test);
+    setOverviewModalTab(null);
+  }
+
   const openTestGenerated =
     currentOpenTest !== null ? isGeneratedCoursePreviewItem(currentOpenTest.id) : false;
+  const previewDescription = courseDescription?.trim() || EMPTY_DESCRIPTION;
 
   return (
     <>
       <section className="overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-        <div className="border-b border-slate-200 bg-white px-4 py-4 md:px-6">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
-                  {modeMeta.label}
-                </span>
-                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
-                  {`${lessonSequence.length} lessons`}
-                </span>
-                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
-                  {`${totalExercises} exercises`}
-                </span>
-                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
-                  {`${totalTests} tests`}
-                </span>
+        <div className="border-b border-slate-200 bg-white px-4 py-5 md:px-6 md:py-6">
+          <div className="space-y-6">
+            <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-[2rem]">
+              {courseTitle}
+            </h1>
+
+            <div className="grid gap-6 md:grid-cols-[272px_minmax(0,1fr)] md:items-start">
+              <div className="w-full overflow-hidden rounded-lg border border-slate-200 bg-[#f8fafc]">
+                {courseThumbnailUrl ? (
+                  thumbnailKind === "image" ? (
+                    <img
+                      src={courseThumbnailUrl}
+                      alt={`${courseTitle} thumbnail`}
+                      className="aspect-[16/9] h-full w-full object-cover"
+                    />
+                  ) : thumbnailKind === "video" ? (
+                    <div className="flex aspect-[16/9] items-center justify-center bg-slate-950">
+                      <video
+                        src={courseThumbnailUrl}
+                        className="h-full w-full object-cover"
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex aspect-[16/9] flex-col items-center justify-center gap-3 px-5 text-center">
+                      <FileImage className="h-10 w-10 text-slate-400" />
+                      <p className="text-sm font-medium text-slate-500">{thumbnailLabel}</p>
+                    </div>
+                  )
+                ) : (
+                  <div className="flex aspect-[16/9] flex-col items-center justify-center gap-3 px-5 text-center">
+                    <FileImage className="h-10 w-10 text-slate-300" />
+                    <p className="text-sm font-medium text-slate-400">
+                      Course thumbnail will appear here.
+                    </p>
+                  </div>
+                )}
               </div>
-              <h1 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">
-                {courseTitle}
-              </h1>
-              <p className="mt-2 text-sm leading-6 text-slate-500">
-                {courseDescription?.trim() || modeMeta.description}
-              </p>
-            </div>
 
-            <div className="flex flex-col gap-3 xl:items-end">
-              <div className="flex flex-wrap items-center gap-3">
-                {allowModeSelection ? (
-                  <CoursePreviewModeSwitch
-                    value={baseMode}
-                    onChange={(mode) => {
-                      setBaseMode(mode);
-                      setViewAsStudent(false);
-                    }}
-                  />
-                ) : null}
+              <div className="space-y-4">
+                <p className="whitespace-pre-line break-words text-sm leading-7 text-slate-600 md:text-base">
+                  {previewDescription}
+                </p>
 
-                {baseMode !== "student" ? (
+                <div className="flex flex-wrap gap-3">
                   <button
                     type="button"
-                    onClick={() => setViewAsStudent((currentValue) => !currentValue)}
-                    className={`rounded-xl border px-4 py-2 text-sm font-medium transition ${
-                      viewAsStudent
-                        ? "border-[#13daec] bg-[#13daec]/10 text-[#0f172a]"
-                        : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:bg-slate-50 hover:text-[#0f172a]"
-                    }`}
+                    onClick={() => setOverviewModalTab("modules")}
+                    className={getOverviewButtonClassName("modules")}
                   >
-                    View as Student
+                    <Layers3 className="h-4 w-4" />
+                    <span>{`${modules.length} Modules`}</span>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => setOverviewModalTab("lessons")}
+                    className={getOverviewButtonClassName("lessons")}
+                  >
+                    <Play className="h-4 w-4" />
+                    <span>{`${lessonSequence.length} Lessons`}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOverviewModalTab("exercises")}
+                    className={getOverviewButtonClassName("exercises")}
+                  >
+                    <Code2 className="h-4 w-4" />
+                    <span>{`${totalExercises} Exercises`}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOverviewModalTab("tests")}
+                    className={getOverviewButtonClassName("tests")}
+                  >
+                    <BadgeCheck className="h-4 w-4" />
+                    <span>{`${totalTests} Tests`}</span>
+                  </button>
+                </div>
+
+                {statusMessage ? (
+                  <p className="text-sm font-medium text-slate-500">{statusMessage}</p>
                 ) : null}
               </div>
-
-              {statusMessage ? (
-                <p className="text-sm font-medium text-slate-500">{statusMessage}</p>
-              ) : null}
             </div>
           </div>
         </div>
@@ -548,31 +611,9 @@ export function CoursePreviewPage({
                 setOpenTest(null);
               }
             }}
-            onSelectLesson={(moduleId, lessonId) => {
-              setExpandedModuleId(moduleId);
-              setActiveLessonId(lessonId);
-              setActiveExerciseId(null);
-              setOpenTest(null);
-            }}
-            onSelectExercise={(moduleId, lessonId, exerciseId) => {
-              setExpandedModuleId(moduleId);
-              setActiveLessonId(lessonId);
-              setActiveExerciseId(exerciseId);
-              setOpenTest(null);
-            }}
-            onSelectTest={(moduleId, lessonId, testId) => {
-              const module = modules.find((currentModule) => currentModule.id === moduleId);
-              const lesson = lessonRefById.get(lessonId)?.lesson ?? null;
-              const test = (mergedTestsByModule[moduleId] ?? []).find(
-                (currentTest) => currentTest.id === testId
-              );
-
-              if (!module || !lesson || !test) {
-                return;
-              }
-
-              handleOpenTest(module, lesson, test);
-            }}
+            onSelectLesson={handleSelectLesson}
+            onSelectExercise={handleSelectExercise}
+            onSelectTest={handleSelectTest}
           />
 
           <CoursePreviewLessonContent
@@ -596,6 +637,21 @@ export function CoursePreviewPage({
           />
         </div>
       </section>
+
+      <CoursePreviewOverviewModal
+        isOpen={overviewModalTab !== null}
+        activeTab={overviewModalTab ?? "modules"}
+        onTabChange={setOverviewModalTab}
+        onClose={() => setOverviewModalTab(null)}
+        modules={modules}
+        lessonsByModule={lessonsByModule}
+        testsByModule={mergedTestsByModule}
+        exercisesByModule={mergedExercisesByModule}
+        onSelectModule={handleSelectModule}
+        onSelectLesson={handleSelectLesson}
+        onSelectExercise={handleSelectExercise}
+        onSelectTest={handleSelectTest}
+      />
 
       <CoursePreviewTestModal
         isOpen={openTest !== null}

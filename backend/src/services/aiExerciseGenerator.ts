@@ -35,12 +35,14 @@ export type GeneratedExerciseContent =
   | GeneratedDragDropCodeExerciseContent
   | GeneratedWriteCodeExerciseContent;
 
+const lessonTextPlaceholder = "__LESSON_TEXT__";
+
 const BLANK_SLOT_PATTERN = /___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_PATTERN = /{{answer}}|___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
-const lessonTextPlaceholder = "__LESSON_TEXT__";
+
 const EXERCISE_SYSTEM_PROMPT =
-  "You generate high-quality programming exercises for an educational platform.";
+  "You generate high-quality beginner programming exercises that require understanding, not copying.";
 
 const dragDropExerciseSchema = z.object({
   type: z.literal("drag_drop_code").optional(),
@@ -65,68 +67,162 @@ const writeCodeExerciseSchema = z.object({
 });
 
 function normalizeJsonResponse(response: string) {
-  const trimmedResponse = response.trim();
+  const trimmed = response.trim();
 
-  if (!trimmedResponse.startsWith("```")) {
-    return trimmedResponse;
+  if (!trimmed.startsWith("```")) {
+    return trimmed;
   }
 
-  return trimmedResponse
+  return trimmed
     .replace(/^```json\s*/i, "")
     .replace(/^```\s*/i, "")
     .replace(/\s*```$/, "")
     .trim();
 }
 
+function extractExerciseData(parsed: unknown) {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error("Invalid AI structure");
+  }
+
+  const exercise =
+    "exercise" in parsed &&
+    parsed.exercise &&
+    typeof parsed.exercise === "object" &&
+    !Array.isArray(parsed.exercise)
+      ? parsed.exercise
+      : parsed;
+
+  if (exercise === parsed) {
+    console.warn("[AI] Exercise response has no wrapper, using root object");
+  }
+
+  return exercise;
+}
+
+function normalizeWhitespace(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function normalizeForComparison(value: string) {
+  return normalizeWhitespace(value).toLowerCase();
+}
+
+function isTooSimilarToLesson(text: string, lesson: string) {
+  return normalizeForComparison(lesson).includes(normalizeForComparison(text));
+}
+
+function unique(values: string[]) {
+  const set = new Set<string>();
+  return values.filter((v) => {
+    const n = v.trim();
+    if (!n || set.has(n)) return false;
+    set.add(n);
+    return true;
+  });
+}
+
+function normalizeBlankPlaceholders(template: string) {
+  let i = 0;
+  return template.replace(BLANK_SLOT_PATTERN, () => `{{blank_${++i}}}`);
+}
+
+function normalizeDragDrop(raw: unknown, lessonText: string): GeneratedDragDropCodeExerciseContent {
+  const parsed = dragDropExerciseSchema.parse(raw);
+
+  if (isTooSimilarToLesson(parsed.question, lessonText)) {
+    throw new Error("Exercise question is too similar to lesson text");
+  }
+
+  const codeTemplate = normalizeBlankPlaceholders(parsed.code_template);
+  const placeholderCount = codeTemplate.match(/{{blank_\d+}}/g)?.length ?? 0;
+
+  if (placeholderCount !== parsed.blanks.length) {
+    throw new Error("Mismatch between blanks and placeholders");
+  }
+
+  const blanks = parsed.blanks.map((b) => {
+    const distractors = unique(b.distractors).filter(
+      (d) => normalizeForComparison(d) !== normalizeForComparison(b.correct)
+    );
+
+    if (distractors.length < 2) {
+      throw new Error("Invalid distractors");
+    }
+
+    return {
+      id: randomUUID(),
+      correct: b.correct.trim(),
+      distractors,
+    };
+  });
+
+  return {
+    type: "drag_drop_code",
+    question: parsed.question.trim(),
+    code_template: codeTemplate,
+    tokens: unique(blanks.flatMap((b) => [b.correct, ...b.distractors])),
+    correct_answer: blanks.map((b) => b.correct),
+    blanks,
+  };
+}
+
+function normalizeWriteCode(raw: unknown, lessonText: string): GeneratedWriteCodeExerciseContent {
+  const parsed = writeCodeExerciseSchema.parse(raw);
+
+  if (isTooSimilarToLesson(parsed.question, lessonText)) {
+    throw new Error("Exercise question is too similar to lesson text");
+  }
+
+  const matches = parsed.initial_code.match(WRITE_CODE_SLOT_PATTERN) ?? [];
+
+  if (matches.length !== 1) {
+    throw new Error("Write code must have exactly one slot");
+  }
+
+  return {
+    type: "write_code",
+    question: parsed.question.trim(),
+    initial_code: parsed.initial_code
+      .replace(/___|{{blank_\d+}}/g, WRITE_CODE_SLOT_TOKEN)
+      .trim(),
+    expected_answer: parsed.expected_answer.trim(),
+    match_mode: "strict",
+  };
+}
+
 function buildPrompt(type: GeneratedExerciseType) {
   if (type === "drag_drop_code") {
     return `
-For drag_drop_code:
+Generate ONE beginner-friendly but non-trivial programming exercise.
 
-Generate ONE high-quality "Fill Missing Code" exercise.
+Goal:
+- The student should THINK, not just copy
+- The task must be slightly challenging but clear
 
-Global rules:
-- Use lesson content ONLY.
-- Base the exercise directly on the lesson's concepts, keywords, syntax, and code patterns.
-- Do NOT introduce unrelated topics.
-- Do NOT generate generic programming questions.
-- If the lesson is about variables, use variables. If it is about conditionals, use if/else. If it is about loops, use loops.
-- Keep the task beginner-friendly, but avoid trivial tasks.
-- The task must require understanding, not guessing.
-- Use realistic code that looks like a real beginner programming example.
-- Avoid repetitive patterns such as Hello World or simple print-only tasks when a more meaningful exercise is possible.
-- Make each generation feel different by varying the structure when the lesson supports it, such as variables, functions, conditions, loops, or operations.
-- Return ONLY valid JSON.
-- Do not wrap JSON in markdown.
-- Do not add explanations, headings, or extra text.
+Strict rules:
+- Use ONLY lesson content
+- Do NOT copy sentences from the lesson
+- Do NOT rewrite lesson examples directly
+- Do NOT use "Hello World" or trivial prints
+- Do NOT create purely theoretical tasks
 
-Rules:
-- Use lesson content ONLY.
-- Use 1 to 4 blanks.
-- Blanks must represent real logic or syntax from the lesson.
-- The code must be meaningful and slightly challenging.
-- The code must stay syntactically coherent.
-- Use placeholders inside code_template in this exact format: {{blank_1}}, {{blank_2}}, ...
-- The number of placeholders must exactly match the number of blank objects.
-- Each blank must represent a real programming concept, such as an operator, condition, function call, variable value, return expression, or loop part taken from the lesson context.
-- Each blank must include the correct value and 2 or 3 plausible distractors based on common mistakes.
-- Distractors must NOT be random or unrelated.
+Quality rules:
+- The task must involve logic (condition, calculation, or behavior)
+- The code must feel realistic for a beginner
+- Avoid repeating typical patterns (same variables, same structure)
 
-Examples of good tasks:
-- completing condition
-- filling operator
-- completing function logic
-
-Examples of bad tasks:
-- repeating "Hello world"
-- trivial prints
-- unrelated code
+Blanks rules:
+- 1 to 4 blanks
+- Each blank must represent meaningful logic (operator, value, condition, function part)
+- Distractors must be based on real beginner mistakes (not random)
+- Distractors must be plausible
 
 Return JSON:
 {
   "type": "drag_drop_code",
   "question": "...",
-  "code_template": "...",
+  "code_template": "... {{blank_1}} ...",
   "blanks": [
     {
       "correct": "...",
@@ -135,7 +231,7 @@ Return JSON:
   ]
 }
 
-Lesson content:
+Lesson:
 """
 ${lessonTextPlaceholder}
 """
@@ -143,42 +239,26 @@ ${lessonTextPlaceholder}
   }
 
   return `
-For write_code:
+Generate ONE beginner-friendly "Write Code" exercise.
 
-Generate ONE high-quality "Write Code" exercise.
+Goal:
+- The student should think and apply knowledge
+- Not just copy from lesson
 
-Global rules:
-- Use lesson content ONLY.
-- Base the exercise directly on the lesson's concepts, keywords, syntax, and code patterns.
-- Do NOT introduce unrelated topics.
-- Do NOT generate generic programming questions.
-- If the lesson is about variables, use variables. If it is about conditionals, use if/else. If it is about loops, use loops.
-- Keep the task beginner-friendly, but avoid trivial tasks.
-- The task must require understanding, not guessing.
-- Use realistic code that looks like a real beginner programming example.
-- Avoid repetitive patterns such as Hello World or simple print-only tasks when a more meaningful exercise is possible.
-- Make each generation feel different by varying the structure when the lesson supports it, such as variables, functions, conditions, loops, or operations.
-- Return ONLY valid JSON.
-- Do not wrap JSON in markdown.
-- Do not add explanations, headings, or extra text.
+Strict rules:
+- Use ONLY lesson content
+- Do NOT copy or rephrase lesson examples
+- Do NOT generate trivial tasks
+- Avoid overly complex logic
 
-Rules:
-- Use lesson content ONLY.
-- Task must require thinking.
-- Avoid generic prompts and avoid unrelated concepts.
-- initial_code must contain exactly one {{answer}} slot.
-- expected_answer must be the correct code for that slot.
-- The surrounding code must be concise, realistic, and meaningful.
+Quality rules:
+- The task must involve real logic (condition, operation, or small behavior)
+- The code must be short but meaningful
+- Only ONE missing part
 
-Examples of good tasks:
-- completing condition
-- filling operator
-- completing function logic
-
-Examples of bad tasks:
-- repeating "Hello world"
-- trivial prints
-- unrelated code
+Structure rules:
+- initial_code must contain exactly one {{answer}}
+- expected_answer must match that slot
 
 Return JSON:
 {
@@ -188,95 +268,11 @@ Return JSON:
   "expected_answer": "..."
 }
 
-Lesson content:
+Lesson:
 """
 ${lessonTextPlaceholder}
 """
 `;
-}
-
-function uniqueNonEmpty(values: string[]) {
-  const seen = new Set<string>();
-  const normalizedValues: string[] = [];
-
-  values.forEach((value) => {
-    const normalizedValue = value.trim();
-
-    if (!normalizedValue || seen.has(normalizedValue)) {
-      return;
-    }
-
-    seen.add(normalizedValue);
-    normalizedValues.push(normalizedValue);
-  });
-
-  return normalizedValues;
-}
-
-function normalizeBlankPlaceholders(template: string) {
-  let blankIndex = 0;
-
-  return template.replace(BLANK_SLOT_PATTERN, () => `{{blank_${++blankIndex}}}`);
-}
-
-function normalizeDragDropExerciseContent(rawValue: unknown): GeneratedDragDropCodeExerciseContent {
-  const parsed = dragDropExerciseSchema.parse(rawValue);
-  const codeTemplate = normalizeBlankPlaceholders(parsed.code_template);
-  const placeholderCount = codeTemplate.match(/{{blank_\d+}}/g)?.length ?? 0;
-
-  if (placeholderCount === 0) {
-    throw new Error("AI did not include any blank placeholders.");
-  }
-
-  if (parsed.blanks.length !== placeholderCount) {
-    throw new Error("AI returned a blank count that does not match the code template.");
-  }
-
-  const blanks = parsed.blanks.map((blank) => {
-    const distractors = uniqueNonEmpty(blank.distractors).filter(
-      (token) => token !== blank.correct.trim()
-    );
-
-    if (distractors.length < 2) {
-      throw new Error("AI must return at least two unique distractors for each blank.");
-    }
-
-    return {
-      id: randomUUID(),
-      correct: blank.correct.trim(),
-      distractors,
-    };
-  });
-
-  const tokens = uniqueNonEmpty(
-    blanks.flatMap((blank) => [blank.correct, ...blank.distractors])
-  );
-
-  return {
-    type: "drag_drop_code",
-    question: parsed.question.trim(),
-    code_template: codeTemplate,
-    tokens,
-    correct_answer: blanks.map((blank) => blank.correct),
-    blanks,
-  };
-}
-
-function normalizeWriteCodeExerciseContent(rawValue: unknown): GeneratedWriteCodeExerciseContent {
-  const parsed = writeCodeExerciseSchema.parse(rawValue);
-  const slotMatches = parsed.initial_code.match(WRITE_CODE_SLOT_PATTERN) ?? [];
-
-  if (slotMatches.length !== 1) {
-    throw new Error("AI must return exactly one answer slot for write-code exercises.");
-  }
-
-  return {
-    type: "write_code",
-    question: parsed.question.trim(),
-    initial_code: parsed.initial_code.replace(/___|{{blank_\d+}}/g, WRITE_CODE_SLOT_TOKEN).trim(),
-    expected_answer: parsed.expected_answer.trim(),
-    match_mode: "strict",
-  };
 }
 
 export async function generateExerciseFromLesson(
@@ -287,7 +283,7 @@ export async function generateExerciseFromLesson(
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0.7,
+    temperature: 0.75,
     response_format: {
       type: "json_object",
     },
@@ -298,7 +294,14 @@ export async function generateExerciseFromLesson(
       },
       {
         role: "user",
-        content: prompt,
+        content: `
+Return this JSON:
+{
+  "exercise": { ... }
+}
+
+${prompt}
+`,
       },
     ],
   });
@@ -306,20 +309,22 @@ export async function generateExerciseFromLesson(
   const response = completion.choices[0].message.content;
 
   if (!response) {
-    throw new Error("AI returned empty response");
+    throw new Error("Empty AI response");
   }
 
   try {
+    console.log("[AI] Raw exercise response:", response);
+
     const parsed = JSON.parse(normalizeJsonResponse(response));
+    const exerciseData = extractExerciseData(parsed);
 
     return type === "drag_drop_code"
-      ? normalizeDragDropExerciseContent(parsed)
-      : normalizeWriteCodeExerciseContent(parsed);
-  } catch (error) {
-    if (error instanceof Error && error.message.trim()) {
-      throw error;
-    }
+      ? normalizeDragDrop(exerciseData, lessonText)
+      : normalizeWriteCode(exerciseData, lessonText);
+  } catch (e) {
+    console.error("[AI] Failed to normalize exercise response:", e);
 
-    throw new Error("Failed to parse AI exercise response");
+    if (e instanceof Error) throw e;
+    throw new Error("Failed to parse AI exercise");
   }
 }
