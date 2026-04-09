@@ -1,15 +1,21 @@
 import { useRef, useState } from "react";
 import { Code2, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
+import { Input } from "../../../../components/ui/input";
 import type {
   DragDropCodeExerciseBlank,
   DragDropCodeExerciseContent,
+  ExerciseDifficulty,
   ExerciseType,
   Lesson,
   Module,
   WriteCodeExerciseContent,
 } from "../../api";
-import type { CourseTest, ExerciseEditorDraft } from "./courseBuilderUiTypes";
+import type {
+  CourseTest,
+  ExerciseEditorDraft,
+  GeneratedExerciseAiDraft,
+} from "./courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { ExercisePreview } from "./ExercisePreview";
 import { getLessonAiQuestionLimit, getModuleAiQuestionLimit } from "./courseBuilderPageUtils";
@@ -29,7 +35,13 @@ type ExerciseCreateModalProps = {
   isSaving?: boolean;
   errorMessage?: string;
   onClose: () => void;
-  onGenerateAi: (draft: ExerciseEditorDraft) => Promise<ExerciseEditorDraft>;
+  onGenerateAi: (
+    draft: ExerciseEditorDraft,
+    options: {
+      difficulties: ExerciseDifficulty[];
+      count: number;
+    }
+  ) => Promise<GeneratedExerciseAiDraft[]>;
   onSave: (draft: ExerciseEditorDraft) => void;
 };
 
@@ -41,6 +53,16 @@ const DEFAULT_EXERCISE_TITLES: Record<ExerciseType, string> = {
   drag_drop_code: "Fill Missing Code",
   write_code: "Write Code",
 };
+const EXERCISE_COUNT_MIN = 1;
+const EXERCISE_COUNT_MAX = 10;
+const AI_DIFFICULTY_OPTIONS: Array<{
+  value: ExerciseDifficulty;
+  label: string;
+}> = [
+  { value: "easy", label: "Easy" },
+  { value: "medium", label: "Medium" },
+  { value: "hard", label: "Hard" },
+];
 
 function createBlankId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -76,6 +98,21 @@ function getChipInputWidth(value: string, fallbackLength = 8) {
 
 function normalizeOptionValue(value: string) {
   return value.trim();
+}
+
+function clampExerciseCount(value: number) {
+  if (!Number.isFinite(value)) {
+    return EXERCISE_COUNT_MIN;
+  }
+
+  return Math.min(
+    EXERCISE_COUNT_MAX,
+    Math.max(EXERCISE_COUNT_MIN, Math.floor(value))
+  );
+}
+
+function formatDifficultyLabel(value: ExerciseDifficulty) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function buildTokenBank(blanks: DragDropCodeExerciseBlank[]) {
@@ -335,6 +372,12 @@ export function ExerciseCreateModal({
   const [draft, setDraft] = useState<ExerciseEditorDraft>(() =>
     normalizeDraft(initialDraft ?? createDefaultDraft())
   );
+  const [selectedDifficulties, setSelectedDifficulties] = useState<ExerciseDifficulty[]>([]);
+  const [exerciseCount, setExerciseCount] = useState(EXERCISE_COUNT_MIN);
+  const [generatedExercises, setGeneratedExercises] = useState<GeneratedExerciseAiDraft[]>([]);
+  const [selectedGeneratedExerciseId, setSelectedGeneratedExerciseId] = useState<string | null>(
+    null
+  );
   const [manualPreviewLessonId, setManualPreviewLessonId] = useState<string | null>(
     lessons[0]?.id ?? null
   );
@@ -352,6 +395,12 @@ export function ExerciseCreateModal({
   if (!isOpen) {
     return null;
   }
+
+  const resetAiGenerationState = () => {
+    setAiError("");
+    setGeneratedExercises([]);
+    setSelectedGeneratedExerciseId(null);
+  };
 
   const updateDraft = (updater: (currentDraft: ExerciseEditorDraft) => ExerciseEditorDraft) => {
     setDraft((currentDraft) => normalizeDraft(updater(currentDraft)));
@@ -384,6 +433,7 @@ export function ExerciseCreateModal({
   };
 
   const handleTypeChange = (nextType: ExerciseType) => {
+    resetAiGenerationState();
     updateDraft((currentDraft) => {
       if (currentDraft.type === nextType) {
         return currentDraft;
@@ -450,9 +500,41 @@ export function ExerciseCreateModal({
       )
     : getModuleAiQuestionLimit(lessons);
   const canGenerateAi = exerciseAiContentLimit > 0;
+  const hasSelectedDifficulties = selectedDifficulties.length > 0;
+  const isExerciseCountValid =
+    exerciseCount >= EXERCISE_COUNT_MIN && exerciseCount <= EXERCISE_COUNT_MAX;
+  const canSubmitAiGeneration =
+    canGenerateAi &&
+    hasSelectedDifficulties &&
+    isExerciseCountValid &&
+    !isGeneratingAi &&
+    !isSaving;
+
+  const handleDifficultyToggle = (difficulty: ExerciseDifficulty) => {
+    setAiError("");
+    setGeneratedExercises([]);
+    setSelectedGeneratedExerciseId(null);
+    setSelectedDifficulties((currentDifficulties) =>
+      currentDifficulties.includes(difficulty)
+        ? currentDifficulties.filter((currentDifficulty) => currentDifficulty !== difficulty)
+        : [...currentDifficulties, difficulty]
+    );
+  };
+
+  const handleExerciseCountChange = (value: string) => {
+    resetAiGenerationState();
+    const numericValue = Number(value);
+    setExerciseCount(clampExerciseCount(numericValue));
+  };
+
+  const applyGeneratedExercise = (generatedExercise: GeneratedExerciseAiDraft) => {
+    setSelectedGeneratedExerciseId(generatedExercise.id);
+    setDraft(normalizeDraft(generatedExercise.draft));
+    setAiError("");
+  };
 
   const handleGenerateAi = async () => {
-    if (!canGenerateAi || isGeneratingAi || isSaving) {
+    if (!canSubmitAiGeneration) {
       return;
     }
 
@@ -466,8 +548,18 @@ export function ExerciseCreateModal({
     try {
       setAiError("");
       setIsGeneratingAi(true);
-      const nextDraft = await onGenerateAi(normalizeDraft(draft));
-      setDraft(normalizeDraft(nextDraft));
+      const nextExercises = await onGenerateAi(normalizeDraft(draft), {
+        difficulties: selectedDifficulties,
+        count: exerciseCount,
+      });
+
+      setGeneratedExercises(nextExercises);
+
+      const firstExercise = nextExercises[0];
+
+      if (firstExercise) {
+        applyGeneratedExercise(firstExercise);
+      }
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
         setAiError(error.message);
@@ -554,7 +646,7 @@ export function ExerciseCreateModal({
                 <button
                   type="button"
                   onClick={() => {
-                    setAiError("");
+                    resetAiGenerationState();
                     updateDraft((currentDraft) => ({
                       ...currentDraft,
                       afterLessonId: null,
@@ -573,7 +665,7 @@ export function ExerciseCreateModal({
                 <select
                   value={draft.afterLessonId ?? ""}
                   onChange={(event) => {
-                    setAiError("");
+                    resetAiGenerationState();
                     updateDraft((currentDraft) => ({
                       ...currentDraft,
                       afterLessonId: event.target.value || null,
@@ -614,7 +706,6 @@ export function ExerciseCreateModal({
                 <button
                   type="button"
                   onClick={() => {
-                    setAiError("");
                     handleTypeChange("drag_drop_code");
                   }}
                   className={`flex h-full flex-col rounded-[1.5rem] border p-5 text-left transition ${
@@ -663,7 +754,6 @@ export function ExerciseCreateModal({
                 <button
                   type="button"
                   onClick={() => {
-                    setAiError("");
                     handleTypeChange("write_code");
                   }}
                   className={`flex h-full flex-col rounded-[1.5rem] border p-5 text-left transition ${
@@ -703,7 +793,7 @@ export function ExerciseCreateModal({
 
 
             <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-4">
                 <div className="flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#14213d] text-sm font-bold text-white">
                     3
@@ -714,27 +804,165 @@ export function ExerciseCreateModal({
                     </h4>
                   </div>
                 </div>
-
-                {isAiMode ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      void handleGenerateAi();
-                    }}
-                    disabled={!canGenerateAi || isGeneratingAi || isSaving}
-                    className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#fdba74]/60 bg-white px-5 text-sm font-semibold text-[#ea580c] transition hover:bg-[#fff7ed] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Sparkles className="h-4 w-4" />
-                    <span>{isGeneratingAi ? "Generating..." : "Generate with AI"}</span>
-                  </button>
-                ) : null}
               </div>
 
-              {isAiMode && aiError ? (
-                <p className="mt-4 text-sm font-medium text-rose-600">{aiError}</p>
-              ) : null}
-
               <div className="mt-6 space-y-6">
+                {isAiMode ? (
+                  <section className="rounded-[1.5rem] border border-[#fdba74]/40 bg-[#fff7ed] p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-s font-semibold text-[#ea580c]">
+                          <Sparkles className="h-3.5 w-3.5" />
+                          AI Generation
+                        </div>
+                        <h5 className="mt-3 text-lg font-semibold text-[#14213d]">
+                          Choose difficulty and number of exercises
+                        </h5>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          void handleGenerateAi();
+                        }}
+                        disabled={!canSubmitAiGeneration}
+                        className="h-11 rounded-2xl bg-[#f97316] px-5 text-sm font-bold text-white hover:bg-[#ea580c]"
+                      >
+                        {isGeneratingAi ? "Generating..." : "Generate"}
+                      </Button>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
+                      <div>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                          {AI_DIFFICULTY_OPTIONS.map((option) => {
+                            const isChecked = selectedDifficulties.includes(option.value);
+
+                            return (
+                              <label
+                                key={option.value}
+                                className={`inline-flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+                                  isChecked
+                                    ? "border-[#f97316] bg-white text-[#c2410c] shadow-sm"
+                                    : "border-slate-200 bg-white text-slate-700 hover:border-[#fb923c]/40"
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={() => handleDifficultyToggle(option.value)}
+                                  disabled={isSaving || isGeneratingAi}
+                                  className="h-4 w-4 rounded border-slate-300 accent-[#f97316]"
+                                />
+                                <span>{option.label}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="exercise-count"
+                          className="text-sm font-semibold text-[#14213d]"
+                        >
+                          Number of exercises
+                        </label>
+                        <Input
+                          id="exercise-count"
+                          type="number"
+                          min={EXERCISE_COUNT_MIN}
+                          max={EXERCISE_COUNT_MAX}
+                          step={1}
+                          value={exerciseCount}
+                          onChange={(event) => handleExerciseCountChange(event.target.value)}
+                          disabled={isSaving || isGeneratingAi}
+                          className="mt-3 h-12 rounded-2xl border-slate-200 bg-white"
+                        />
+                        <p className="mt-2 text-xs font-medium text-slate-500">
+                          Choose from {EXERCISE_COUNT_MIN} to {EXERCISE_COUNT_MAX}.
+                        </p>
+                      </div>
+                    </div>
+
+                    
+
+                    {!canGenerateAi ? (
+                      <p className="mt-4 text-sm font-medium text-amber-700">
+                        Source content is too short for AI exercise generation.
+                      </p>
+                    ) : null}
+
+                    {aiError ? (
+                      <p className="mt-4 text-sm font-medium text-rose-600">{aiError}</p>
+                    ) : null}
+                  </section>
+                ) : null}
+
+                {isAiMode && generatedExercises.length > 0 ? (
+                  <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h5 className="text-lg font-semibold text-[#14213d]">
+                          Generated exercises
+                        </h5>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Review the generated options and choose one to continue editing.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 space-y-4">
+                      {generatedExercises.map((generatedExercise) => {
+                        const isSelected =
+                          selectedGeneratedExerciseId === generatedExercise.id;
+
+                        return (
+                          <article
+                            key={generatedExercise.id}
+                            className={`rounded-[1.5rem] border p-4 transition ${
+                              isSelected
+                                ? "border-[#f97316] bg-white shadow-[0_16px_30px_rgba(249,115,22,0.12)]"
+                                : "border-slate-200 bg-white"
+                            }`}
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                              <div>
+                                <h6 className="text-base font-semibold text-[#14213d]">
+                                  {formatDifficultyLabel(generatedExercise.difficulty)} Exercise
+                                </h6>
+                                <p className="mt-1 text-sm text-slate-500">
+                                  {generatedExercise.draft.type === "drag_drop_code"
+                                    ? "Fill Missing Code"
+                                    : "Write Code"}
+                                </p>
+                              </div>
+
+                              <Button
+                                type="button"
+                                variant={isSelected ? "primary" : "secondary"}
+                                onClick={() => applyGeneratedExercise(generatedExercise)}
+                                className="h-10 rounded-2xl px-4 text-sm"
+                              >
+                                {isSelected ? "Selected" : "Use This Exercise"}
+                              </Button>
+                            </div>
+
+                            <div className="mt-4">
+                              <ExercisePreview
+                                content={generatedExercise.draft.content}
+                                description={generatedExercise.draft.description}
+                                compact
+                                showAnswerKey
+                              />
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ) : null}
+
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                     <span className="text-s font-semibold text-slate-600">
                       Enter task:

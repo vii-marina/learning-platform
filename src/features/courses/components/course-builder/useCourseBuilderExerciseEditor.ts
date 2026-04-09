@@ -2,13 +2,23 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import {
   createExercise,
   deleteExercise,
-  generateExerciseWithAi,
+  generateExercisesWithAi,
   updateExercise,
 } from "../../api";
-import type { ExerciseContent, Lesson } from "../../api";
-import type { CourseExercise, ExerciseEditorDraft } from "./courseBuilderUiTypes";
+import type {
+  ExerciseContent,
+  ExerciseDifficulty,
+  GeneratedExerciseWithDifficulty,
+  Lesson,
+} from "../../api";
+import type {
+  CourseExercise,
+  ExerciseEditorDraft,
+  GeneratedExerciseAiDraft,
+} from "./courseBuilderUiTypes";
 import {
   createEmptyExerciseDraft,
+  createLocalEntityId,
   type CreateContentMode,
 } from "./courseBuilderPageUtils";
 
@@ -38,6 +48,48 @@ function mapCourseExerciseToDraft(exercise: CourseExercise): ExerciseEditorDraft
     description: exercise.description ?? "",
     content: exercise.content,
   } as ExerciseEditorDraft;
+}
+
+function mapGeneratedExerciseToDraft(
+  baseDraft: ExerciseEditorDraft,
+  generatedExercise: GeneratedExerciseWithDifficulty,
+  afterLessonId: string | null
+): GeneratedExerciseAiDraft {
+  if (
+    baseDraft.type === "drag_drop_code" &&
+    generatedExercise.type === "drag_drop_code"
+  ) {
+    const { difficulty, ...content } = generatedExercise;
+
+    return {
+      id: createLocalEntityId("generated-exercise"),
+      difficulty,
+      draft: {
+        ...baseDraft,
+        afterLessonId,
+        content,
+      },
+    };
+  }
+
+  if (
+    baseDraft.type === "write_code" &&
+    generatedExercise.type === "write_code"
+  ) {
+    const { difficulty, ...content } = generatedExercise;
+
+    return {
+      id: createLocalEntityId("generated-exercise"),
+      difficulty,
+      draft: {
+        ...baseDraft,
+        afterLessonId,
+        content,
+      },
+    };
+  }
+
+  throw new Error("AI returned an exercise type that does not match the selected format.");
 }
 
 export function useCourseBuilderExerciseEditor({
@@ -131,8 +183,12 @@ export function useCourseBuilderExerciseEditor({
   };
 
   const handleGenerateExerciseWithAi = async (
-    draft: ExerciseEditorDraft
-  ): Promise<ExerciseEditorDraft> => {
+    draft: ExerciseEditorDraft,
+    options: {
+      difficulties: ExerciseDifficulty[];
+      count: number;
+    }
+  ): Promise<GeneratedExerciseAiDraft[]> => {
     if (!exerciseEditorModuleId) {
       throw new Error("Unable to resolve the selected module.");
     }
@@ -142,27 +198,35 @@ export function useCourseBuilderExerciseEditor({
       afterLessonId: draft.afterLessonId,
     });
 
-    const generatedContent = await generateExerciseWithAi({
+    const response = await generateExercisesWithAi({
       afterLessonId: resolvedTarget.afterLessonId ?? undefined,
       moduleId: resolvedTarget.afterLessonId ? undefined : resolvedTarget.moduleId,
       type: draft.type,
+      difficulties: options.difficulties,
+      count: options.count,
     });
 
-    if (draft.type === "drag_drop_code" && generatedContent.type === "drag_drop_code") {
-      return {
-        ...draft,
-        content: generatedContent,
-      };
+    const generatedExercises = response.exercises ??
+      (response.content
+        ? [
+            {
+              ...response.content,
+              difficulty: options.difficulties[0] ?? "medium",
+            } as GeneratedExerciseWithDifficulty,
+          ]
+        : []);
+
+    if (generatedExercises.length === 0) {
+      throw new Error("AI did not return any exercises.");
     }
 
-    if (draft.type === "write_code" && generatedContent.type === "write_code") {
-      return {
-        ...draft,
-        content: generatedContent,
-      };
-    }
-
-    throw new Error("AI returned an exercise type that does not match the selected format.");
+    return generatedExercises.map((generatedExercise) =>
+      mapGeneratedExerciseToDraft(
+        draft,
+        generatedExercise,
+        resolvedTarget.afterLessonId
+      )
+    );
   };
 
   const handleSaveExercise = async (draft: ExerciseEditorDraft) => {

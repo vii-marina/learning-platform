@@ -3,6 +3,7 @@ export type CourseAccessType = "public" | "private" | "invite";
 export type TestQuestionType = "true_false" | "single_choice" | "multiple_choice";
 export type AiQuestionGenerationMode = TestQuestionType | "mixed";
 export type ExerciseType = "drag_drop_code" | "write_code";
+export type ExerciseDifficulty = "easy" | "medium" | "hard";
 export type ExerciseMatchMode = "strict" | "flexible";
 
 export type Course = {

@@ -15,6 +15,7 @@ import type {
   CreateTestQuestionInput,
   Exercise,
   ExerciseContent,
+  ExerciseDifficulty,
   ExerciseType,
   Lesson,
   LessonBlock,
@@ -83,14 +84,21 @@ type GenerateTestQuestionsInput = {
   generationMode?: AiQuestionGenerationMode;
 };
 
-type GenerateExerciseResponse = {
-  content: ExerciseContent;
+export type GeneratedExerciseWithDifficulty = ExerciseContent & {
+  difficulty: ExerciseDifficulty;
 };
 
-type GenerateExerciseInput = {
+export type GenerateExerciseResponse = {
+  content?: ExerciseContent;
+  exercises?: GeneratedExerciseWithDifficulty[];
+};
+
+export type GenerateExerciseInput = {
   afterLessonId?: string;
   moduleId?: string;
   type: ExerciseType;
+  difficulties?: ExerciseDifficulty[];
+  count?: number;
 };
 
 function normalizeCourseSlug(value: string) {
@@ -621,7 +629,7 @@ export async function generateTestQuestionsWithAi(
   return response.questions;
 }
 
-export async function generateExerciseWithAi(input: GenerateExerciseInput) {
+export async function generateExercisesWithAi(input: GenerateExerciseInput) {
   const response = await authorizedBackendRequest<GenerateExerciseResponse>(
     "/api/ai/generate-exercise",
     {
@@ -630,7 +638,23 @@ export async function generateExerciseWithAi(input: GenerateExerciseInput) {
     }
   );
 
-  return response.content;
+  return response;
+}
+
+export async function generateExerciseWithAi(input: GenerateExerciseInput) {
+  const response = await generateExercisesWithAi(input);
+
+  if (response.content) {
+    return response.content;
+  }
+
+  const firstExercise = response.exercises?.[0];
+
+  if (firstExercise) {
+    return firstExercise;
+  }
+
+  throw new Error("AI did not return any exercises.");
 }
 
 export async function listExercisesByModule(moduleId: string) {

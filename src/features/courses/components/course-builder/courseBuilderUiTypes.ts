@@ -1,6 +1,7 @@
 import type {
   DragDropCodeExerciseContent,
   ExerciseContent,
+  ExerciseDifficulty,
   ExerciseType,
   TestQuestionType,
   WriteCodeExerciseContent,
@@ -49,3 +50,9 @@ export type ExerciseEditorDraft =
       type: "write_code";
       content: WriteCodeExerciseContent;
     });
+
+export type GeneratedExerciseAiDraft = {
+  id: string;
+  difficulty: ExerciseDifficulty;
+  draft: ExerciseEditorDraft;
+};

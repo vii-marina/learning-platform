@@ -7,6 +7,7 @@ const openai = new OpenAI({
 });
 
 export type GeneratedExerciseType = "drag_drop_code" | "write_code";
+export type ExerciseDifficulty = "easy" | "medium" | "hard";
 
 export type GeneratedDragDropCodeExerciseBlank = {
   id: string;
@@ -42,7 +43,7 @@ const WRITE_CODE_SLOT_PATTERN = /{{answer}}|___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
 
 const EXERCISE_SYSTEM_PROMPT =
-  "You generate high-quality beginner programming exercises that require understanding, not copying.";
+  "You generate high-quality beginner programming exercises and must strictly match the requested difficulty level.";
 
 const dragDropExerciseSchema = z.object({
   type: z.literal("drag_drop_code").optional(),
@@ -191,30 +192,83 @@ function normalizeWriteCode(raw: unknown, lessonText: string): GeneratedWriteCod
   };
 }
 
-function buildPrompt(type: GeneratedExerciseType) {
+function buildDifficultyPrompt(
+  type: GeneratedExerciseType,
+  difficulty: ExerciseDifficulty
+) {
+  if (difficulty === "easy") {
+    return `
+Difficulty: EASY
+
+Rules for EASY:
+- Task must be very simple
+- Keep it almost the same difficulty as the lesson examples
+- Rephrasing lesson examples is allowed, but do not copy lesson sentences verbatim
+- No complex logic
+- No combining multiple ideas
+- Only one action or one obvious missing part
+- Prefer assignments, simple values, one operator, or one basic syntax step
+${type === "drag_drop_code" ? "- Use 1 to 2 blanks only" : "- initial_code should usually be 1 to 3 short lines"}
+`;
+  }
+
+  if (difficulty === "medium") {
+    return `
+Difficulty: MEDIUM
+
+Rules for MEDIUM:
+- Slight thinking is required
+- Use one simple concept at a time
+- Minimal logic is allowed
+- Do not combine unrelated lesson ideas
+- Keep the task short and clear
+${type === "drag_drop_code" ? "- Prefer 1 to 3 meaningful blanks" : "- Keep exactly one missing code fragment with a short context"}
+`;
+  }
+
+  return `
+Difficulty: HARD
+
+Rules for HARD:
+- Combine closely related lesson concepts
+- Require a small amount of reasoning
+- The task can have slightly more logic, but must stay readable for a beginner
+- Do not overload the student with too many steps
+${type === "drag_drop_code" ? "- Up to 4 meaningful blanks are allowed if they support one coherent task" : "- The missing answer can require a short logical expression or condition"}
+`;
+}
+
+function buildPrompt(
+  type: GeneratedExerciseType,
+  difficulty: ExerciseDifficulty
+) {
+  const difficultyPrompt = buildDifficultyPrompt(type, difficulty);
+
   if (type === "drag_drop_code") {
     return `
-Generate ONE beginner-friendly but non-trivial programming exercise.
+Generate ONE programming exercise in the requested difficulty.
 
 Goal:
-- The student should THINK, not just copy
-- The task must be slightly challenging but clear
+- The student should solve a small coding task appropriate for the requested difficulty
+- The task must stay within lesson scope
 
 Strict rules:
 - Use ONLY lesson content
-- Do NOT copy sentences from the lesson
-- Do NOT rewrite lesson examples directly
-- Do NOT use "Hello World" or trivial prints
+- ${difficulty === "easy"
+        ? "You may stay close to lesson examples, but still create a distinct exercise"
+        : "Do NOT copy or directly rewrite lesson examples"}
 - Do NOT create purely theoretical tasks
 
+${difficultyPrompt}
+
 Quality rules:
-- The task must involve logic (condition, calculation, or behavior)
-- The code must feel realistic for a beginner
-- Avoid repeating typical patterns (same variables, same structure)
+- Match the difficulty exactly
+- Keep the code realistic for a beginner
+- Avoid adding extra concepts that are not needed
 
 Blanks rules:
 - 1 to 4 blanks
-- Each blank must represent meaningful logic (operator, value, condition, function part)
+- Each blank must represent a meaningful missing code part for the chosen difficulty
 - Distractors must be based on real beginner mistakes (not random)
 - Distractors must be plausible
 
@@ -239,20 +293,23 @@ ${lessonTextPlaceholder}
   }
 
   return `
-Generate ONE beginner-friendly "Write Code" exercise.
+Generate ONE "Write Code" exercise in the requested difficulty.
 
 Goal:
-- The student should think and apply knowledge
-- Not just copy from lesson
+- The student should apply lesson knowledge at the requested difficulty
+- The task must stay short and focused
 
 Strict rules:
 - Use ONLY lesson content
-- Do NOT copy or rephrase lesson examples
-- Do NOT generate trivial tasks
-- Avoid overly complex logic
+- ${difficulty === "easy"
+        ? "Rephrasing the lesson style is allowed, but the task must still be a separate exercise"
+        : "Do NOT copy or directly rephrase lesson examples"}
+- Avoid logic that is above the requested difficulty
+
+${difficultyPrompt}
 
 Quality rules:
-- The task must involve real logic (condition, operation, or small behavior)
+- Match the requested difficulty exactly
 - The code must be short but meaningful
 - Only ONE missing part
 
@@ -277,9 +334,13 @@ ${lessonTextPlaceholder}
 
 export async function generateExerciseFromLesson(
   lessonText: string,
-  type: GeneratedExerciseType
+  type: GeneratedExerciseType,
+  difficulty: ExerciseDifficulty
 ): Promise<GeneratedExerciseContent> {
-  const prompt = buildPrompt(type).replace(lessonTextPlaceholder, lessonText);
+  const prompt = buildPrompt(type, difficulty).replace(
+    lessonTextPlaceholder,
+    lessonText
+  );
 
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
