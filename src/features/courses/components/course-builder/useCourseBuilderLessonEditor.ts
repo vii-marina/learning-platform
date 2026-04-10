@@ -279,6 +279,19 @@ export function useCourseBuilderLessonEditor({
       return;
     }
 
+    if (editingLessonId === null && lessonEditorModuleId) {
+      setPendingLessonDraft({
+        moduleId: lessonEditorModuleId,
+        draft: {
+          title: lessonTitle,
+          content: lessonContent,
+          videoUrl: lessonVideoUrl,
+        },
+      });
+      void openEditLessonModal(moduleId, lesson);
+      return;
+    }
+
     if (shouldGuardLessonDraft) {
       setLessonEditorNotice("Save or cancel the current lesson before switching to another one.");
       return;

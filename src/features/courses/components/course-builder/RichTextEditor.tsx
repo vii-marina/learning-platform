@@ -96,9 +96,9 @@ export function RichTextEditor({
       className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
         isDisabled
           ? "cursor-not-allowed bg-white text-slate-300"
-          : isActive
-          ? "bg-[#13daec] text-[#0f172a]"
-          : "bg-white text-slate-600 hover:bg-[#13daec]/10 hover:text-[#08bfd4]"
+        : isActive
+          ? "bg-emerald-100 text-emerald-800"
+          : "bg-white text-slate-600 hover:bg-emerald-50 hover:text-emerald-700"
       }`}
     >
       {label}
@@ -120,10 +120,10 @@ export function RichTextEditor({
       disabled={isDisabled}
       className={`rounded-xl p-2 ${
         isActive
-          ? "bg-[#13daec] text-[#0f172a]"
+          ? "bg-emerald-100 text-emerald-800"
           : isDisabled
           ? "cursor-not-allowed bg-white text-slate-300"
-          : "bg-white text-slate-600 transition hover:bg-[#13daec]/10 hover:text-[#08bfd4]"
+          : "bg-white text-slate-600 transition hover:bg-emerald-50 hover:text-emerald-700"
       }`}
     >
       {icon}
@@ -217,7 +217,7 @@ export function RichTextEditor({
   };
 
   return (
-    <div className="rich-text-editor overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_14px_28px_rgba(15,23,42,0.04)]">
+    <div className="rich-text-editor overflow-hidden rounded-xl border border-slate-200 bg-white shadow-[0_14px_28px_rgba(15,23,42,0.04)]">
       <input
         ref={imageInputRef}
         type="file"

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Play, X } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -64,33 +65,62 @@ export function LessonCreateModal({
   onVideoUrlChange,
   onImageUpload,
 }: LessonCreateModalProps) {
+  const [previewSelection, setPreviewSelection] = useState<{
+    moduleId: string | null;
+    editorLessonId: string | null;
+    lessonId: string;
+  } | null>(null);
+  const activeModule = modules.find((module) => module.id === activeModuleId) || null;
+  const activeModuleLessons = activeModule ? lessonsByModule[activeModule.id] || [] : [];
+  const isManualPreviewValid =
+    previewSelection?.moduleId === activeModuleId &&
+    previewSelection.editorLessonId === activeLessonId &&
+    activeModuleLessons.some((lesson) => lesson.id === previewSelection.lessonId);
+  const activeLessonPreviewId =
+    activeLessonId && activeModuleLessons.some((lesson) => lesson.id === activeLessonId)
+      ? activeLessonId
+      : null;
+  const previewLessonId = isManualPreviewValid
+    ? previewSelection.lessonId
+    : activeLessonPreviewId ?? activeModuleLessons[0]?.id ?? null;
+
   if (!isOpen) {
     return null;
   }
 
-  const activeModule = modules.find((module) => module.id === activeModuleId) || null;
   return (
     <div className="fixed inset-0 z-[80] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[92rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
+      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
         <CourseStructureSidebar
           courseTitle={courseTitle}
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
+          accent="lesson"
+          isResizable
           restrictToActiveModule
           activeModuleId={activeModuleId}
           activeLessonId={activeLessonId}
           draftLessonModuleId={draftLessonModuleId}
           draftLessonTitle={draftLessonTitle}
+          showTestSourcePreview
+          previewLessonId={previewLessonId}
           isDirty={isDirty}
           onSelectLesson={onSelectLesson}
           onSelectDraftLesson={onSelectDraftLesson}
+          onSelectPreviewLesson={(lessonId) =>
+            setPreviewSelection({
+              moduleId: activeModuleId,
+              editorLessonId: activeLessonId,
+              lessonId,
+            })
+          }
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
             <div className="inline-flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#13daec]/15 text-[#08bfd4]">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                 <Play className="h-5 w-5" />
               </div>
               <div>
@@ -106,7 +136,7 @@ export function LessonCreateModal({
               type="button"
               onClick={onClose}
               aria-label="Close lesson modal"
-              className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+              className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
             >
               <X className="h-5 w-5" />
             </button>
@@ -115,7 +145,7 @@ export function LessonCreateModal({
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
             <div className="space-y-8">
               {notice ? (
-                <div className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
                   {notice}
                 </div>
               ) : null}
@@ -132,7 +162,7 @@ export function LessonCreateModal({
                       value={title}
                       onChange={(event) => onTitleChange(event.target.value)}
                       placeholder="New Lesson"
-                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-ml font-semibold text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                      className="mt-3 h-14 rounded-xl border border-slate-200 bg-[#f9fbfd] px-5 text-ml font-semibold text-[#14213d] focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                       disabled={isLoadingLesson || isSaving}
                       autoFocus
                     />
@@ -146,7 +176,7 @@ export function LessonCreateModal({
                       value={videoUrl}
                       onChange={(event) => onVideoUrlChange(event.target.value)}
                       placeholder="https://www.youtube.com/watch?v=..."
-                      className="mt-3 h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-sm text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                      className="mt-3 h-14 rounded-xl border border-slate-200 bg-[#f9fbfd] px-5 text-sm text-[#14213d] focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                       disabled={isLoadingLesson || isSaving}
                     />
                     <p className="mt-2 text-sm text-slate-500">
@@ -178,14 +208,14 @@ export function LessonCreateModal({
               <Button
                 variant="secondary"
                 onClick={onClose}
-                className="h-11 rounded-2xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-6 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
                 Cancel
               </Button>
               <Button
                 onClick={onSave}
                 disabled={!title.trim() || isSaving || isLoadingLesson}
-                className="h-11 rounded-2xl bg-[#0f172a] px-6 text-sm font-bold text-white hover:bg-[#111f39]"
+                className="h-11 rounded-xl bg-[#0f172a] px-6 text-sm font-bold text-white hover:bg-[#111f39]"
               >
                 {isSaving ? "Saving..." : saveLabel}
               </Button>
