@@ -10,6 +10,10 @@ import {
   type AiQuestionGenerationMode,
   type GeneratedQuestion,
 } from "../services/aiQuestionGenerator";
+import {
+  detectMaxDifficulty,
+  filterDifficulties,
+} from "../services/exerciseDifficulty";
 import { getContentForAI } from "../services/getContentForAI";
 
 function normalizeGenerationMode(value: unknown): AiQuestionGenerationMode {
@@ -271,7 +275,19 @@ export async function generateExerciseDraft(req: Request, res: Response) {
       });
     }
 
-    const allocations = distributeExerciseCount(difficulties, requestedExerciseCount);
+    const maxDifficulty = detectMaxDifficulty(text);
+    const allowedDifficulties = filterDifficulties(difficulties, maxDifficulty);
+
+    console.log("[AI] Exercise difficulty filter:", {
+      requested: difficulties,
+      max: maxDifficulty,
+      final: allowedDifficulties,
+    });
+
+    const allocations = distributeExerciseCount(
+      allowedDifficulties,
+      requestedExerciseCount
+    );
     const exercises: GeneratedExerciseDraft[] = [];
 
     for (const allocation of allocations) {
@@ -295,6 +311,7 @@ export async function generateExerciseDraft(req: Request, res: Response) {
     }
 
     return res.json({
+      maxDifficulty,
       exercises,
       content: stripDifficulty(firstExercise),
     });

@@ -91,6 +91,7 @@ export type GeneratedExerciseWithDifficulty = ExerciseContent & {
 export type GenerateExerciseResponse = {
   content?: ExerciseContent;
   exercises?: GeneratedExerciseWithDifficulty[];
+  maxDifficulty?: ExerciseDifficulty;
 };
 
 export type GenerateExerciseInput = {
