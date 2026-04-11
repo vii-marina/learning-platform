@@ -118,13 +118,13 @@ export function LessonCreateModal({
         />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex min-h-[108px] items-center justify-between border-b border-slate-200 px-6 py-4">
             <div className="inline-flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
                 <Play className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-3xl font-extrabold tracking-tight text-[#14213d]">
+                <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                   {heading}
                 </h3>
                 {activeModule ? (

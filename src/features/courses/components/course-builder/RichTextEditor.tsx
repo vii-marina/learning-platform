@@ -93,7 +93,7 @@ export function RichTextEditor({
       type="button"
       onClick={onClick}
       disabled={isDisabled}
-      className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+      className={`rounded-xl px-3 py-2 text-xs border font-semibold transition ${
         isDisabled
           ? "cursor-not-allowed bg-white text-slate-300"
         : isActive

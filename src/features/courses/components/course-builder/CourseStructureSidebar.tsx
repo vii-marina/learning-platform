@@ -68,7 +68,8 @@ const accentClassNames = {
     itemActiveBorder: "border-emerald-300",
     itemActiveBg: "bg-emerald-50",
     itemActiveDot: "bg-emerald-500",
-    resizeRing: "hover:border-emerald-300 focus-visible:ring-emerald-300",
+    resizeRing:
+      "border border-emerald-300",
   },
 } satisfies Record<
   NonNullable<CourseStructureSidebarProps["accent"]>,
@@ -236,8 +237,8 @@ export function CourseStructureSidebar({
 
   return (
     <aside className={containerClassName} style={containerStyle}>
-      <div className="border-b border-slate-200 px-6 py-6">
-        <h3 className="mt-2 text-2xl font-extrabold tracking-tight text-[#14213d]">
+      <div className="flex min-h-[108px] flex-col justify-center border-b border-slate-200 px-6 py-4">
+        <h3 className="text-xl font-extrabold tracking-tight text-[#14213d]">
           {courseTitle}
         </h3>
         <p className="mt-4 text-sm font-medium text-slate-500">
@@ -464,6 +465,10 @@ export function CourseStructureSidebar({
                       }
 
                       const isActiveTest = item.test.id === activeTestId;
+                      const isNestedTest = Boolean(
+                        item.test.afterLessonId &&
+                          (lessons || []).some((lesson) => lesson.id === item.test.afterLessonId)
+                      );
                       const displayTitle = getGeneratedCourseTestTitle({
                         moduleOrder: module.order,
                         lessons: lessons || [],
@@ -471,51 +476,52 @@ export function CourseStructureSidebar({
                         fallbackTitle: item.test.title,
                       });
 
-                      return onSelectTest ? (
+                      const testContent = onSelectTest ? (
                         <button
-                          key={item.test.id}
                           type="button"
                           onClick={() => onSelectTest(module.id, item.test)}
-                          className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
+                          className={`flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition ${
                             isActiveTest
-                              ? "border-l-4 border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
-                              : "text-slate-500 hover:bg-slate-100 hover:text-[#14213d]"
+                              ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
+                              : "border-transparent bg-transparent text-slate-500 hover:border-[#ddd6fe] hover:bg-[#f5f3ff] hover:text-[#14213d]"
                           }`}
                         >
                           <span
                             className={`h-2.5 w-2.5 rounded-[4px] ${
-                              isActiveTest ? "bg-[#13daec]" : "bg-slate-300"
+                              isActiveTest ? "bg-[#8b5cf6]" : "bg-[#c4b5fd]"
                             }`}
                           />
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                            Test
-                          </span>
                           <span className="min-w-0 flex-1 truncate text-sm font-medium">
                             {displayTitle}
                           </span>
                         </button>
                       ) : (
                         <div
-                          key={item.test.id}
-                          className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${
+                          className={`flex items-center gap-3 rounded-[1rem] border px-3 py-2.5 ${
                             isActiveTest
-                              ? "border-l-4 border-[#13daec] bg-[#13daec]/12 text-[#14213d]"
-                              : "text-slate-500"
+                              ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
+                              : "border-transparent bg-transparent text-slate-500"
                           }`}
                         >
                           <span
                             className={`h-2.5 w-2.5 rounded-[4px] ${
-                              isActiveTest ? "bg-[#13daec]" : "bg-slate-300"
+                              isActiveTest ? "bg-[#8b5cf6]" : "bg-[#c4b5fd]"
                             }`}
                           />
-                          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
-                            Test
-                          </span>
                           <span className="min-w-0 flex-1 truncate text-sm font-medium">
                             {displayTitle}
                           </span>
                         </div>
-                          );
+                      );
+
+                      return (
+                        <div
+                          key={item.test.id}
+                          className={isNestedTest ? "pl-11" : ""}
+                        >
+                          {testContent}
+                        </div>
+                      );
                         })}
 
                         {showDraftRow
@@ -615,8 +621,10 @@ export function CourseStructureSidebar({
               {activeModuleLessons.length > 0 ? (
                 <>
                   <div
-                    className={`mt-4 rounded-[1rem] border border-slate-200 p-4 ${
-                      isLessonAccent ? "bg-transparent" : "bg-[#f9fbfd]"
+                    className={`mt-4 ${
+                      isLessonAccent
+                        ? ""
+                        : "rounded-[1rem] border border-slate-200 bg-[#f9fbfd] p-4"
                     }`}
                   >
                     <div className="flex items-center gap-2 text-sm font-semibold  text-slate-400">
@@ -679,7 +687,7 @@ export function CourseStructureSidebar({
           type="button"
           aria-label="Resize course structure sidebar"
           onPointerDown={handleResizePointerDown}
-          className={`absolute inset-y-0 right-[-4px] z-20 w-2 cursor-col-resize border-r border-transparent transition focus-visible:outline-none focus-visible:ring-2 ${accentClasses.resizeRing}`}
+          className={`absolute inset-y-0 right-0 z-20 w-[1px] cursor-col-resize border-r transition ${accentClasses.resizeRing}`}
         />
       ) : null}
     </aside>
