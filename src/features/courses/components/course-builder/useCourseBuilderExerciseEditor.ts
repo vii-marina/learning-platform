@@ -105,7 +105,7 @@ export function useCourseBuilderExerciseEditor({
 }: UseCourseBuilderExerciseEditorArgs) {
   const [exerciseEditorModuleId, setExerciseEditorModuleId] = useState<string | null>(null);
   const [exerciseCreateInitialMode, setExerciseCreateInitialMode] =
-    useState<CreateContentMode>("manual");
+    useState<CreateContentMode | null>(null);
   const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
   const [exerciseEditorInitialDraft, setExerciseEditorInitialDraft] =
     useState<ExerciseEditorDraft | null>(null);
@@ -119,13 +119,13 @@ export function useCourseBuilderExerciseEditor({
     setEditingExerciseId(null);
     setExerciseEditorInitialDraft(null);
     setExerciseEditorError("");
-    setExerciseCreateInitialMode("manual");
+    setExerciseCreateInitialMode(null);
   };
 
   const openCreateExerciseModal = async (
     moduleId: string,
     options?: {
-      initialMode?: CreateContentMode;
+      initialMode?: CreateContentMode | null;
     }
   ) => {
     if (isPreparingExerciseEditor) {
@@ -147,7 +147,7 @@ export function useCourseBuilderExerciseEditor({
       ]);
 
       setExerciseEditorModuleId(resolvedModuleId);
-      setExerciseCreateInitialMode(options?.initialMode ?? "manual");
+      setExerciseCreateInitialMode(options?.initialMode ?? null);
       setEditingExerciseId(null);
       setExerciseEditorInitialDraft(createEmptyExerciseDraft());
     } catch (error) {
@@ -177,9 +177,9 @@ export function useCourseBuilderExerciseEditor({
 
   const handleOpenExerciseCreationChoice = async (
     moduleId: string,
-    mode: CreateContentMode
+    mode?: CreateContentMode | null
   ) => {
-    await openCreateExerciseModal(moduleId, { initialMode: mode });
+    await openCreateExerciseModal(moduleId, { initialMode: mode ?? null });
   };
 
   const handleGenerateExerciseWithAi = async (

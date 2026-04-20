@@ -555,7 +555,7 @@ export const CourseBuilderPage = forwardRef<
     setExpandedTestIds,
     closeCreateTestModal,
     openEditTestModal,
-    handleOpenTestCreationChoice,
+    handleOpenCreateTestModal,
     handleAddTestQuestion,
     handleChangeTestQuestion,
     handleDeleteTestQuestion,
@@ -1313,7 +1313,7 @@ export const CourseBuilderPage = forwardRef<
               void handleDeleteExercise(moduleId, exerciseId);
             }}
             onCreateLesson={openCreateLessonModal}
-            onCreateTest={handleOpenTestCreationChoice}
+            onCreateTest={handleOpenCreateTestModal}
             onCreateExercise={handleOpenExerciseCreationChoice}
             onCreateModule={openNewModuleComposer}
             onBack={() => setActiveStep(1)}
@@ -1357,6 +1357,7 @@ export const CourseBuilderPage = forwardRef<
         modules={modules}
         lessonsByModule={lessonsByModule}
         testsByModule={testsByModule}
+        exercisesByModule={exercisesByModule}
         activeModuleId={lessonEditorModuleId}
         activeLessonId={editingLessonId}
         draftLessonModuleId={pendingLessonDraft?.moduleId ?? null}
@@ -1381,6 +1382,13 @@ export const CourseBuilderPage = forwardRef<
       />
 
       <TestCreateModal
+        key={
+          testEditorModuleId === null
+            ? "test-editor-closed"
+            : `${testEditorModuleId}-${editingTestId ?? "new"}-${
+                testCreateInitialMode ?? "auto"
+              }`
+        }
         isOpen={testEditorModuleId !== null}
         initialMode={testCreateInitialMode}
         heading={editingTestId ? "Edit Test" : "Create Test"}
@@ -1389,6 +1397,7 @@ export const CourseBuilderPage = forwardRef<
         modules={modules}
         lessonsByModule={lessonsByModule}
         testsByModule={testsByModule}
+        exercisesByModule={exercisesByModule}
         activeModuleId={testEditorModuleId}
         activeTestId={editingTestId}
         lessons={activeTestModuleLessons}
@@ -1430,7 +1439,9 @@ export const CourseBuilderPage = forwardRef<
         modules={modules}
         lessonsByModule={lessonsByModule}
         testsByModule={testsByModule}
+        exercisesByModule={exercisesByModule}
         activeModuleId={exerciseEditorModuleId}
+        activeExerciseId={editingExerciseId}
         lessons={exerciseEditorModuleId ? lessonsByModule[exerciseEditorModuleId] || [] : []}
         initialDraft={exerciseEditorInitialDraft}
         isSaving={isSavingExercise}

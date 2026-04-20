@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Code2, Plus, Sparkles, X } from "lucide-react";
+import { Code2, PenSquare, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import type {
@@ -12,24 +12,31 @@ import type {
   WriteCodeExerciseContent,
 } from "../../api";
 import type {
+  CourseExercise,
   CourseTest,
   ExerciseEditorDraft,
   GeneratedExerciseAiDraft,
 } from "./courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { ExercisePreview } from "./ExercisePreview";
-import { getLessonAiQuestionLimit, getModuleAiQuestionLimit } from "./courseBuilderPageUtils";
+import {
+  getLessonAiQuestionLimit,
+  getModuleAiQuestionLimit,
+  type CreateContentMode,
+} from "./courseBuilderPageUtils";
 
 type ExerciseCreateModalProps = {
   isOpen: boolean;
-  initialMode?: "manual" | "ai";
+  initialMode?: CreateContentMode | null;
   heading?: string;
   saveLabel?: string;
   courseTitle: string;
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
+  exercisesByModule: Record<string, CourseExercise[]>;
   activeModuleId: string | null;
+  activeExerciseId?: string | null;
   lessons: Lesson[];
   initialDraft: ExerciseEditorDraft | null;
   isSaving?: boolean;
@@ -353,14 +360,16 @@ function sanitizeExerciseDraftForSave(draft: ExerciseEditorDraft): ExerciseEdito
 
 export function ExerciseCreateModal({
   isOpen,
-  initialMode = "manual",
+  initialMode = null,
   heading = "Create Exercise",
   saveLabel = "Save Exercise",
   courseTitle,
   modules,
   lessonsByModule,
   testsByModule,
+  exercisesByModule,
   activeModuleId,
+  activeExerciseId = null,
   lessons,
   initialDraft,
   isSaving = false,
@@ -369,6 +378,7 @@ export function ExerciseCreateModal({
   onGenerateAi,
   onSave,
 }: ExerciseCreateModalProps) {
+  const [creationMode, setCreationMode] = useState<CreateContentMode | null>(initialMode);
   const [draft, setDraft] = useState<ExerciseEditorDraft>(() =>
     normalizeDraft(initialDraft ?? createDefaultDraft())
   );
@@ -492,8 +502,10 @@ export function ExerciseCreateModal({
   const hasAnswerSlot =
     draft.type === "write_code" ? hasWriteCodeAnswerSlot(draft.content.initial_code) : false;
   const validationMessage = getExerciseValidationMessage(draft);
-  const canSave = validationMessage.length === 0;
-  const isAiMode = initialMode === "ai";
+  const isModeSelectionPending = creationMode === null;
+  const controlsDisabled = isSaving || isModeSelectionPending;
+  const canSave = validationMessage.length === 0 && !isModeSelectionPending;
+  const isAiMode = creationMode === "ai";
   const exerciseAiContentLimit = draft.afterLessonId
     ? getLessonAiQuestionLimit(
         lessons.find((lesson) => lesson.id === draft.afterLessonId)?.content ?? ""
@@ -508,7 +520,8 @@ export function ExerciseCreateModal({
     hasSelectedDifficulties &&
     isExerciseCountValid &&
     !isGeneratingAi &&
-    !isSaving;
+    !isSaving &&
+    !isModeSelectionPending;
 
   const handleDifficultyToggle = (difficulty: ExerciseDifficulty) => {
     setAiError("");
@@ -583,66 +596,168 @@ export function ExerciseCreateModal({
     }));
   };
 
+  const sectionClassName = "rounded-xl border border-slate-200 bg-white px-5 py-4";
+  const sectionStepClassName =
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-orange-600";
+  const stageTitleClassName = "text-base font-semibold text-slate-600";
+  const surfaceControlClassName =
+    "h-12 w-full rounded-xl border border-slate-200 bg-[#f9fbfd] px-4 text-sm text-[#14213d] outline-none transition placeholder:text-slate-400 focus:border-orange-200 focus:ring-4 focus:ring-orange-50 disabled:cursor-not-allowed disabled:opacity-60";
+  const selectionCardClassName =
+    "flex h-full flex-col rounded-xl border p-4 text-left transition";
+  const previewCardClassName =
+    "mt-4 flex min-h-[9rem] flex-1 flex-col overflow-hidden rounded-xl border border-slate-200 bg-[#0f172a]";
+  const editorShellClassName = "overflow-hidden rounded-xl border border-slate-200 bg-[#0f172a]";
+
+  const handleQuestionChange = (value: string) => {
+    setAiError("");
+    updateDraft((currentDraft) =>
+      currentDraft.type === "drag_drop_code"
+        ? {
+            ...currentDraft,
+            content: {
+              ...currentDraft.content,
+              question: value,
+            },
+          }
+        : {
+            ...currentDraft,
+            content: {
+              ...currentDraft.content,
+              question: value,
+            },
+          }
+    );
+  };
+
+  const handleCreationModeChange = (mode: CreateContentMode) => {
+    setCreationMode(mode);
+  };
+
   return (
     <div className="fixed inset-0 z-[90] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-[#f8fafc] shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
+      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
         <CourseStructureSidebar
           courseTitle={courseTitle}
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
+          exercisesByModule={exercisesByModule}
+          accent="exercise"
           restrictToActiveModule
           activeModuleId={activeModuleId}
+          activeExerciseId={activeExerciseId}
           selectedAfterLessonId={draft.afterLessonId}
           previewLessonId={previewLessonId}
           showTestSourcePreview
           onSelectPreviewLesson={setManualPreviewLessonId}
         />
 
-        <div className="relative flex min-w-0 flex-1 flex-col">
-          <div className="relative border-b border-slate-200 bg-white px-8 py-6 pr-24">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close exercise modal"
-              className="absolute right-6 top-6 rounded-2xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
-            >
-              <X className="h-5 w-5" />
-            </button>
-
-            <div className="flex items-start gap-4">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f97316]/10 text-[#f97316]">
-                <Code2 className="h-6 w-6" />
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-[108px] items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div className="inline-flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-50 text-orange-500">
+                <Code2 className="h-5 w-5" />
               </div>
 
               <div className="min-w-0">
-                <h3 className="text-3xl font-extrabold tracking-tight text-[#14213d]">
+                <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                   {heading}
                 </h3>
                 {activeModule ? (
-                  <p className="mt-2 text-sm font-medium text-slate-600">
+                  <p className="mt-1 text-sm font-medium text-slate-600">
                     {`Module ${activeModule.order}: ${activeModule.title}`}
                   </p>
                 ) : null}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close exercise modal"
+              className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-            <div className="space-y-6">
-                        <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#14213d] text-sm font-bold text-white">
-                  1
-                </span>
-                <div>
-                  <h4 className="text-2xl font-bold tracking-tight text-[#14213d]">
-                    Place this exercise after:
-                  </h4>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <div className="space-y-4">
+              <section className={sectionClassName}>
+                <div className="flex items-center gap-3">
+                  <span className={sectionStepClassName}>1</span>
+                  <h4 className={stageTitleClassName}>How would you like to create this exercise?</h4>
                 </div>
-              </div>
 
-              <div className="mt-6 grid grid-cols-2 gap-3">
+                <div className="mt-5 grid gap-3 xl:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => handleCreationModeChange("ai")}
+                    aria-pressed={creationMode === "ai"}
+                    className={`${selectionCardClassName} ${
+                      creationMode === "ai"
+                        ? "border-orange-200 bg-orange-50"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                    disabled={isSaving}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          creationMode === "ai"
+                            ? "bg-white text-orange-500"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <h5 className="text-base font-semibold text-[#14213d]">
+                          Generate Exercise with AI
+                        </h5>
+                      </div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleCreationModeChange("manual")}
+                    aria-pressed={creationMode === "manual"}
+                    className={`${selectionCardClassName} ${
+                      creationMode === "manual"
+                        ? "border-orange-200 bg-orange-50"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                    disabled={isSaving}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          creationMode === "manual"
+                            ? "bg-white text-orange-500"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        <PenSquare className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <h5 className="text-base font-semibold text-[#14213d]">
+                          Create Exercise Manually
+                        </h5>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+
+              </section>
+
+              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <span className={sectionStepClassName}>2</span>
+                  <h4 className={stageTitleClassName}>Place this exercise after:</h4>
+                </div>
+
+                <div className="mt-5 grid gap-3 md:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -652,12 +767,12 @@ export function ExerciseCreateModal({
                       afterLessonId: null,
                     }));
                   }}
-                  className={`h-12 w-full rounded-2xl border px-5 text-sm font-semibold transition ${
+                  className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
                     draft.afterLessonId === null
-                      ? "border-[#f97316] bg-[#f97316] text-white"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-[#fb923c]/40 hover:bg-[#fff7ed]"
+                      ? "border-orange-200 bg-orange-50 text-orange-700"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                   }`}
-                  disabled={isSaving}
+                  disabled={controlsDisabled}
                 >
                   This Module
                 </button>
@@ -671,12 +786,12 @@ export function ExerciseCreateModal({
                       afterLessonId: event.target.value || null,
                     }));
                   }}
-                  disabled={lessons.length === 0 || isSaving}
-                  className={`h-12 w-full rounded-2xl border px-4 text-sm font-semibold outline-none transition ${
+                  disabled={lessons.length === 0 || controlsDisabled}
+                  className={`${surfaceControlClassName} ${
                     draft.afterLessonId !== null
-                      ? "border-[#f97316] bg-[#fff7ed] text-[#c2410c]"
-                      : "border-slate-200 bg-white text-slate-700 focus:border-[#f97316] focus:ring-4 focus:ring-[#f97316]/10"
-                  } disabled:cursor-not-allowed disabled:opacity-60`}
+                      ? "border-orange-200 bg-orange-50 text-orange-700"
+                      : "text-slate-700"
+                  }`}
                 >
                   <option value="" disabled>
                     {lessons.length === 0 ? "No lessons available" : "Select lesson"}
@@ -687,46 +802,39 @@ export function ExerciseCreateModal({
                     </option>
                   ))}
                 </select>
-              </div>
-
-            </section>
-            <section className="rounded-[1.75rem]  p-6">
-               <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#14213d] text-sm font-bold text-white">
-                  2
-                </span>
-                <div>
-                  <h4 className="text-2xl font-bold tracking-tight text-[#14213d]">
-                    Choose the exercise format
-                  </h4>
                 </div>
-              </div>
+              </section>
+              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <span className={sectionStepClassName}>3</span>
+                  <h4 className={stageTitleClassName}>Choose the exercise format</h4>
+                </div>
 
-              <div className="mt-6 grid items-stretch gap-4 lg:grid-cols-2">
+                <div className="mt-5 grid gap-3 xl:grid-cols-2">
                 <button
                   type="button"
                   onClick={() => {
                     handleTypeChange("drag_drop_code");
                   }}
-                  className={`flex h-full flex-col rounded-[1.5rem] border p-5 text-left transition ${
+                  aria-pressed={draft.type === "drag_drop_code"}
+                  className={`${selectionCardClassName} ${
                     draft.type === "drag_drop_code"
-                      ? "border-[#f97316] bg-[#fff7ed] shadow-[0_16px_32px_rgba(249,115,22,0.12)]"
-                      : "border-slate-200 hover:border-[#f97316]/40 hover:bg-white"
+                      ? "border-orange-200 bg-orange-50"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                   }`}
+                  disabled={controlsDisabled}
                 >
-                  <div className="min-h-[3.75rem]">
-                    <div>
-                      <p className="whitespace-nowrap text-lg font-semibold text-[#14213d]">
-                        Fill Missing Code
-                      </p>
-                      <p className="mt-3 text-sm leading-6 text-slate-500">
-                        Students select correct parts of code.
-                      </p>
-                    </div>
+                  <div className="min-h-[3.5rem]">
+                    <h5 className="text-base font-semibold text-[#14213d]">
+                      Fill Missing Code
+                    </h5>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Students select correct parts of code.
+                    </p>
                   </div>
 
-                  <div className="mt-5 flex min-h-[10rem] flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-slate-200 bg-[#0f172a]">
-                    <div className="border-b border-white/10 px-4 py-3 text-s font-semibold text-slate-400">
+                  <div className={previewCardClassName}>
+                    <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Preview
                     </div>
                     <div className="flex flex-1 flex-col justify-between gap-4 px-4 py-4">
@@ -756,25 +864,25 @@ export function ExerciseCreateModal({
                   onClick={() => {
                     handleTypeChange("write_code");
                   }}
-                  className={`flex h-full flex-col rounded-[1.5rem] border p-5 text-left transition ${
+                  aria-pressed={draft.type === "write_code"}
+                  className={`${selectionCardClassName} ${
                     draft.type === "write_code"
-                      ? "border-[#f97316] bg-[#fff7ed] shadow-[0_16px_32px_rgba(249,115,22,0.12)]"
-                      : "border-slate-200 bg-slate-50 hover:border-[#f97316]/40 hover:bg-white"
+                      ? "border-orange-200 bg-orange-50"
+                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
                   }`}
+                  disabled={controlsDisabled}
                 >
-                  <div className="min-h-[3.75rem]">
-                    <div>
-                      <p className="whitespace-nowrap text-lg font-semibold text-[#14213d]">
-                        Write Code
-                      </p>
-                      <p className="mt-3 text-sm leading-6 text-slate-500">
-                        Students type missing code manually.
-                      </p>
-                    </div>
+                  <div className="min-h-[3.5rem]">
+                    <h5 className="text-base font-semibold text-[#14213d]">
+                      Write Code
+                    </h5>
+                    <p className="mt-2 text-sm text-slate-500">
+                      Students type missing code manually.
+                    </p>
                   </div>
 
-                  <div className="mt-5 flex min-h-[10rem] flex-1 flex-col overflow-hidden rounded-[1.25rem] border border-slate-200 bg-[#0f172a]">
-                    <div className="border-b border-white/10 px-4 py-3 text-s font-semibold text-slate-400">
+                  <div className={previewCardClassName}>
+                    <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
                       Preview
                     </div>
                     <div className="flex flex-1 items-start px-4 py-4 font-mono text-xs leading-6 text-slate-100">
@@ -787,35 +895,24 @@ export function ExerciseCreateModal({
                     </div>
                   </div>
                 </button>
-              </div>
-            </section>
-
-
-
-            <section className="rounded-[1.75rem] border border-slate-200 bg-white p-6">
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#14213d] text-sm font-bold text-white">
-                    3
-                  </span>
-                  <div>
-                    <h4 className="text-2xl font-bold tracking-tight text-[#14213d]">
-                      Build the exercise
-                    </h4>
-                  </div>
                 </div>
-              </div>
+              </section>
+              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <span className={sectionStepClassName}>4</span>
+                  <h4 className={stageTitleClassName}>Build the exercise</h4>
+                </div>
 
-              <div className="mt-6 space-y-6">
+                <div className="space-y-5 pt-4">
                 {isAiMode ? (
-                  <section className="rounded-[1.5rem] border border-[#fdba74]/40 bg-[#fff7ed] p-5">
+                  <section className="rounded-xl border border-orange-200 bg-orange-50/60 p-4">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div>
-                        <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-s font-semibold text-[#ea580c]">
-                          <Sparkles className="h-3.5 w-3.5" />
+                        <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-orange-600">
+                          <Sparkles className="h-4 w-4" />
                           AI Generation
                         </div>
-                        <h5 className="mt-3 text-lg font-semibold text-[#14213d]">
+                        <h5 className="mt-3 text-base font-semibold text-[#14213d]">
                           Choose difficulty and number of exercises
                         </h5>
                       </div>
@@ -826,14 +923,15 @@ export function ExerciseCreateModal({
                           void handleGenerateAi();
                         }}
                         disabled={!canSubmitAiGeneration}
-                        className="h-11 rounded-2xl bg-[#f97316] px-5 text-sm font-bold text-white hover:bg-[#ea580c]"
+                        className="h-10 rounded-xl bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600"
                       >
                         {isGeneratingAi ? "Generating..." : "Generate"}
                       </Button>
                     </div>
 
-                    <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
+                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
                       <div>
+                        <p className="text-sm font-semibold text-[#14213d]">Difficulty</p>
                         <div className="mt-3 flex flex-wrap gap-3">
                           {AI_DIFFICULTY_OPTIONS.map((option) => {
                             const isChecked = selectedDifficulties.includes(option.value);
@@ -841,18 +939,18 @@ export function ExerciseCreateModal({
                             return (
                               <label
                                 key={option.value}
-                                className={`inline-flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+                                className={`inline-flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition ${
                                   isChecked
-                                    ? "border-[#f97316] bg-white text-[#c2410c] shadow-sm"
-                                    : "border-slate-200 bg-white text-slate-700 hover:border-[#fb923c]/40"
+                                    ? "border-orange-200 bg-white text-orange-700"
+                                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
                                 }`}
                               >
                                 <input
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => handleDifficultyToggle(option.value)}
-                                  disabled={isSaving || isGeneratingAi}
-                                  className="h-4 w-4 rounded border-slate-300 accent-[#f97316]"
+                                  disabled={controlsDisabled || isGeneratingAi}
+                                  className="h-4 w-4 rounded border-slate-300 accent-orange-500"
                                 />
                                 <span>{option.label}</span>
                               </label>
@@ -866,7 +964,7 @@ export function ExerciseCreateModal({
                           htmlFor="exercise-count"
                           className="text-sm font-semibold text-[#14213d]"
                         >
-                          Number of exercises
+                          Exercise count
                         </label>
                         <Input
                           id="exercise-count"
@@ -876,16 +974,14 @@ export function ExerciseCreateModal({
                           step={1}
                           value={exerciseCount}
                           onChange={(event) => handleExerciseCountChange(event.target.value)}
-                          disabled={isSaving || isGeneratingAi}
-                          className="mt-3 h-12 rounded-2xl border-slate-200 bg-white"
+                          disabled={controlsDisabled || isGeneratingAi}
+                          className="mt-3 h-12 border-slate-200 bg-white px-4 text-sm text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
                         />
-                        <p className="mt-2 text-xs font-medium text-slate-500">
-                          Choose from {EXERCISE_COUNT_MIN} to {EXERCISE_COUNT_MAX}.
+                        <p className="mt-2 text-sm text-slate-500">
+                          {`Choose from ${EXERCISE_COUNT_MIN} to ${EXERCISE_COUNT_MAX}.`}
                         </p>
                       </div>
                     </div>
-
-                    
 
                     {!canGenerateAi ? (
                       <p className="mt-4 text-sm font-medium text-amber-700">
@@ -900,19 +996,17 @@ export function ExerciseCreateModal({
                 ) : null}
 
                 {isAiMode && generatedExercises.length > 0 ? (
-                  <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h5 className="text-lg font-semibold text-[#14213d]">
-                          Generated exercises
-                        </h5>
-                        <p className="mt-1 text-sm text-slate-500">
-                          Review the generated options and choose one to continue editing.
-                        </p>
-                      </div>
+                  <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                    <div>
+                      <h5 className="text-base font-semibold text-[#14213d]">
+                        Generated exercises
+                      </h5>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Review the generated options and choose one to continue editing.
+                      </p>
                     </div>
 
-                    <div className="mt-5 space-y-4">
+                    <div className="mt-4 space-y-4">
                       {generatedExercises.map((generatedExercise) => {
                         const isSelected =
                           selectedGeneratedExerciseId === generatedExercise.id;
@@ -920,9 +1014,9 @@ export function ExerciseCreateModal({
                         return (
                           <article
                             key={generatedExercise.id}
-                            className={`rounded-[1.5rem] border p-4 transition ${
+                            className={`rounded-xl border p-4 transition ${
                               isSelected
-                                ? "border-[#f97316] bg-white shadow-[0_16px_30px_rgba(249,115,22,0.12)]"
+                                ? "border-orange-200 bg-white"
                                 : "border-slate-200 bg-white"
                             }`}
                           >
@@ -942,7 +1036,12 @@ export function ExerciseCreateModal({
                                 type="button"
                                 variant={isSelected ? "primary" : "secondary"}
                                 onClick={() => applyGeneratedExercise(generatedExercise)}
-                                className="h-10 rounded-2xl px-4 text-sm"
+                                disabled={controlsDisabled}
+                                className={`h-10 rounded-xl px-4 text-sm ${
+                                  isSelected
+                                    ? "bg-orange-500 text-white hover:bg-orange-600"
+                                    : ""
+                                }`}
                               >
                                 {isSelected ? "Selected" : "Use This Exercise"}
                               </Button>
@@ -963,40 +1062,24 @@ export function ExerciseCreateModal({
                   </section>
                 ) : null}
 
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                    <span className="text-s font-semibold text-slate-600">
-                      Enter task:
-                    </span>
-                    <input
-                      value={draft.content.question}
-                      onChange={(event) => {
-                        setAiError("");
-                        updateDraft((currentDraft) =>
-                          currentDraft.type === "drag_drop_code"
-                            ? {
-                                ...currentDraft,
-                                content: {
-                                  ...currentDraft.content,
-                                  question: event.target.value,
-                                },
-                              }
-                            : {
-                                ...currentDraft,
-                                content: {
-                                  ...currentDraft.content,
-                                  question: event.target.value,
-                                },
-                              }
-                        );
-                      }}
-                      disabled={isSaving}
-                      className="min-w-0 flex-1  text-sm font-medium outline-none placeholder:text-slate-500"
-                      placeholder="Type the task for the student..."
-                    />
+                <div>
+                  <label className="text-sm font-semibold text-[#14213d]">
+                    Task for student
+                  </label>
+                  <Input
+                    value={draft.content.question}
+                    onChange={(event) => handleQuestionChange(event.target.value)}
+                    disabled={controlsDisabled}
+                    placeholder="Type the task for the student..."
+                    className="mt-3 h-12 border-slate-200 bg-[#f9fbfd] px-4 text-sm text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
+                  />
                   </div>
                 {draft.type === "drag_drop_code" ? (
-                  <section className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#0f172a]">
-                    <div className="flex flex-wrap items-end  gap-4 border-b border-white/10 px-5 py-4">
+                  <section className={editorShellClassName}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-300">
+                        Code template
+                      </p>
                       <button
                         type="button"
                         onClick={() =>
@@ -1011,8 +1094,8 @@ export function ExerciseCreateModal({
                               }))
                           )
                         }
-                        className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
-                        disabled={isSaving}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
+                        disabled={controlsDisabled}
                       >
                         <Plus className="h-4 w-4" />
                         Add Blank
@@ -1033,30 +1116,30 @@ export function ExerciseCreateModal({
                             code_template: event.target.value,
                           }))
                         }
-                        disabled={isSaving}
-                        className="min-h-[10rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
+                        disabled={controlsDisabled}
+                        className="min-h-[12rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
                         placeholder={`Example:\nprint(${AUTHOR_BLANK_TOKEN})`}
                         spellCheck={false}
                       />
                     </div>
 
-                    <div className="border-t border-white/10 px-4 py-4">
+                    <div className="border-t border-white/10 bg-slate-950/30 px-4 py-4">
                       <div className="space-y-3 overflow-hidden">
                         {(draft.content.blanks ?? []).length > 0 ? (
                           (draft.content.blanks ?? []).map((blank, index) => (
                             <div
                               key={blank.id}
-                              className="rounded-[1.25rem] bg-white px-4 py-4 text-sm shadow-sm"
+                              className="rounded-xl border border-slate-200 bg-white p-4 text-sm"
                             >
                               <div className="flex flex-wrap items-start gap-4">
-                                <span className="mt-1 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-full bg-[#14213d] px-2 text-xs font-bold text-white">
+                                <span className="mt-1 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 px-2 text-xs font-semibold text-orange-600">
                                   {index + 1}
                                 </span>
                                 <div className="min-w-[12rem] flex-[0.7]">
-                                  <p className="text-sm font-semibold  text-slate-600">
+                                  <p className="text-sm font-semibold text-slate-600">
                                     Correct Option
                                   </p>
-                                  <input
+                                  <Input
                                     value={blank.correct}
                                     onChange={(event) =>
                                       updateDragDropBlank(index, (currentBlank) => ({
@@ -1064,9 +1147,9 @@ export function ExerciseCreateModal({
                                         correct: event.target.value,
                                       }))
                                     }
-                                    disabled={isSaving}
-                                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-[#14213d] outline-none placeholder:text-slate-400"
+                                    disabled={controlsDisabled}
                                     placeholder={`Correct value for blank ${index + 1}`}
+                                    className="mt-2 h-11 border-slate-200 bg-[#f9fbfd] px-4 text-sm font-medium text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
                                   />
                                 </div>
                                 <div className="min-w-[18rem] flex-1">
@@ -1082,8 +1165,8 @@ export function ExerciseCreateModal({
                                           distractors: [...currentBlank.distractors, ""],
                                         }))
                                       }
-                                      disabled={isSaving}
-                                      className="inline-flex h-8 items-center rounded-full border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                                      disabled={controlsDisabled}
+                                      className="inline-flex h-8 items-center rounded-xl border border-slate-200 bg-[#f9fbfd] px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
                                     >
                                       + Add option
                                     </button>
@@ -1094,7 +1177,7 @@ export function ExerciseCreateModal({
                                       blank.distractors.map((distractor, distractorIndex) => (
                                         <div
                                           key={`${blank.id}-distractor-${distractorIndex}`}
-                                          className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2"
+                                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-[#f9fbfd] px-3 py-2"
                                         >
                                           <input
                                             value={distractor}
@@ -1109,7 +1192,7 @@ export function ExerciseCreateModal({
                                                 ),
                                               }))
                                             }
-                                            disabled={isSaving}
+                                            disabled={controlsDisabled}
                                             style={{
                                               width: getChipInputWidth(distractor, 8),
                                             }}
@@ -1127,7 +1210,7 @@ export function ExerciseCreateModal({
                                                 ),
                                               }))
                                             }
-                                            disabled={isSaving}
+                                            disabled={controlsDisabled}
                                             className="text-xs font-bold text-slate-400 transition hover:text-rose-500"
                                           >
                                             x
@@ -1153,10 +1236,9 @@ export function ExerciseCreateModal({
                     </div>
                   </section>
                 ) : (
-                  <section className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#0f172a]">
-                    <div className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 px-5 py-4">
-                      
-
+                  <section className={editorShellClassName}>
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                      <p className="text-sm font-semibold text-slate-300">Starter code</p>
                       <button
                         type="button"
                         onClick={() => {
@@ -1176,8 +1258,8 @@ export function ExerciseCreateModal({
                               }))
                           );
                         }}
-                        className="inline-flex h-11 items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
-                        disabled={isSaving}
+                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
+                        disabled={controlsDisabled}
                       >
                         <Plus className="h-4 w-4" />
                         Insert Answer Slot
@@ -1198,18 +1280,18 @@ export function ExerciseCreateModal({
                             initial_code: event.target.value,
                           }))
                         }
-                        disabled={isSaving}
-                        className="min-h-[10rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
+                        disabled={controlsDisabled}
+                        className="min-h-[12rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
                         placeholder={`Example:\nreturn ${WRITE_CODE_SLOT_TOKEN}`}
                         spellCheck={false}
                       />
                     </div>
 
-                    <div className="border-t border-white/10 px-4 py-4">
+                    <div className="border-t border-white/10 bg-slate-950/30 px-4 py-4">
                       <div className="flex flex-wrap gap-3 overflow-hidden">
                         {hasAnswerSlot || draft.content.expected_answer.trim() ? (
-                          <div className="inline-flex max-w-full items-center gap-2 rounded-full bg-white px-2 py-2 text-sm shadow-sm">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#14213d] text-xs font-bold text-white">
+                          <div className="inline-flex max-w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm">
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-xs font-semibold text-orange-600">
                               1
                             </span>
                             <input
@@ -1220,7 +1302,7 @@ export function ExerciseCreateModal({
                                   expected_answer: event.target.value,
                                 }))
                               }
-                              disabled={isSaving}
+                              disabled={controlsDisabled}
                               style={{
                                 width: getChipInputWidth(draft.content.expected_answer, 14),
                               }}
@@ -1238,16 +1320,12 @@ export function ExerciseCreateModal({
                   </section>
                 )}
 
-                <section className="rounded-[1.5rem] ">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h5 className="mt-2 text-xl font-semibold text-[#14213d]">
-                        Students Preview
-                      </h5>
-                    </div>
-                  </div>
+                <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <h5 className="text-base font-semibold text-[#14213d]">
+                    Student Preview
+                  </h5>
 
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <ExercisePreview
                       content={draft.content}
                       description={draft.description}
@@ -1259,29 +1337,29 @@ export function ExerciseCreateModal({
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-white px-8 py-5">
+          <div className="border-t border-slate-200 px-6 py-5">
             <div className="flex items-center justify-between gap-4">
-              <div className="text-sm font-medium text-slate-500">
+              <div className="min-w-0 flex-1 text-sm font-medium text-slate-500">
                 {errorMessage || validationMessage}
               </div>
               <div className="flex justify-end gap-4">
-              <Button
-                variant="secondary"
-                onClick={onClose}
-                className="h-11 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={() => onSave(sanitizeExerciseDraftForSave(normalizeDraft(draft)))}
-                disabled={!canSave || isSaving}
-                className="h-11 rounded-2xl bg-[#f97316] px-5 text-sm font-bold text-white hover:bg-[#ea580c] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {isSaving ? "Saving..." : saveLabel}
-              </Button>
+                <Button
+                  variant="secondary"
+                  onClick={onClose}
+                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={() => onSave(sanitizeExerciseDraftForSave(normalizeDraft(draft)))}
+                  disabled={!canSave || isSaving}
+                  className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isSaving ? "Saving..." : saveLabel}
+                </Button>
+              </div>
             </div>
-            </div>
-        </div>
+          </div>
         </div>
       </div>
     </div>

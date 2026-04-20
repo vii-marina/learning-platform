@@ -5,9 +5,11 @@ import {
   type PointerEvent as ReactPointerEvent,
 } from "react";
 import {
+  BadgeCheck,
   BookOpen,
   ChevronDown,
   ChevronRight,
+  Code2,
   FileText,
   Layers3,
   Pencil,
@@ -16,10 +18,12 @@ import {
 } from "lucide-react";
 import type { Lesson, Module } from "../../api";
 import { LoadingState } from "../../../../components/ui/LoadingState";
-import type { CourseTest } from "./courseBuilderUiTypes";
+import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
+import { ExercisePreview } from "./ExercisePreview";
 import {
   getGeneratedCourseTestTitle,
   hasLessonContent,
+  studentQuestionTypeLabels,
 } from "./courseBuilderPageUtils";
 import { getYouTubeEmbedUrl } from "./youtube";
 
@@ -28,13 +32,15 @@ type CourseStructureSidebarProps = {
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
+  exercisesByModule: Record<string, CourseExercise[]>;
   variant?: "modal" | "panel";
-  accent?: "default" | "lesson";
+  accent?: "default" | "lesson" | "test" | "exercise";
   isResizable?: boolean;
   restrictToActiveModule?: boolean;
   activeModuleId: string | null;
   activeLessonId?: string | null;
   activeTestId?: string | null;
+  activeExerciseId?: string | null;
   selectedAfterLessonId?: string | null;
   draftLessonModuleId?: string | null;
   draftLessonTitle?: string;
@@ -52,6 +58,7 @@ const MODAL_SIDEBAR_WIDTH = 336;
 const PREVIEW_MODAL_SIDEBAR_WIDTH = 480;
 const RESIZABLE_SIDEBAR_MIN_WIDTH = 288;
 const RESIZABLE_SIDEBAR_MAX_WIDTH = 620;
+const moduleHeaderIconClassName = "bg-[#13daec]/12 text-[#08bfd4]";
 
 const accentClassNames = {
   default: {
@@ -71,34 +78,79 @@ const accentClassNames = {
     resizeRing:
       "border border-emerald-300",
   },
+  test: {
+    moduleActiveBorder: "border-violet-200",
+    moduleIcon: "bg-violet-50 text-violet-600",
+    itemActiveBorder: "border-violet-300",
+    itemActiveBg: "bg-violet-50",
+    itemActiveDot: "bg-violet-500",
+    resizeRing:
+      "border border-violet-300",
+  },
+  exercise: {
+    moduleActiveBorder: "border-orange-200",
+    moduleIcon: "bg-orange-50 text-orange-500",
+    itemActiveBorder: "border-orange-300",
+    itemActiveBg: "bg-orange-50",
+    itemActiveDot: "bg-orange-500",
+    resizeRing:
+      "border border-orange-300",
+  },
 } satisfies Record<
   NonNullable<CourseStructureSidebarProps["accent"]>,
   Record<string, string>
 >;
 
-const buildOrderedModuleItems = (lessons: Lesson[], tests: CourseTest[]) => {
+const buildOrderedModuleItems = (
+  lessons: Lesson[],
+  tests: CourseTest[],
+  exercises: CourseExercise[]
+) => {
+  const sortedLessons = [...lessons].sort((left, right) => left.order - right.order);
+  const sortedTests = [...tests].sort((left, right) => left.order - right.order);
+  const sortedExercises = [...exercises].sort((left, right) =>
+    left.createdAt.localeCompare(right.createdAt)
+  );
   const items: Array<
     | { type: "lesson"; lesson: Lesson }
     | { type: "test"; test: CourseTest }
+    | { type: "exercise"; exercise: CourseExercise }
   > = [];
 
-  lessons.forEach((lesson) => {
+  sortedLessons.forEach((lesson) => {
     items.push({ type: "lesson", lesson });
 
-    tests
+    sortedTests
       .filter((test) => test.afterLessonId === lesson.id)
       .forEach((test) => {
         items.push({ type: "test", test });
       });
+
+    sortedExercises
+      .filter((exercise) => exercise.afterLessonId === lesson.id)
+      .forEach((exercise) => {
+        items.push({ type: "exercise", exercise });
+      });
   });
 
-  tests
+  sortedTests
     .filter(
       (test) =>
-        !test.afterLessonId || !lessons.some((lesson) => lesson.id === test.afterLessonId)
+        !test.afterLessonId ||
+        !sortedLessons.some((lesson) => lesson.id === test.afterLessonId)
     )
     .forEach((test) => {
       items.push({ type: "test", test });
+    });
+
+  sortedExercises
+    .filter(
+      (exercise) =>
+        !exercise.afterLessonId ||
+        !sortedLessons.some((lesson) => lesson.id === exercise.afterLessonId)
+    )
+    .forEach((exercise) => {
+      items.push({ type: "exercise", exercise });
     });
 
   return items;
@@ -109,6 +161,7 @@ export function CourseStructureSidebar({
   modules,
   lessonsByModule,
   testsByModule,
+  exercisesByModule,
   variant = "modal",
   accent = "default",
   isResizable = false,
@@ -116,10 +169,10 @@ export function CourseStructureSidebar({
   activeModuleId,
   activeLessonId = null,
   activeTestId = null,
+  activeExerciseId = null,
   selectedAfterLessonId = null,
   draftLessonModuleId = null,
   draftLessonTitle = "",
-  
   showTestSourcePreview = false,
   previewLessonId = null,
   isDirty = false,
@@ -128,24 +181,52 @@ export function CourseStructureSidebar({
   onSelectDraftLesson,
   onSelectPreviewLesson,
 }: CourseStructureSidebarProps) {
-  const isLessonAccent = accent === "lesson";
+  const isCleanAccent =
+    accent === "lesson" || accent === "test" || accent === "exercise";
   const accentClasses = accentClassNames[accent];
+  const previewAccentClasses =
+    accent === "test"
+      ? {
+          rowActive: "border-emerald-200 bg-transparent text-[#14213d]",
+          rowInactive:
+            "border-transparent bg-transparent text-slate-500 hover:border-emerald-200 hover:text-[#14213d]",
+          icon: "bg-transparent text-emerald-600",
+          chevron: "text-emerald-300",
+          editButton: "hover:bg-transparent hover:text-emerald-600",
+        }
+      : isCleanAccent
+        ? {
+            rowActive: "border-emerald-200 bg-transparent text-[#14213d]",
+            rowInactive:
+              "border-transparent bg-transparent text-slate-500 hover:border-emerald-200 hover:text-[#14213d]",
+            icon: "bg-transparent text-emerald-600",
+            chevron: "text-emerald-300",
+            editButton: "hover:bg-transparent hover:text-emerald-600",
+          }
+        : {
+            rowActive: "border-emerald-200 bg-emerald-50 text-[#14213d]",
+            rowInactive:
+              "border-transparent text-slate-500 hover:border-emerald-100 hover:bg-emerald-50/70 hover:text-[#14213d]",
+            icon: "bg-white text-emerald-600",
+            chevron: "text-emerald-300",
+            editButton: "hover:bg-white hover:text-emerald-600",
+          };
   const [collapsedModuleIdsState, setCollapsedModuleIds] = useState<Record<string, boolean>>({});
   const defaultSidebarWidth = showTestSourcePreview
     ? PREVIEW_MODAL_SIDEBAR_WIDTH
     : MODAL_SIDEBAR_WIDTH;
   const [sidebarWidth, setSidebarWidth] = useState(defaultSidebarWidth);
+  const [manualPreviewTestSelection, setManualPreviewTestSelection] = useState<{
+    contextKey: string;
+    testId: string;
+  } | null>(null);
+  const [manualPreviewExerciseSelection, setManualPreviewExerciseSelection] = useState<{
+    contextKey: string;
+    exerciseId: string;
+  } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
   const resizeStartRef = useRef<{ pointerX: number; width: number } | null>(null);
-  const collapsedModuleIds =
-    showTestSourcePreview && activeModuleId
-      ? {
-          ...collapsedModuleIdsState,
-          [activeModuleId]: selectedAfterLessonId
-            ? true
-            : collapsedModuleIdsState[activeModuleId] ?? false,
-        }
-      : collapsedModuleIdsState;
+  const collapsedModuleIds = collapsedModuleIdsState;
 
   const totalLessons = modules.reduce(
     (sum, module) => sum + (lessonsByModule[module.id]?.length || 0),
@@ -155,21 +236,67 @@ export function CourseStructureSidebar({
     (sum, module) => sum + (testsByModule[module.id]?.length || 0),
     0
   );
+  const totalExercises = modules.reduce(
+    (sum, module) => sum + (exercisesByModule[module.id]?.length || 0),
+    0
+  );
   const activeModule = modules.find((module) => module.id === activeModuleId) || null;
   const activeModuleLessons = activeModule ? lessonsByModule[activeModule.id] || [] : [];
+  const activeModuleTests = activeModule ? testsByModule[activeModule.id] || [] : [];
+  const activeModuleExercises = activeModule ? exercisesByModule[activeModule.id] || [] : [];
+  const previewSelectionContextKey = [
+    activeModuleId ?? "",
+    activeTestId ?? "",
+    activeExerciseId ?? "",
+    selectedAfterLessonId ?? "",
+    previewLessonId ?? "",
+  ].join(":");
   const resolvedPreviewLessonId = selectedAfterLessonId || previewLessonId;
+  const previewExercise =
+    activeModule &&
+    manualPreviewExerciseSelection?.contextKey === previewSelectionContextKey
+      ? activeModuleExercises.find(
+          (exercise) => exercise.id === manualPreviewExerciseSelection.exerciseId
+        ) ||
+        (activeExerciseId
+          ? activeModuleExercises.find((exercise) => exercise.id === activeExerciseId) || null
+          : null)
+      : activeExerciseId
+        ? activeModuleExercises.find((exercise) => exercise.id === activeExerciseId) || null
+        : null;
+  const previewTest =
+    !previewExercise &&
+    activeModule &&
+    manualPreviewTestSelection?.contextKey === previewSelectionContextKey
+      ? activeModuleTests.find((test) => test.id === manualPreviewTestSelection.testId) ||
+        (activeTestId
+          ? activeModuleTests.find((test) => test.id === activeTestId) || null
+          : null)
+      : activeTestId
+        ? activeModuleTests.find((test) => test.id === activeTestId) || null
+        : null;
   const previewLesson =
-    resolvedPreviewLessonId && activeModule
+    !previewExercise && !previewTest && resolvedPreviewLessonId && activeModule
       ? activeModuleLessons.find((lesson) => lesson.id === resolvedPreviewLessonId) || null
       : null;
   const previewLessonEmbedUrl = previewLesson
     ? getYouTubeEmbedUrl(previewLesson.video_url)
     : null;
+  const previewTestTitle =
+    previewTest && activeModule
+      ? getGeneratedCourseTestTitle({
+          moduleOrder: activeModule.order,
+          lessons: activeModuleLessons,
+          afterLessonId: previewTest.afterLessonId,
+          fallbackTitle: previewTest.title,
+        })
+      : null;
+  const hasPreviewContent = Boolean(previewLesson || previewTest || previewExercise);
   const visibleModules =
     restrictToActiveModule && activeModuleId
       ? modules.filter((module) => module.id === activeModuleId)
       : modules;
-  const sidebarBackgroundClassName = isLessonAccent ? "bg-white" : "bg-[#f9fbfd]";
+  const sidebarBackgroundClassName = isCleanAccent ? "bg-white" : "bg-[#f9fbfd]";
   const modalContainerClassName =
     `relative hidden flex-shrink-0 border-r border-slate-200 ${sidebarBackgroundClassName} lg:flex lg:flex-col`;
   const containerClassName =
@@ -242,7 +369,7 @@ export function CourseStructureSidebar({
           {courseTitle}
         </h3>
         <p className="mt-4 text-sm font-medium text-slate-500">
-          {`${modules.length} modules • ${totalLessons} lessons • ${totalTests} tests`}
+          {`${modules.length} modules • ${totalLessons} lessons • ${totalTests} tests • ${totalExercises} exercises`}
         </p>
       </div>
 
@@ -251,7 +378,11 @@ export function CourseStructureSidebar({
           {visibleModules.map((module) => {
             const lessons = lessonsByModule[module.id];
             const tests = testsByModule[module.id];
-            const items = lessons && tests ? buildOrderedModuleItems(lessons, tests) : null;
+            const exercises = exercisesByModule[module.id];
+            const items =
+              lessons && tests && exercises
+                ? buildOrderedModuleItems(lessons, tests, exercises)
+                : null;
             const isActiveModule = module.id === activeModuleId;
             const isCollapsed = showTestSourcePreview
               ? Boolean(collapsedModuleIds[module.id])
@@ -263,7 +394,7 @@ export function CourseStructureSidebar({
               <section
                 key={module.id}
                 className={`rounded-[1.25rem] border px-4 py-4 ${
-                  isLessonAccent
+                  isCleanAccent
                     ? "border-slate-200 bg-transparent"
                     : isActiveModule
                     ? `${accentClasses.moduleActiveBorder} bg-white shadow-[0_10px_24px_rgba(15,23,42,0.05)]`
@@ -271,7 +402,9 @@ export function CourseStructureSidebar({
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${accentClasses.moduleIcon}`}>
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-xl ${moduleHeaderIconClassName}`}
+                  >
                     <BookOpen className="h-4 w-4" />
                   </div>
                   <div className="min-w-0 flex-1">
@@ -279,8 +412,8 @@ export function CourseStructureSidebar({
                       {`Module ${module.order}: ${module.title}`}
                     </p>
                     <p className="text-xs text-slate-400">
-                      {lessons && tests
-                        ? `${lessons.length} lessons • ${tests.length} tests`
+                      {lessons && tests && exercises
+                        ? `${lessons.length} lessons • ${tests.length} tests • ${exercises.length} exercises`
                         : "Loading . . ."}
                     </p>
                   </div>
@@ -295,7 +428,7 @@ export function CourseStructureSidebar({
                       }
                       aria-label={isCollapsed ? "Expand module lessons" : "Collapse module lessons"}
                       className={`flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 text-slate-400 transition hover:border-slate-300 hover:text-[#14213d] ${
-                        isLessonAccent
+                        isCleanAccent
                           ? "bg-transparent hover:bg-transparent"
                           : "bg-white hover:bg-slate-50"
                       }`}
@@ -331,7 +464,7 @@ export function CourseStructureSidebar({
                         const activeRowClass = `border-l-4 ${accentClasses.itemActiveBorder} ${accentClasses.itemActiveBg} text-[#14213d]`;
                         const rowClass = isActiveLesson
                           ? activeRowClass
-                          : isLessonAccent
+                          : isCleanAccent
                             ? "border-l-4 border-transparent text-slate-500"
                             : "text-slate-500";
                         const canSelectPreviewLesson =
@@ -344,9 +477,7 @@ export function CourseStructureSidebar({
                             <span
                               className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
                                 showTestSourcePreview
-                                  ? isLessonAccent
-                                    ? "bg-transparent text-emerald-600"
-                                    : "bg-white text-emerald-600"
+                                  ? previewAccentClasses.icon
                                   : isActiveLesson
                                     ? accentClasses.itemActiveDot
                                     : "bg-slate-300"
@@ -366,9 +497,9 @@ export function CourseStructureSidebar({
                             ) : null}
                             {showTestSourcePreview ? (
                               isActiveLesson ? (
-                                <ChevronDown className="h-4 w-4 shrink-0 text-emerald-300" />
+                                <ChevronDown className={`h-4 w-4 shrink-0 ${previewAccentClasses.chevron}`} />
                               ) : (
-                                <ChevronRight className="h-4 w-4 shrink-0 text-emerald-300" />
+                                <ChevronRight className={`h-4 w-4 shrink-0 ${previewAccentClasses.chevron}`} />
                               )
                             ) : null}
                           </>
@@ -379,18 +510,18 @@ export function CourseStructureSidebar({
                             <div
                               key={item.lesson.id}
                               className={`flex w-full items-center gap-2 rounded-[1rem] border px-3 py-2.5 transition ${
-                                isLessonAccent
-                                  ? isActiveLesson
-                                    ? "border-emerald-200 bg-transparent text-[#14213d]"
-                                    : "border-transparent bg-transparent text-slate-500 hover:border-emerald-200 hover:text-[#14213d]"
-                                  : isActiveLesson
-                                  ? "border-emerald-200 bg-emerald-50 text-[#14213d]"
-                                  : "border-transparent text-slate-500 hover:border-emerald-100 hover:bg-emerald-50/70 hover:text-[#14213d]"
+                                isActiveLesson
+                                  ? previewAccentClasses.rowActive
+                                  : previewAccentClasses.rowInactive
                               }`}
                             >
                               <button
                                 type="button"
-                                onClick={() => onSelectPreviewLesson(item.lesson.id)}
+                                onClick={() => {
+                                  setManualPreviewTestSelection(null);
+                                  setManualPreviewExerciseSelection(null);
+                                  onSelectPreviewLesson(item.lesson.id);
+                                }}
                                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
                               >
                                 {lessonRowContent}
@@ -400,9 +531,7 @@ export function CourseStructureSidebar({
                                   type="button"
                                   onClick={() => onSelectLesson(module.id, item.lesson)}
                                   aria-label={`Edit ${item.lesson.title}`}
-                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition hover:text-emerald-600 ${
-                                    isLessonAccent ? "hover:bg-transparent" : "hover:bg-white"
-                                  }`}
+                                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 transition ${previewAccentClasses.editButton}`}
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </button>
@@ -420,7 +549,7 @@ export function CourseStructureSidebar({
                               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
                                 isActiveLesson
                                   ? rowClass
-                                  : isLessonAccent
+                                  : isCleanAccent
                                     ? "border-l-4 border-transparent text-slate-500 hover:text-[#14213d]"
                                     : "text-slate-500 hover:bg-slate-100 hover:text-[#14213d]"
                               }`}
@@ -464,62 +593,167 @@ export function CourseStructureSidebar({
                         );
                       }
 
-                      const isActiveTest = item.test.id === activeTestId;
-                      const isNestedTest = Boolean(
-                        item.test.afterLessonId &&
-                          (lessons || []).some((lesson) => lesson.id === item.test.afterLessonId)
-                      );
-                      const displayTitle = getGeneratedCourseTestTitle({
-                        moduleOrder: module.order,
-                        lessons: lessons || [],
-                        afterLessonId: item.test.afterLessonId,
-                        fallbackTitle: item.test.title,
-                      });
+                      if (item.type === "test") {
+                        const isActiveTest = item.test.id === activeTestId;
+                        const isPreviewTest =
+                          showTestSourcePreview && previewTest?.id === item.test.id;
+                        const isSelectedTest = isActiveTest || isPreviewTest;
+                        const isNestedTest = Boolean(
+                          item.test.afterLessonId &&
+                            (lessons || []).some((lesson) => lesson.id === item.test.afterLessonId)
+                        );
+                        const displayTitle = getGeneratedCourseTestTitle({
+                          moduleOrder: module.order,
+                          lessons: lessons || [],
+                          afterLessonId: item.test.afterLessonId,
+                          fallbackTitle: item.test.title,
+                        });
+                        const testRowContent = (
+                          <>
+                            <span className="flex h-7 w-7 shrink-0 items-center justify-center">
+                              <span
+                                className={`h-2.5 w-2.5 rounded-[4px] ${
+                                  isSelectedTest ? "bg-[#8b5cf6]" : "bg-[#c4b5fd]"
+                                }`}
+                              />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                              {displayTitle}
+                            </span>
+                            {showTestSourcePreview ? (
+                              isSelectedTest ? (
+                                <ChevronDown className="h-4 w-4 shrink-0 text-[#c4b5fd]" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4 shrink-0 text-[#c4b5fd]" />
+                              )
+                            ) : null}
+                          </>
+                        );
 
-                      const testContent = onSelectTest ? (
+                        const previewTestContent = showTestSourcePreview ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setManualPreviewExerciseSelection(null);
+                              setManualPreviewTestSelection({
+                                contextKey: previewSelectionContextKey,
+                                testId: item.test.id,
+                              });
+                            }}
+                            className={`flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition ${
+                              isSelectedTest
+                                ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
+                                : "border-transparent bg-transparent text-slate-500 hover:border-[#ddd6fe] hover:bg-[#f5f3ff] hover:text-[#14213d]"
+                            }`}
+                          >
+                            {testRowContent}
+                          </button>
+                        ) : null;
+
+                        const testContent = onSelectTest ? (
+                          <button
+                            type="button"
+                            onClick={() => onSelectTest(module.id, item.test)}
+                            className={`flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition ${
+                              isSelectedTest
+                                ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
+                                : "border-transparent bg-transparent text-slate-500 hover:border-[#ddd6fe] hover:bg-[#f5f3ff] hover:text-[#14213d]"
+                            }`}
+                          >
+                            {testRowContent}
+                          </button>
+                        ) : (
+                          <div
+                            className={`flex items-center gap-3 rounded-[1rem] border px-3 py-2.5 ${
+                              isSelectedTest
+                                ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
+                                : "border-transparent bg-transparent text-slate-500"
+                            }`}
+                          >
+                            {testRowContent}
+                          </div>
+                        );
+
+                        return (
+                          <div
+                            key={item.test.id}
+                            className={isNestedTest ? "pl-11" : ""}
+                          >
+                            {previewTestContent ?? testContent}
+                          </div>
+                        );
+                      }
+
+                      const isActiveExercise = item.exercise.id === activeExerciseId;
+                      const isPreviewExercise =
+                        showTestSourcePreview && previewExercise?.id === item.exercise.id;
+                      const isSelectedExercise = isActiveExercise || isPreviewExercise;
+                      const isNestedExercise = Boolean(
+                        item.exercise.afterLessonId &&
+                          (lessons || []).some(
+                            (lesson) => lesson.id === item.exercise.afterLessonId
+                          )
+                      );
+                      const exerciseRowContent = (
+                        <>
+                          <span
+                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-[0.6rem] ${
+                              isSelectedExercise
+                                ? "bg-orange-100 text-orange-600"
+                                : "bg-orange-50 text-orange-400"
+                            }`}
+                          >
+                            <Code2 className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                            {item.exercise.title}
+                          </span>
+                          {showTestSourcePreview ? (
+                            isSelectedExercise ? (
+                              <ChevronDown className="h-4 w-4 shrink-0 text-orange-300" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 shrink-0 text-orange-300" />
+                            )
+                          ) : null}
+                        </>
+                      );
+
+                      const exerciseContent = showTestSourcePreview ? (
                         <button
                           type="button"
-                          onClick={() => onSelectTest(module.id, item.test)}
+                          onClick={() => {
+                            setManualPreviewTestSelection(null);
+                            setManualPreviewExerciseSelection({
+                              contextKey: previewSelectionContextKey,
+                              exerciseId: item.exercise.id,
+                            });
+                          }}
                           className={`flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition ${
-                            isActiveTest
-                              ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
-                              : "border-transparent bg-transparent text-slate-500 hover:border-[#ddd6fe] hover:bg-[#f5f3ff] hover:text-[#14213d]"
+                            isSelectedExercise
+                              ? "border-[#fdba74] bg-[#fff7ed] text-[#14213d]"
+                              : "border-transparent bg-transparent text-slate-500 hover:border-[#fed7aa] hover:bg-[#fff7ed] hover:text-[#14213d]"
                           }`}
                         >
-                          <span
-                            className={`h-2.5 w-2.5 rounded-[4px] ${
-                              isActiveTest ? "bg-[#8b5cf6]" : "bg-[#c4b5fd]"
-                            }`}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                            {displayTitle}
-                          </span>
+                          {exerciseRowContent}
                         </button>
                       ) : (
                         <div
                           className={`flex items-center gap-3 rounded-[1rem] border px-3 py-2.5 ${
-                            isActiveTest
-                              ? "border-[#c4b5fd] bg-[#f5f3ff] text-[#14213d]"
+                            isSelectedExercise
+                              ? "border-[#fdba74] bg-[#fff7ed] text-[#14213d]"
                               : "border-transparent bg-transparent text-slate-500"
                           }`}
                         >
-                          <span
-                            className={`h-2.5 w-2.5 rounded-[4px] ${
-                              isActiveTest ? "bg-[#8b5cf6]" : "bg-[#c4b5fd]"
-                            }`}
-                          />
-                          <span className="min-w-0 flex-1 truncate text-sm font-medium">
-                            {displayTitle}
-                          </span>
+                          {exerciseRowContent}
                         </div>
                       );
 
                       return (
                         <div
-                          key={item.test.id}
-                          className={isNestedTest ? "pl-11" : ""}
+                          key={item.exercise.id}
+                          className={isNestedExercise ? "pl-11" : ""}
                         >
-                          {testContent}
+                          {exerciseContent}
                         </div>
                       );
                         })}
@@ -533,7 +767,7 @@ export function CourseStructureSidebar({
                                 className={`flex w-full items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-left transition ${
                                   isDraftActive
                                     ? `${accentClasses.itemActiveBorder} ${accentClasses.itemActiveBg} text-[#14213d]`
-                                    : isLessonAccent
+                                    : isCleanAccent
                                       ? "border-transparent text-slate-500 hover:text-[#14213d]"
                                       : "border-transparent text-slate-500 hover:bg-slate-100 hover:text-[#14213d]"
                                 }`}
@@ -577,10 +811,10 @@ export function CourseStructureSidebar({
                         {items.length === 0 && !showDraftRow ? (
                           <div
                             className={`rounded-xl px-3 py-3 text-sm text-slate-500 ${
-                              isLessonAccent ? "bg-transparent" : "bg-slate-50"
+                              isCleanAccent ? "bg-transparent" : "bg-slate-50"
                             }`}
                           >
-                            You can always add lessons or tests to this module later.
+                            You can always add lessons, tests, or exercises to this module later.
                           </div>
                         ) : null}
                       </>
@@ -593,17 +827,36 @@ export function CourseStructureSidebar({
 
           {showTestSourcePreview &&
           activeModule &&
-          (activeModuleLessons.length > 0 || accent !== "lesson") ? (
+          (
+            activeModuleLessons.length > 0 ||
+            activeModuleTests.length > 0 ||
+            activeModuleExercises.length > 0 ||
+            accent !== "lesson"
+          ) ? (
             <section
               className={`rounded-[1.25rem] border border-slate-200 p-4 ${
-                isLessonAccent
+                isCleanAccent
                   ? "bg-transparent shadow-none"
                   : "bg-white shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
               }`}
             >
               <div className="flex items-start gap-3">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${accentClasses.moduleIcon}`}>
-                  {previewLesson ? (
+                <div
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
+                    previewExercise
+                      ? "bg-orange-50 text-orange-500"
+                      : previewTest
+                      ? "bg-violet-50 text-violet-600"
+                      : previewLesson
+                        ? "bg-emerald-50 text-emerald-600"
+                        : moduleHeaderIconClassName
+                  }`}
+                >
+                  {previewExercise ? (
+                    <Code2 className="h-4 w-4" />
+                  ) : previewTest ? (
+                    <BadgeCheck className="h-4 w-4" />
+                  ) : previewLesson ? (
                     <FileText className="h-4 w-4" />
                   ) : (
                     <Layers3 className="h-4 w-4" />
@@ -611,28 +864,116 @@ export function CourseStructureSidebar({
                 </div>
                 <div className="min-w-0">
                   <h6 className="mt-1 text-base font-bold text-[#14213d]">
-                    {previewLesson
+                    {previewExercise
+                      ? previewExercise.title
+                      : previewTest
+                      ? previewTestTitle
+                      : previewLesson
                       ? `${activeModule.order}.${previewLesson.order} ${previewLesson.title}`
                       : `Module ${activeModule.order}: ${activeModule.title}`}
                   </h6>
                 </div>
               </div>
 
-              {activeModuleLessons.length > 0 ? (
+              {hasPreviewContent ? (
                 <>
                   <div
                     className={`mt-4 ${
-                      isLessonAccent
+                      isCleanAccent
                         ? ""
                         : "rounded-[1rem] border border-slate-200 bg-[#f9fbfd] p-4"
                     }`}
                   >
                     <div className="flex items-center gap-2 text-sm font-semibold  text-slate-400">
-                      <PlayCircle className="h-3.5 w-3.5" />
-                      {previewLesson ? "Lesson Content" : "Module Content"}
+                      {previewExercise ? (
+                        <Code2 className="h-3.5 w-3.5" />
+                      ) : previewTest ? (
+                        <BadgeCheck className="h-3.5 w-3.5" />
+                      ) : (
+                        <PlayCircle className="h-3.5 w-3.5" />
+                      )}
+                      {previewExercise
+                        ? "Exercise Preview"
+                        : previewTest
+                          ? "Test Questions"
+                          : previewLesson
+                            ? "Lesson Content"
+                            : "Module Content"}
                     </div>
                     <div className="mt-3 max-h-[28rem] overflow-y-auto pr-2">
-                      {previewLesson ? (
+                      {previewExercise ? (
+                        <ExercisePreview
+                          content={previewExercise.content}
+                          description={previewExercise.description}
+                          compact
+                        />
+                      ) : previewTest ? (
+                        previewTest.questions.length > 0 ? (
+                          <div className="space-y-3">
+                            {previewTest.questions.map((question, index) => (
+                              <div
+                                key={question.id}
+                                className="rounded-[1rem] border border-[#ede9fe] bg-[#faf7ff] p-4"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex min-w-0 items-start gap-3">
+                                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#d8b4fe] bg-[#f5f3ff] text-sm font-bold text-[#7c3aed]">
+                                      {index + 1}
+                                    </div>
+                                    <p className="min-w-0 whitespace-pre-wrap pt-0.5 text-sm font-semibold leading-6 text-[#14213d]">
+                                      {question.questionText.trim() || `Question ${index + 1}`}
+                                    </p>
+                                  </div>
+                                  <span className="shrink-0 rounded-full border border-[#ddd6fe] bg-white px-2.5 py-1 text-[11px] font-semibold text-violet-700">
+                                    {studentQuestionTypeLabels[question.type]}
+                                  </span>
+                                </div>
+
+                                <div className="mt-4 space-y-2">
+                                  {(question.type === "true_false"
+                                    ? ["True", "False"]
+                                    : question.options
+                                  ).map((option, optionIndex) => {
+                                    const isCorrect =
+                                      question.correctOptionIndexes.includes(optionIndex);
+
+                                    return (
+                                      <div
+                                        key={`${question.id}-${optionIndex}`}
+                                        className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-sm ${
+                                          isCorrect
+                                            ? "border-[#d8b4fe] bg-[#f5f3ff] text-violet-800"
+                                            : "border-slate-200 bg-white text-slate-600"
+                                        }`}
+                                      >
+                                        <span
+                                          className={`flex h-4 w-4 shrink-0 items-center justify-center border border-[#c4b5fd] ${
+                                            question.type === "multiple_choice"
+                                              ? "rounded-[4px]"
+                                              : "rounded-full"
+                                          } ${isCorrect ? "bg-[#8b5cf6]" : "bg-white"}`}
+                                        />
+                                        <span className="min-w-0 flex-1">{option}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+
+                                {question.hint?.trim() ? (
+                                  <div className="mt-4 rounded-xl border border-[#ede9fe] bg-white px-4 py-3 text-sm leading-6 text-slate-600">
+                                    <span className="font-semibold text-slate-700">Hint:</span>{" "}
+                                    {question.hint.trim()}
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-sm leading-6 text-slate-500">
+                            This test does not have any questions yet.
+                          </p>
+                        )
+                      ) : previewLesson ? (
                         <>
                           {previewLessonEmbedUrl ? (
                             <div className="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-slate-950">
@@ -663,7 +1004,7 @@ export function CourseStructureSidebar({
                         </>
                       ) : (
                         <p className="text-sm leading-6 text-slate-500">
-                          Choose a lesson to preview its content.
+                          Choose a lesson, test, or exercise to preview its content.
                         </p>
                       )}
                     </div>
@@ -672,10 +1013,10 @@ export function CourseStructureSidebar({
               ) : (
                 <div
                   className={`mt-4 rounded-[1rem] border border-slate-200 px-3 py-3 text-sm text-slate-500 ${
-                    isLessonAccent ? "bg-transparent" : "bg-[#f9fbfd]"
+                    isCleanAccent ? "bg-transparent" : "bg-[#f9fbfd]"
                   }`}
                 >
-                  Add lessons to this module before creating a module-level test.
+                  Add lessons, tests, or exercises to this module to preview their content here.
                 </div>
               )}
             </section>

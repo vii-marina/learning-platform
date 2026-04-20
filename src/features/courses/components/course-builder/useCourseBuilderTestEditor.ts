@@ -141,7 +141,7 @@ export function useCourseBuilderTestEditor({
     moduleId: string,
     options?: {
       afterLessonId?: string | null;
-      initialMode?: CreateContentMode;
+      initialMode?: CreateContentMode | null;
     }
   ) => {
     const nextDraft = createEmptyTestEditorDraft();
@@ -154,7 +154,7 @@ export function useCourseBuilderTestEditor({
       : getModuleAiQuestionLimit(moduleLessons);
 
     setTestEditorModuleId(moduleId);
-    setTestCreateInitialMode(options?.initialMode ?? "manual");
+    setTestCreateInitialMode(options?.initialMode ?? null);
     setEditingTestId(null);
     setTestAfterLessonId(nextAfterLessonId);
     setTestQuestions(nextDraft.questions);
@@ -188,8 +188,11 @@ export function useCourseBuilderTestEditor({
     });
   };
 
-  const handleOpenTestCreationChoice = (moduleId: string, mode: CreateContentMode) => {
-    openCreateTestModal(moduleId, { initialMode: mode });
+  const handleOpenCreateTestModal = (
+    moduleId: string,
+    mode?: CreateContentMode | null
+  ) => {
+    openCreateTestModal(moduleId, { initialMode: mode ?? null });
   };
 
   const handleAddTestQuestion = () => {
@@ -421,7 +424,7 @@ export function useCourseBuilderTestEditor({
     setExpandedTestIds,
     closeCreateTestModal,
     openEditTestModal,
-    handleOpenTestCreationChoice,
+    handleOpenCreateTestModal,
     handleAddTestQuestion,
     handleChangeTestQuestion,
     handleDeleteTestQuestion,

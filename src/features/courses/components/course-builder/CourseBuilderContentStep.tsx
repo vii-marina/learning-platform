@@ -1,4 +1,3 @@
-import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -17,7 +16,6 @@ import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
 import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
 import type { CreateContentMode } from "./courseBuilderPageUtils";
-import { CreationPathModal } from "./CreationPathModal";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 import { ModuleContentList } from "./ModuleContentList";
 
@@ -62,8 +60,8 @@ type CourseBuilderContentStepProps = {
   onEditExercise: (moduleId: string, exercise: CourseExercise) => void;
   onDeleteExercise: (moduleId: string, exerciseId: string) => void;
   onCreateLesson: (moduleId: string) => void;
-  onCreateTest: (moduleId: string, mode: CreateContentMode) => void;
-  onCreateExercise: (moduleId: string, mode: CreateContentMode) => void;
+  onCreateTest: (moduleId: string, mode?: CreateContentMode | null) => void;
+  onCreateExercise: (moduleId: string, mode?: CreateContentMode | null) => void;
   onCreateModule: () => void;
   onBack: () => void;
   onContinueToReview: () => void;
@@ -116,10 +114,6 @@ export function CourseBuilderContentStep({
   onBack,
   onContinueToReview,
 }: CourseBuilderContentStepProps) {
-  const [createContentChoice, setCreateContentChoice] = useState<{
-    kind: "test" | "exercise";
-    moduleId: string;
-  } | null>(null);
   const moduleCardClassName =
     "overflow-hidden rounded-[0.75rem] border border-[#13daec] shadow-[0_18px_45px_rgba(15,23,42,0.06)]";
   const moduleHeaderClassName =
@@ -326,12 +320,7 @@ export function CourseBuilderContentStep({
                             type="button"
                             variant="secondary"
                             size="lg"
-                            onClick={() =>
-                              setCreateContentChoice({
-                                kind: "test",
-                                moduleId: module.id,
-                              })
-                            }
+                            onClick={() => onCreateTest(module.id)}
                             className={testActionButtonClassName}
                           >
                             <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
@@ -341,12 +330,7 @@ export function CourseBuilderContentStep({
                             type="button"
                             variant="secondary"
                             size="lg"
-                            onClick={() =>
-                              setCreateContentChoice({
-                                kind: "exercise",
-                                moduleId: module.id,
-                              })
-                            }
+                            onClick={() => onCreateExercise(module.id)}
                             disabled={isPreparingExercise || isModuleContentLoading}
                             className={exerciseActionButtonClassName}
                           >
@@ -454,10 +438,7 @@ export function CourseBuilderContentStep({
                             return;
                           }
 
-                          setCreateContentChoice({
-                            kind: "test",
-                            moduleId,
-                          });
+                          onCreateTest(moduleId);
                         })();
                       }}
                       disabled={!canSaveFirstModule}
@@ -477,10 +458,7 @@ export function CourseBuilderContentStep({
                             return;
                           }
 
-                          setCreateContentChoice({
-                            kind: "exercise",
-                            moduleId,
-                          });
+                          onCreateExercise(moduleId);
                         })();
                       }}
                       disabled={!canSaveFirstModule}
@@ -569,54 +547,6 @@ export function CourseBuilderContentStep({
         </div>
       </section>
 
-      <CreationPathModal
-        isOpen={createContentChoice !== null}
-        title={createContentChoice?.kind === "exercise" ? "Create Exercise" : "Create Test"}
-        aiLabel={
-          createContentChoice?.kind === "exercise"
-            ? "Generate Exercise with AI"
-            : "Generate Test with AI"
-        }
-        manualLabel={
-          createContentChoice?.kind === "exercise"
-            ? "Create Exercise Manually"
-            : "Create Test Manually"
-        }
-        accent={createContentChoice?.kind === "exercise" ? "exercise" : "test"}
-        onClose={() => {
-          setCreateContentChoice(null);
-        }}
-        onSelectAi={() => {
-          if (!createContentChoice) {
-            return;
-          }
-
-          const { kind, moduleId } = createContentChoice;
-          setCreateContentChoice(null);
-
-          if (kind === "exercise") {
-            onCreateExercise(moduleId, "ai");
-            return;
-          }
-
-          onCreateTest(moduleId, "ai");
-        }}
-        onSelectManual={() => {
-          if (!createContentChoice) {
-            return;
-          }
-
-          const { kind, moduleId } = createContentChoice;
-          setCreateContentChoice(null);
-
-          if (kind === "exercise") {
-            onCreateExercise(moduleId, "manual");
-            return;
-          }
-
-          onCreateTest(moduleId, "manual");
-        }}
-      />
     </>
   );
 }

@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
-import { Plus, Sparkles, X } from "lucide-react";
+import { useState } from "react";
+import { Minus, PenSquare, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../components/ui/button";
 import type { AiQuestionGenerationMode, Lesson, Module } from "../../api";
-import type { CourseTest, CourseTestQuestion } from "./courseBuilderUiTypes";
+import type {
+  CourseExercise,
+  CourseTest,
+  CourseTestQuestion,
+} from "./courseBuilderUiTypes";
 import type { CreateContentMode } from "./courseBuilderPageUtils";
 import { hasMeaningfulTestQuestionDraft } from "./courseBuilderPageUtils";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
@@ -17,6 +21,7 @@ type TestCreateModalProps = {
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
+  exercisesByModule: Record<string, CourseExercise[]>;
   activeModuleId: string | null;
   activeTestId?: string | null;
   lessons: Lesson[];
@@ -40,8 +45,6 @@ type TestCreateModalProps = {
   onDeleteQuestion: (questionId: string) => void;
 };
 
-type TestCreateMode = CreateContentMode | null;
-
 const aiGenerationModeOptions: Array<{
   value: AiQuestionGenerationMode;
   label: string;
@@ -61,6 +64,7 @@ export function TestCreateModal({
   modules,
   lessonsByModule,
   testsByModule,
+  exercisesByModule,
   activeModuleId,
   activeTestId = null,
   lessons,
@@ -83,54 +87,42 @@ export function TestCreateModal({
   onQuestionChange,
   onDeleteQuestion,
 }: TestCreateModalProps) {
-  const [previewLessonId, setPreviewLessonId] = useState<string | null>(null);
-  const [mode, setMode] = useState<TestCreateMode>(null);
+  const [manualPreviewLessonId, setManualPreviewLessonId] = useState<string | null>(null);
+  const hasMeaningfulQuestions = hasMeaningfulTestQuestionDraft(questions);
+  const initialResolvedMode: CreateContentMode | null =
+    activeTestId || hasMeaningfulQuestions
+      ? "manual"
+      : initialMode ?? null;
+  const [mode, setMode] = useState<CreateContentMode | null>(initialResolvedMode);
   const [showAiQuestions, setShowAiQuestions] = useState(false);
+  const [aiQuestionCountLimitError, setAiQuestionCountLimitError] = useState(false);
 
-  useEffect(() => {
-    if (!isOpen) {
-      setMode(null);
-      setShowAiQuestions(false);
-      return;
-    }
+  const previewLessonId =
+    selectedAfterLessonId ??
+    (manualPreviewLessonId && lessons.some((lesson) => lesson.id === manualPreviewLessonId)
+      ? manualPreviewLessonId
+      : null) ??
+    lessons[0]?.id ??
+    null;
+  const isModeSelectionPending = mode === null;
+  const controlsDisabled = isSaving || isModeSelectionPending;
+  const canSaveCurrentMode =
+    mode === "manual" ? canSave : mode === "ai" ? canSave && showAiQuestions : false;
 
-    if (activeTestId || hasMeaningfulTestQuestionDraft(questions)) {
-      setMode("manual");
-      setShowAiQuestions(false);
-      return;
-    }
-
-    setMode(initialMode);
-    setShowAiQuestions(false);
-  }, [activeTestId, initialMode, isOpen, questions]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      return;
-    }
-
-    if (selectedAfterLessonId) {
-      setPreviewLessonId(selectedAfterLessonId);
-      return;
-    }
-
-    setPreviewLessonId((currentValue) => {
-      if (currentValue && lessons.some((lesson) => lesson.id === currentValue)) {
-        return currentValue;
-      }
-
-      return lessons[0]?.id ?? null;
-    });
-  }, [isOpen, lessons, selectedAfterLessonId]);
+  const sectionClassName = "rounded-xl border border-slate-200 bg-white px-5 py-4";
+  const sectionStepClassName =
+    "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-violet-600";
+  const stageTitleClassName = "text-base font-semibold text-slate-600";
+  const surfaceControlClassName =
+    "h-12 w-full rounded-xl border border-slate-200 bg-[#f9fbfd] px-4 text-sm text-[#14213d] outline-none transition placeholder:text-slate-400 focus:border-violet-200 focus:ring-4 focus:ring-violet-50 disabled:cursor-not-allowed disabled:opacity-60";
+  const showQuestionToolbar = mode === "manual" || showAiQuestions;
+  const canAdjustAiQuestionCount =
+    maxAiQuestionCount > 0 && !controlsDisabled && !isGeneratingAi;
+  const aiQuestionInputValue = maxAiQuestionCount > 0 ? String(aiQuestionCount) : "0";
 
   if (!isOpen) {
     return null;
   }
-
-  const title =
-    mode === "ai"
-      ? "Generate Questions with AI"
-      : heading;
 
   const handlePlacementChange = (lessonId: string | null) => {
     onAfterLessonChange(lessonId);
@@ -153,17 +145,72 @@ export function TestCreateModal({
     setShowAiQuestions(false);
   };
 
+  const handleAiQuestionCountChange = (value: number) => {
+    onAiQuestionCountChange(value);
+    setShowAiQuestions(false);
+  };
+
+  const applyAiQuestionCount = (nextValue: number, markLimitError = false) => {
+    if (maxAiQuestionCount <= 0) {
+      setAiQuestionCountLimitError(markLimitError);
+      return;
+    }
+
+    const safeValue = Math.min(Math.max(nextValue, 1), maxAiQuestionCount);
+    setAiQuestionCountLimitError(markLimitError || nextValue > maxAiQuestionCount);
+    handleAiQuestionCountChange(safeValue);
+  };
+
+  const handleAiQuestionInputChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, "");
+
+    if (!digitsOnly) {
+      setAiQuestionCountLimitError(false);
+      return;
+    }
+
+    const parsedValue = Number(digitsOnly);
+
+    if (parsedValue > maxAiQuestionCount && maxAiQuestionCount > 0) {
+      applyAiQuestionCount(maxAiQuestionCount, true);
+      return;
+    }
+
+    applyAiQuestionCount(parsedValue);
+  };
+
+  const handleIncreaseAiQuestionCount = () => {
+    if (!canAdjustAiQuestionCount) {
+      return;
+    }
+
+    if (aiQuestionCount >= maxAiQuestionCount) {
+      setAiQuestionCountLimitError(true);
+      return;
+    }
+
+    applyAiQuestionCount(aiQuestionCount + 1);
+  };
+
+  const handleDecreaseAiQuestionCount = () => {
+    if (!canAdjustAiQuestionCount) {
+      return;
+    }
+
+    applyAiQuestionCount(aiQuestionCount - 1);
+  };
+
   const placementControls = (
-    <div className="mt-4 grid grid-cols-2 gap-3">
+    <div className="mt-5 grid gap-3 md:grid-cols-2">
       <button
         type="button"
         onClick={() => handlePlacementChange(null)}
-        className={`h-12 w-full rounded-2xl border px-5 text-sm font-semibold transition ${
+        className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
           selectedAfterLessonId === null
-            ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
-            : "border-slate-200 bg-[#f9fbfd] text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
+            ? "border-violet-200 bg-violet-50 text-violet-700"
+            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
         }`}
-        disabled={isSaving}
+        disabled={controlsDisabled}
       >
         This Module
       </button>
@@ -171,12 +218,12 @@ export function TestCreateModal({
       <select
         value={selectedAfterLessonId ?? ""}
         onChange={(event) => handlePlacementChange(event.target.value || null)}
-        disabled={lessons.length === 0 || isSaving}
-        className={`h-12 w-full rounded-2xl border px-4 text-sm font-semibold outline-none transition ${
+        disabled={lessons.length === 0 || controlsDisabled}
+        className={`${surfaceControlClassName} px-4 ${
           selectedAfterLessonId !== null
-            ? "border-[#8b5cf6] bg-[#f5f3ff] text-[#6d28d9]"
-            : "border-slate-200 bg-white text-slate-700 focus:border-[#a78bfa] focus:ring-4 focus:ring-[#8b5cf6]/15"
-        } disabled:cursor-not-allowed disabled:opacity-60`}
+            ? "border-violet-200 bg-violet-50 text-violet-700"
+            : "text-slate-700"
+        }`}
       >
         <option value="" disabled>
           {lessons.length === 0 ? "No lessons available" : "Select lesson"}
@@ -192,18 +239,6 @@ export function TestCreateModal({
 
   const questionList = (
     <div className="space-y-4">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onAddQuestion}
-          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-[#c4b5fd]/60 bg-white px-5 text-sm font-semibold text-[#7c3aed] transition hover:bg-[#f5f3ff]"
-          disabled={isSaving}
-        >
-          <Plus className="h-4 w-4" />
-          <span>Add Question</span>
-        </button>
-      </div>
-
       {questions.map((question, index) => (
         <TestQuestionEditor
           key={question.id}
@@ -217,154 +252,285 @@ export function TestCreateModal({
     </div>
   );
 
-  const modeChoice = (
-    <div className="flex flex-wrap gap-3">
+  const creationMethodCards = (
+    <div className="mt-5 grid gap-3 xl:grid-cols-2">
       <button
         type="button"
         onClick={() => setMode("ai")}
-        className="inline-flex h-12 items-center gap-3 rounded-2xl bg-gradient-to-r from-[#a78bfa] via-[#8b5cf6] to-[#6d28d9] px-5 text-sm font-bold text-white shadow-[0_12px_24px_rgba(109,40,217,0.18)] transition hover:translate-y-[-1px] hover:shadow-[0_16px_28px_rgba(109,40,217,0.24)]"
+        aria-pressed={mode === "ai"}
+        disabled={isSaving}
+        className={`rounded-xl border p-4 text-left transition ${
+          mode === "ai"
+            ? "border-violet-200 bg-violet-50"
+            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+        }`}
       >
-        <Sparkles className="h-4 w-4" />
-        <span>Generate Questions with AI</span>
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              mode === "ai"
+                ? "bg-white text-violet-600"
+                : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            <Sparkles className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h4 className="text-base font-semibold text-[#14213d]">
+              Generate with AI
+            </h4>
+          </div>
+        </div>
       </button>
 
       <button
         type="button"
         onClick={() => setMode("manual")}
-        className="inline-flex h-12 items-center rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-[#14213d] transition hover:border-slate-300 hover:bg-slate-50"
+        aria-pressed={mode === "manual"}
+        disabled={isSaving}
+        className={`rounded-xl border p-4 text-left transition ${
+          mode === "manual"
+            ? "border-violet-200 bg-violet-50"
+            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+        }`}
       >
-        Create Test Manually
+        <div className="flex items-center gap-3">
+          <span
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+              mode === "manual"
+                ? "bg-white text-violet-600"
+                : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            <PenSquare className="h-4 w-4" />
+          </span>
+          <div className="min-w-0">
+            <h4 className="text-base font-semibold text-[#14213d]">
+              Create manually
+            </h4>
+          </div>
+        </div>
       </button>
     </div>
   );
 
   return (
     <div className="fixed inset-0 z-[90] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
+      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
         <CourseStructureSidebar
           courseTitle={courseTitle}
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
+          exercisesByModule={exercisesByModule}
+          accent="test"
+          isResizable
           restrictToActiveModule
           activeModuleId={activeModuleId}
           activeTestId={activeTestId}
           selectedAfterLessonId={selectedAfterLessonId}
           previewLessonId={previewLessonId}
           showTestSourcePreview
-          onSelectPreviewLesson={setPreviewLessonId}
+          onSelectPreviewLesson={setManualPreviewLessonId}
         />
 
-        <div className="relative flex min-w-0 flex-1 flex-col">
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="Close test modal"
-            className="absolute right-6 top-6 z-10 rounded-2xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
-          >
-            <X className="h-5 w-5" />
-          </button>
-
-          <div className="border-b border-slate-200 px-8 py-6 pr-24">
-            <h3 className="text-3xl font-extrabold tracking-tight text-[#14213d]">
-              {title}
-            </h3>
-
+        <div className="flex min-w-0 flex-1 flex-col">
+          <div className="flex min-h-[108px] items-center justify-between border-b border-slate-200 px-6 py-4">
+            <div className="inline-flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
+                  {heading}
+                </h3>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Close test modal"
+              className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-8 py-6">
-            {mode === null ? (
-              modeChoice
-            ) : (
-              <div className="space-y-6">
-                <section className="rounded-[1.5rem] border border-slate-200 bg-white p-6">
-                  <h6 className="text-2xl font-bold tracking-tight text-[#14213d]">
-                    Place this test after:
-                  </h6>
-                  {placementControls}
-                </section>
+          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+            <div className="space-y-4">
+              <section className={sectionClassName}>
+                <div className="flex items-center gap-3">
+                  <span className={sectionStepClassName}>
+                    1
+                  </span>
+                  <h4 className={stageTitleClassName}>How would you like to create this test?</h4>
+                </div>
+                {creationMethodCards}
+
+              </section>
+
+              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+                <div className="flex items-center gap-3">
+                  <span className={sectionStepClassName}>
+                    2
+                  </span>
+                  <h4 className={stageTitleClassName}>Place this test after:</h4>
+                </div>
+                {placementControls}
+              </section>
+
+              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className={sectionStepClassName}>
+                      3
+                    </span>
+                    <h4 className={stageTitleClassName}>
+                      {mode === "ai" ? "Generate questions" : "Build questions"}
+                    </h4>
+                  </div>
+
+                  {showQuestionToolbar ? (
+                    <button
+                      type="button"
+                      onClick={onAddQuestion}
+                      className="inline-flex h-10 items-center justify-center gap-2 self-start rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                      disabled={controlsDisabled}
+                    >
+                      <Plus className="h-4 w-4 text-violet-600" />
+                      <span>Add Question</span>
+                    </button>
+                  ) : null}
+                </div>
 
                 {mode === "ai" ? (
-                  <>
-                    <div className="flex flex-wrap gap-2">
-                      {aiGenerationModeOptions.map((option) => {
-                        const isActive = aiGenerationMode === option.value;
+                  <div className="space-y-5 pt-2">
+                    {!canGenerateAi ? (
+                      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
+                        AI needs lesson or module content before it can generate questions.
+                      </div>
+                    ) : null}
 
-                        return (
+
+                    <div>
+                      <p className="text-sm font-semibold text-[#14213d]">
+                        Choose question type:
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                        {aiGenerationModeOptions.map((option) => {
+                          const isActive = aiGenerationMode === option.value;
+
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => handleAiGenerationModeChange(option.value)}
+                              disabled={controlsDisabled || isGeneratingAi}
+                              className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-center text-sm font-medium transition ${
+                                isActive
+                                  ? "border-violet-200 bg-violet-50 text-violet-700"
+                                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <p className="text-sm font-semibold text-[#14213d]">
+                        Question count
+                      </p>
+                      <div className="mt-3 flex flex-wrap items-center gap-3">
+                        <div
+                          className={`inline-flex h-10 items-center overflow-hidden rounded-xl border ${
+                            aiQuestionCountLimitError
+                              ? "border-rose-200 bg-rose-50"
+                              : "border-slate-200 bg-[#f9fbfd]"
+                          }`}
+                        >
                           <button
-                            key={option.value}
                             type="button"
-                            onClick={() => handleAiGenerationModeChange(option.value)}
-                            disabled={isSaving || isGeneratingAi}
-                            className={`rounded-2xl border px-4 py-2.5 text-sm font-medium transition ${
-                              isActive
-                                ? "border-[#8b5cf6] bg-[#8b5cf6] text-white"
-                                : "border-slate-200 bg-white text-slate-700 hover:border-[#a78bfa]/40 hover:bg-[#f5f3ff]"
-                            }`}
+                            onClick={handleDecreaseAiQuestionCount}
+                            disabled={!canAdjustAiQuestionCount || aiQuestionCount <= 1}
+                            aria-label="Decrease question count"
+                            className="inline-flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
                           >
-                            {option.label}
+                            <Minus className="h-4 w-4" />
                           </button>
-                        );
-                      })}
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={aiQuestionInputValue}
+                            onChange={(event) =>
+                              handleAiQuestionInputChange(event.target.value)
+                            }
+                            disabled={!canAdjustAiQuestionCount}
+                            aria-label="Question count"
+                            className="h-full w-20 bg-transparent px-3 text-center text-sm font-semibold text-[#14213d] outline-none disabled:cursor-not-allowed disabled:text-slate-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleIncreaseAiQuestionCount}
+                            disabled={!canAdjustAiQuestionCount}
+                            aria-label="Increase question count"
+                            className="inline-flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
+                          >
+                            <Plus className="h-4 w-4" />
+                          </button>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleGenerateAi();
+                          }}
+                          disabled={!canGenerateAi || controlsDisabled || isGeneratingAi}
+                          className="inline-flex h-10 items-center justify-center rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {isGeneratingAi ? "Generating..." : "Generate"}
+                        </button>
+                      </div>
+                      <p
+                        className={`mt-2 text-sm ${
+                          aiQuestionCountLimitError
+                            ? "font-medium text-rose-600"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {`Maximum quantity: ${maxAiQuestionCount}`}
+                      </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3">
-                      <select
-                        value={aiQuestionCount}
-                        onChange={(event) =>
-                          onAiQuestionCountChange(Number(event.target.value))
-                        }
-                        disabled={isSaving || isGeneratingAi || maxAiQuestionCount === 0}
-                        className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-medium text-[#14213d] outline-none transition focus:border-[#8b5cf6] focus:ring-4 focus:ring-[#8b5cf6]/15"
-                      >
-                        {Array.from(
-                          { length: Math.max(maxAiQuestionCount, 1) },
-                          (_, index) => {
-                            const value = index + 1;
-
-                            return (
-                              <option key={value} value={value}>
-                                {`${value} question${value === 1 ? "" : "s"}`}
-                              </option>
-                            );
-                          }
-                        )}
-                      </select>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void handleGenerateAi();
-                        }}
-                        disabled={!canGenerateAi || isSaving || isGeneratingAi}
-                        className="inline-flex h-11 items-center justify-center rounded-2xl bg-[#6d28d9] px-6 text-sm font-bold text-white transition hover:bg-[#5b21b6] disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        {isGeneratingAi ? "Generating..." : "Generate"}
-                      </button>
-                    </div>
-
-                    {showAiQuestions ? questionList : null}
-                  </>
+                    {showAiQuestions ? <div className="pt-4">{questionList}</div> : null}
+                  </div>
+                ) : mode === "manual" ? (
+                  <div className="pt-4">{questionList}</div>
                 ) : (
-                  questionList
+                  <p className="pt-4 text-sm text-slate-500">
+                    Select a creation method above to continue.
+                  </p>
                 )}
-              </div>
-            )}
+              </section>
+            </div>
           </div>
 
-          <div className="border-t border-slate-200 px-8 py-5">
+          <div className="border-t border-slate-200 px-6 py-5">
             <div className="flex justify-end gap-4">
               <Button
                 variant="secondary"
                 onClick={onClose}
-                className="h-11 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
               >
                 Cancel
               </Button>
               <Button
                 onClick={onSave}
-                disabled={!canSave || isSaving}
-                className="h-11 rounded-2xl bg-[#6d28d9] px-5 text-sm font-bold text-white hover:bg-[#5b21b6]"
+                disabled={!canSaveCurrentMode || isSaving}
+                className="h-11 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700"
               >
                 {isSaving ? "Saving..." : saveLabel}
               </Button>

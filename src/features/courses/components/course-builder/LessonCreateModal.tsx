@@ -4,7 +4,7 @@ import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { LoadingState } from "../../../../components/ui/LoadingState";
 import type { Lesson, Module } from "../../api";
-import type { CourseTest } from "./courseBuilderUiTypes";
+import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { RichTextEditor } from "./RichTextEditor";
 
@@ -16,6 +16,7 @@ type LessonCreateModalProps = {
   modules: Module[];
   lessonsByModule: Record<string, Lesson[]>;
   testsByModule: Record<string, CourseTest[]>;
+  exercisesByModule: Record<string, CourseExercise[]>;
   activeModuleId: string | null;
   activeLessonId: string | null;
   draftLessonModuleId: string | null;
@@ -45,6 +46,7 @@ export function LessonCreateModal({
   modules,
   lessonsByModule,
   testsByModule,
+  exercisesByModule,
   activeModuleId,
   activeLessonId,
   draftLessonModuleId,
@@ -96,6 +98,7 @@ export function LessonCreateModal({
           modules={modules}
           lessonsByModule={lessonsByModule}
           testsByModule={testsByModule}
+          exercisesByModule={exercisesByModule}
           accent="lesson"
           isResizable
           restrictToActiveModule
@@ -127,9 +130,6 @@ export function LessonCreateModal({
                 <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                   {heading}
                 </h3>
-                {activeModule ? (
-                  <p className="mt-1 text-sm text-slate-500">{`Inside Module ${activeModule.order}: ${activeModule.title}`}</p>
-                ) : null}
               </div>
             </div>
             <button
@@ -162,7 +162,7 @@ export function LessonCreateModal({
                       value={title}
                       onChange={(event) => onTitleChange(event.target.value)}
                       placeholder="New Lesson"
-                      className="mt-3 h-14 rounded-xl border border-slate-200 bg-[#f9fbfd] px-5 text-ml font-semibold text-[#14213d] focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
+                      className="mt-3 h-14 rounded-xl border border-slate-200 bg-[#f9fbfd] px-5 text-base font-semibold text-[#14213d] focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                       disabled={isLoadingLesson || isSaving}
                       autoFocus
                     />

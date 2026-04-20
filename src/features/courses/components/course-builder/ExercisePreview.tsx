@@ -282,7 +282,7 @@ export function ExercisePreview({
 
       {showAnswerKey ? (
         <div className={`rounded-[1.5rem] border border-slate-200 bg-white ${sectionPadding}`}>
-          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+          <p className="text-sm font-semibold  text-slate-400">
             Expected Answer
           </p>
           <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-2xl bg-slate-950 px-4 py-3 font-mono text-sm leading-6 text-slate-100">
