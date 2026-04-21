@@ -1,5 +1,5 @@
-import { mapQuestionToCourseTestQuestion } from "../../courses/components/course-builder/courseBuilderPageUtils";
-import type { CourseTest } from "../../courses/components/course-builder/courseBuilderUiTypes";
+import { mapQuestionToCourseTestQuestion } from "../../courses/components/course-builder/lib/courseBuilderPageUtils";
+import type { CourseTest } from "../../courses/components/course-builder/types/courseBuilderUiTypes";
 import {
   getCourseMediaKind,
   getCourseMediaPublicUrl,

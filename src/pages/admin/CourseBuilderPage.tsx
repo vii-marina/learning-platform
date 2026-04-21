@@ -38,22 +38,22 @@ import type {
   Exercise,
   TestEntity,
 } from "../../features/courses/api";
-import { CourseBuilderContentStep } from "../../features/courses/components/course-builder/CourseBuilderContentStep";
-import { CourseBuilderCourseInfoStep } from "../../features/courses/components/course-builder/CourseBuilderCourseInfoStep";
-import { CourseBuilderHeader } from "../../features/courses/components/course-builder/CourseBuilderHeader";
-import { CourseBuilderReviewStep } from "../../features/courses/components/course-builder/CourseBuilderReviewStep";
-import { ExerciseCreateModal } from "../../features/courses/components/course-builder/ExerciseCreateModal";
-import { LessonCreateModal } from "../../features/courses/components/course-builder/LessonCreateModal";
-import { TestCreateModal } from "../../features/courses/components/course-builder/TestCreateModal";
-import { useCourseBuilderContentData } from "../../features/courses/components/course-builder/useCourseBuilderContentData";
-import { useCourseBuilderExerciseEditor } from "../../features/courses/components/course-builder/useCourseBuilderExerciseEditor";
-import { useCourseBuilderLessonEditor } from "../../features/courses/components/course-builder/useCourseBuilderLessonEditor";
-import { useCourseBuilderTestEditor } from "../../features/courses/components/course-builder/useCourseBuilderTestEditor";
+import { CourseBuilderContentStep } from "../../features/courses/components/course-builder/components/CourseBuilderContentStep";
+import { CourseBuilderCourseInfoStep } from "../../features/courses/components/course-builder/components/CourseBuilderCourseInfoStep";
+import { CourseBuilderHeader } from "../../features/courses/components/course-builder/components/CourseBuilderHeader";
+import { CourseBuilderReviewStep } from "../../features/courses/components/course-builder/components/CourseBuilderReviewStep";
+import { ExerciseCreateModal } from "../../features/courses/components/course-builder/components/ExerciseCreateModal";
+import { LessonCreateModal } from "../../features/courses/components/course-builder/components/LessonCreateModal";
+import { TestCreateModal } from "../../features/courses/components/course-builder/components/TestCreateModal";
+import { useCourseBuilderContentData } from "../../features/courses/components/course-builder/hooks/useCourseBuilderContentData";
+import { useCourseBuilderExerciseEditor } from "../../features/courses/components/course-builder/hooks/useCourseBuilderExerciseEditor";
+import { useCourseBuilderLessonEditor } from "../../features/courses/components/course-builder/hooks/useCourseBuilderLessonEditor";
+import { useCourseBuilderTestEditor } from "../../features/courses/components/course-builder/hooks/useCourseBuilderTestEditor";
 import type {
   CourseExercise,
   CourseTest,
   CourseTestQuestion,
-} from "../../features/courses/components/course-builder/courseBuilderUiTypes";
+} from "../../features/courses/components/course-builder/types/courseBuilderUiTypes";
 import {
   courseBuilderSteps,
   type BuilderStep,
@@ -62,7 +62,7 @@ import {
   getGeneratedCourseTestTitle,
   mapQuestionToCourseTestQuestion,
   type SavedCourseSnapshot,
-} from "../../features/courses/components/course-builder/courseBuilderPageUtils";
+} from "../../features/courses/components/course-builder/lib/courseBuilderPageUtils";
 
 export type CourseBuilderPageHandle = {
   hasUnsavedChanges: boolean;

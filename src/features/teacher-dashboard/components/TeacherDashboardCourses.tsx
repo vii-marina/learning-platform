@@ -20,11 +20,11 @@ import {
   type Module,
 } from "../../courses/api";
 import { getCourseMediaPublicUrl } from "../../courses/api/courseMediaStorage";
-import { CoursePreviewPage } from "../../courses/components/course-builder/CoursePreviewPage";
+import { CoursePreviewPage } from "../../courses/components/course-builder/components/CoursePreviewPage";
 import {
   mapQuestionToCourseTestQuestion,
-} from "../../courses/components/course-builder/courseBuilderPageUtils";
-import type { CourseExercise, CourseTest } from "../../courses/components/course-builder/courseBuilderUiTypes";
+} from "../../courses/components/course-builder/lib/courseBuilderPageUtils";
+import type { CourseExercise, CourseTest } from "../../courses/components/course-builder/types/courseBuilderUiTypes";
 import { getErrorMessage } from "../../auth/api/backendClient";
 import { TeacherContinueEditing } from "./TeacherContinueEditing";
 import { TeacherCourseCard } from "./TeacherCourseCard";

@@ -24,8 +24,8 @@ import type {
   UpdateCurrentUserProfileInput,
 } from "../../features/auth/types";
 import { uploadTeacherAvatar } from "../../features/teacher-dashboard/api/teacherProfileStorage";
-import { CourseBuilderLeaveWarningModal } from "../../features/courses/components/course-builder/CourseBuilderLeaveWarningModal";
-import type { BuilderStep } from "../../features/courses/components/course-builder/courseBuilderPageUtils";
+import { CourseBuilderLeaveWarningModal } from "../../features/courses/components/course-builder/components/CourseBuilderLeaveWarningModal";
+import type { BuilderStep } from "../../features/courses/components/course-builder/lib/courseBuilderPageUtils";
 import { TeacherDashboardCourses } from "../../features/teacher-dashboard/components/TeacherDashboardCourses";
 import { TeacherDashboardOverview } from "../../features/teacher-dashboard/components/TeacherDashboardOverview";
 import { TeacherDashboardProfile } from "../../features/teacher-dashboard/components/TeacherDashboardProfile";

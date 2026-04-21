@@ -18,8 +18,8 @@ import type {
 import { getErrorMessage } from "../../features/auth/api/backendClient";
 import { listExercisesByModule, type Exercise } from "../../features/courses/api";
 import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
-import { CoursePreviewPage } from "../../features/courses/components/course-builder/CoursePreviewPage";
-import type { CourseExercise } from "../../features/courses/components/course-builder/courseBuilderUiTypes";
+import { CoursePreviewPage } from "../../features/courses/components/course-builder/components/CoursePreviewPage";
+import type { CourseExercise } from "../../features/courses/components/course-builder/types/courseBuilderUiTypes";
 
 type CoursePreviewLocationState = {
   course?: AdminDashboardCourseSummary;
