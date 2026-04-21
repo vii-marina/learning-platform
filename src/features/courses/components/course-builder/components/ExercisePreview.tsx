@@ -57,9 +57,11 @@ export function ExercisePreview({
   }, [content]);
 
   const sectionSpacing = compact ? "space-y-3" : "space-y-4";
-  const sectionPadding = compact ? "p-4" : "p-5";
   const previewBodyMinHeight = compact ? "min-h-[12rem]" : "min-h-[16rem]";
   const previewTitle = content.question.trim() || "Type the task for the student...";
+  const answerKeyClassName = compact
+    ? "rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
+    : "rounded-[1.5rem] border border-sky-100 bg-white p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]";
 
   if (content.type === "drag_drop_code") {
     const templateParts = content.code_template.split(DRAG_DROP_SLOT_PATTERN);
@@ -201,20 +203,22 @@ export function ExercisePreview({
 
 
         {showAnswerKey ? (
-          <div className={`rounded-[1.5rem] bg-slate-100/70 ${sectionPadding}`}>
-            <div className="space-y-2">
+          <div className={answerKeyClassName}>
+            <p className="text-sm font-semibold  text-sky-600">
+              Answer Key
+            </p>
+            <div className="mt-3">
               {correctAnswer.length > 0 ? (
-                correctAnswer.map((token, index) => (
-                  <p
-                    key={`${token}-${index}`}
-                    className="text-sm text-slate-700"
-                  >
-                    <span className="font-semibold text-slate-500">
-                      {correctAnswer.length === 1 ? "Answer:" : `Answer ${index + 1}:`}
-                    </span>{" "}
-                    <span className="font-semibold text-[#14213d]">{token}</span>
-                  </p>
-                ))
+                <div className="flex flex-wrap gap-2">
+                  {correctAnswer.map((token, index) => (
+                    <span
+                      key={`${token}-${index}`}
+                      className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 font-mono text-xs font-semibold text-sky-700"
+                    >
+                      {token}
+                    </span>
+                  ))}
+                </div>
               ) : (
                 <span className="text-sm text-slate-500">
                   Add blank answers to build the answer key.
@@ -279,12 +283,12 @@ export function ExercisePreview({
       </div>
 
       {showAnswerKey ? (
-        <div className={`rounded-[1.5rem] bg-slate-100/70 ${sectionPadding}`}>
-          <p className="text-sm text-slate-700">
-            <span className="font-semibold text-slate-500">Answer:</span>{" "}
-            <span className="font-mono font-semibold text-[#14213d]">
-              {content.expected_answer || "// Add the expected answer to preview it here."}
-            </span>
+        <div className={`${answerKeyClassName} space-y-2`}>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-600">
+            Answer Key
+          </p>
+          <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 font-mono text-sm font-semibold text-[#14213d]">
+            {content.expected_answer || "// Add the expected answer to preview it here."}
           </p>
         </div>
       ) : null}

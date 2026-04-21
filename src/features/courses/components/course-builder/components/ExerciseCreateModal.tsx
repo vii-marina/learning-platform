@@ -75,19 +75,19 @@ const DIFFICULTY_COLOR_STYLES: Record<
   }
 > = {
   easy: {
-    optionActive: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    optionActive: "border border-emerald-500 bg-emerald-100 text-emerald-700",
     optionInactive:
       "border-emerald-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50/60",
     badge: "border-emerald-300 bg-emerald-50 text-emerald-700",
   },
   medium: {
-    optionActive: "border-amber-300 bg-amber-50 text-amber-700",
+    optionActive: "border-amber-500 bg-amber-100 text-amber-700",
     optionInactive:
       "border-amber-200 bg-white text-amber-700 hover:border-amber-300 hover:bg-amber-50/60",
     badge: "border-amber-300 bg-amber-50 text-amber-700",
   },
   hard: {
-    optionActive: "border-rose-300 bg-rose-50 text-rose-700",
+    optionActive: "border-rose-500 bg-rose-100 text-rose-700",
     optionInactive:
       "border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50/60",
     badge: "border-rose-300 bg-rose-50 text-rose-700",
@@ -417,7 +417,6 @@ export function ExerciseCreateModal({
   lessons,
   initialDraft,
   isSaving = false,
-  errorMessage = "",
   onClose,
   onGenerateAi,
   onSave,
@@ -599,6 +598,8 @@ export function ExerciseCreateModal({
     exerciseAiCountLimit > 0 ? String(exerciseCount) : "0";
   const generatedExercisesHeading =
     generatedExercises.length === 1 ? "Generated exercise" : "Generated exercises";
+  const selectedGeneratedExercise =
+    generatedExercises.find((exercise) => exercise.id === selectedGeneratedExerciseId) ?? null;
 
   useEffect(() => {
     if (!isOpen) {
@@ -731,11 +732,7 @@ export function ExerciseCreateModal({
   const handleDifficultyToggle = (difficulty: ExerciseDifficulty) => {
     resetAiGenerationState();
     setExerciseCountLimitError(false);
-    setSelectedDifficulties((currentDifficulties) =>
-      currentDifficulties.includes(difficulty)
-        ? currentDifficulties.filter((currentDifficulty) => currentDifficulty !== difficulty)
-        : [...currentDifficulties, difficulty]
-    );
+    setSelectedDifficulties([difficulty]);
   };
 
   const applyExerciseCount = (nextValue: number, markLimitError = false) => {
@@ -1281,9 +1278,7 @@ export function ExerciseCreateModal({
                               exerciseCountLimitError ? "font-medium text-rose-600" : "text-slate-500"
                             }`}
                           >
-                            {hasMultipleSelectedDifficulties
-                              ? `Count is locked to ${exerciseCount}: one exercise per selected difficulty.`
-                              : `Maximum quantity: ${exerciseAiCountLimit}`}
+                            {`Maximum quantity: ${exerciseAiCountLimit}`}
                           </p>
                         </div>
 
@@ -1314,11 +1309,39 @@ export function ExerciseCreateModal({
                       </section>
 
                       {generatedExercises.length > 0 ? (
-                        <section className="rounded-xl bg-slate-50/70 p-4">
-                          <div>
+                        <section className="rounded-xl">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
                             <h5 className="text-base font-semibold text-[#14213d]">
                               {generatedExercisesHeading}
                             </h5>
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                              {selectedGeneratedExercise ? (
+                                <>
+                                  <span className="inline-flex h-8 items-center rounded-full border border-slate-200 bg-slate-100 px-3 text-xs font-semibold text-slate-700">
+                                    {getExerciseTypeLabel(selectedGeneratedExercise.draft.type)}
+                                  </span>
+                                  <span
+                                    className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-semibold ${getDifficultyBadgeClassName(
+                                      selectedGeneratedExercise.difficulty
+                                    )}`}
+                                  >
+                                    {formatDifficultyLabel(selectedGeneratedExercise.difficulty)}
+                                  </span>
+                                </>
+                              ) : null}
+                              <Button
+                                type="button"
+                                onClick={handleConfirmGeneratedExercise}
+                                disabled={controlsDisabled || selectedGeneratedExerciseId === null}
+                                className={`h-10 rounded-full px-5 text-sm font-semibold shadow-sm ${
+                                  isGeneratedSelectionCommitted
+                                    ? "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                    : "border border-orange-500 bg-orange-500 text-white hover:bg-orange-600"
+                                }`}
+                              >
+                                {isGeneratedSelectionCommitted ? "Saved as draft" : "Done"}
+                              </Button>
+                            </div>
                           </div>
 
                           <div className="mt-4 space-y-4">
@@ -1340,60 +1363,25 @@ export function ExerciseCreateModal({
                                       handleSelectGeneratedExercise(generatedExercise.id);
                                     }
                                   }}
-                                  className={`rounded-2xl p-4 transition ${
+                                  className={`rounded-2xl border p-4 transition ${
                                     isSelected
-                                      ? "cursor-pointer bg-orange-50 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.36)]"
-                                      : "cursor-pointer bg-white hover:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.1)]"
+                                      ? "cursor-pointer border-orange-300 bg-orange-50/50 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.2)]"
+                                      : "cursor-pointer border-slate-200 bg-white hover:border-slate-300"
                                   } ${
                                     controlsDisabled
                                       ? "pointer-events-none cursor-not-allowed opacity-70"
                                       : ""
                                   }`}
                                 >
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span
-                                      className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-semibold ${getDifficultyBadgeClassName(
-                                        generatedExercise.difficulty
-                                      )}`}
-                                    >
-                                      {formatDifficultyLabel(generatedExercise.difficulty)}
-                                    </span>
-                                    <span className="text-sm font-medium text-slate-600">
-                                      {getExerciseTypeLabel(generatedExercise.draft.type)}
-                                    </span>
-                                    {isSelected ? (
-                                      <span className="inline-flex h-8 items-center rounded-full border border-orange-200 bg-orange-100 px-3 text-xs font-semibold text-orange-700">
-                                        Selected
-                                      </span>
-                                    ) : null}
-                                  </div>
-
-                                  <div className="mt-4">
-                                    <ExercisePreview
-                                      content={generatedExercise.draft.content}
-                                      description={generatedExercise.draft.description}
-                                      compact
-                                      showAnswerKey
-                                    />
-                                  </div>
+                                  <ExercisePreview
+                                    content={generatedExercise.draft.content}
+                                    description={generatedExercise.draft.description}
+                                    compact
+                                    showAnswerKey
+                                  />
                                 </article>
                               );
                             })}
-                          </div>
-
-                          <div className="mt-5 flex justify-end">
-                            <Button
-                              type="button"
-                              onClick={handleConfirmGeneratedExercise}
-                              disabled={controlsDisabled || selectedGeneratedExerciseId === null}
-                              className={`h-10 rounded-xl border-transparent px-5 text-sm font-semibold ${
-                                isGeneratedSelectionCommitted
-                                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                                  : "bg-orange-500 text-white hover:bg-orange-600"
-                              }`}
-                            >
-                              {isGeneratedSelectionCommitted ? "Saved as draft" : "Done"}
-                            </Button>
                           </div>
                         </section>
                       ) : null}
@@ -1666,26 +1654,21 @@ export function ExerciseCreateModal({
         </div>
 
           <div className="border-t border-slate-200 px-6 py-5">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0 flex-1 text-sm font-medium text-slate-500">
-                {errorMessage || validationMessage}
-              </div>
-              <div className="flex justify-end gap-4">
-                <Button
-                  variant="secondary"
-                  onClick={onClose}
-                  className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  onClick={() => onSave(sanitizeExerciseDraftForSave(normalizeDraft(draft)))}
-                  disabled={!canSave || isSaving}
-                  className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSaving ? "Saving..." : saveLabel}
-                </Button>
-              </div>
+            <div className="flex justify-end gap-4">
+              <Button
+                variant="secondary"
+                onClick={onClose}
+                className="h-11 rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => onSave(sanitizeExerciseDraftForSave(normalizeDraft(draft)))}
+                disabled={!canSave || isSaving}
+                className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSaving ? "Saving..." : saveLabel}
+              </Button>
             </div>
           </div>
         </div>
