@@ -1,7 +1,8 @@
-import { useRef, useState } from "react";
-import { Code2, PenSquare, Plus, Sparkles, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Code2, Minus, PenSquare, Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import { Input } from "../../../../../components/ui/input";
+import { getExerciseAiGenerationLimit } from "../../../api/index";
 import type {
   DragDropCodeExerciseBlank,
   DragDropCodeExerciseContent,
@@ -19,11 +20,7 @@ import type {
 } from "../types/courseBuilderUiTypes";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { ExercisePreview } from "./ExercisePreview";
-import {
-  getLessonAiQuestionLimit,
-  getModuleAiQuestionLimit,
-  type CreateContentMode,
-} from "../lib/courseBuilderPageUtils";
+import { type CreateContentMode } from "../lib/courseBuilderPageUtils";
 
 type ExerciseCreateModalProps = {
   isOpen: boolean;
@@ -61,7 +58,6 @@ const DEFAULT_EXERCISE_TITLES: Record<ExerciseType, string> = {
   write_code: "Write Code",
 };
 const EXERCISE_COUNT_MIN = 1;
-const EXERCISE_COUNT_MAX = 10;
 const AI_DIFFICULTY_OPTIONS: Array<{
   value: ExerciseDifficulty;
   label: string;
@@ -70,6 +66,39 @@ const AI_DIFFICULTY_OPTIONS: Array<{
   { value: "medium", label: "Medium" },
   { value: "hard", label: "Hard" },
 ];
+const DIFFICULTY_COLOR_STYLES: Record<
+  ExerciseDifficulty,
+  {
+    optionActive: string;
+    optionInactive: string;
+    badge: string;
+  }
+> = {
+  easy: {
+    optionActive: "border-emerald-300 bg-emerald-50 text-emerald-700",
+    optionInactive:
+      "border-emerald-200 bg-white text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50/60",
+    badge: "border-emerald-300 bg-emerald-50 text-emerald-700",
+  },
+  medium: {
+    optionActive: "border-amber-300 bg-amber-50 text-amber-700",
+    optionInactive:
+      "border-amber-200 bg-white text-amber-700 hover:border-amber-300 hover:bg-amber-50/60",
+    badge: "border-amber-300 bg-amber-50 text-amber-700",
+  },
+  hard: {
+    optionActive: "border-rose-300 bg-rose-50 text-rose-700",
+    optionInactive:
+      "border-rose-200 bg-white text-rose-700 hover:border-rose-300 hover:bg-rose-50/60",
+    badge: "border-rose-300 bg-rose-50 text-rose-700",
+  },
+};
+
+type PersistedAiExerciseState = {
+  generatedExercises: GeneratedExerciseAiDraft[];
+  selectedGeneratedExerciseId: string | null;
+  isGeneratedSelectionCommitted: boolean;
+};
 
 function createBlankId() {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -107,19 +136,34 @@ function normalizeOptionValue(value: string) {
   return value.trim();
 }
 
-function clampExerciseCount(value: number) {
+function clampExerciseCount(value: number, maxCount: number) {
+  if (maxCount <= 0) {
+    return EXERCISE_COUNT_MIN;
+  }
+
   if (!Number.isFinite(value)) {
     return EXERCISE_COUNT_MIN;
   }
 
-  return Math.min(
-    EXERCISE_COUNT_MAX,
-    Math.max(EXERCISE_COUNT_MIN, Math.floor(value))
-  );
+  return Math.min(maxCount, Math.max(EXERCISE_COUNT_MIN, Math.floor(value)));
 }
 
 function formatDifficultyLabel(value: ExerciseDifficulty) {
   return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+function getExerciseTypeLabel(type: ExerciseType) {
+  return type === "drag_drop_code" ? "Fill Missing Code" : "Write Code";
+}
+
+function getDifficultyOptionClassName(value: ExerciseDifficulty, isActive: boolean) {
+  return isActive
+    ? DIFFICULTY_COLOR_STYLES[value].optionActive
+    : DIFFICULTY_COLOR_STYLES[value].optionInactive;
+}
+
+function getDifficultyBadgeClassName(value: ExerciseDifficulty) {
+  return DIFFICULTY_COLOR_STYLES[value].badge;
 }
 
 function buildTokenBank(blanks: DragDropCodeExerciseBlank[]) {
@@ -379,37 +423,47 @@ export function ExerciseCreateModal({
   onSave,
 }: ExerciseCreateModalProps) {
   const [creationMode, setCreationMode] = useState<CreateContentMode | null>(initialMode);
+  const [isExerciseTypeSelected, setIsExerciseTypeSelected] = useState(
+    activeExerciseId !== null
+  );
   const [draft, setDraft] = useState<ExerciseEditorDraft>(() =>
     normalizeDraft(initialDraft ?? createDefaultDraft())
   );
   const [selectedDifficulties, setSelectedDifficulties] = useState<ExerciseDifficulty[]>([]);
   const [exerciseCount, setExerciseCount] = useState(EXERCISE_COUNT_MIN);
+  const [exerciseCountLimitError, setExerciseCountLimitError] = useState(false);
   const [generatedExercises, setGeneratedExercises] = useState<GeneratedExerciseAiDraft[]>([]);
   const [selectedGeneratedExerciseId, setSelectedGeneratedExerciseId] = useState<string | null>(
     null
   );
+  const [isGeneratedSelectionCommitted, setIsGeneratedSelectionCommitted] = useState(false);
   const [manualPreviewLessonId, setManualPreviewLessonId] = useState<string | null>(
     lessons[0]?.id ?? null
   );
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [exerciseAiCountLimit, setExerciseAiCountLimit] = useState(0);
+  const [isResolvingAiLimit, setIsResolvingAiLimit] = useState(false);
   const dragDropEditorRef = useRef<HTMLTextAreaElement | null>(null);
   const writeCodeEditorRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const activeModule = modules.find((module) => module.id === activeModuleId) || null;
   const previewLessonId =
     manualPreviewLessonId && lessons.some((lesson) => lesson.id === manualPreviewLessonId)
       ? manualPreviewLessonId
       : lessons[0]?.id ?? null;
-
-  if (!isOpen) {
-    return null;
-  }
+  const aiDraftStorageKey = `course-builder:exercise-ai-draft:${courseTitle}:${activeModuleId ?? "module"}:${
+    draft.afterLessonId ?? "module"
+  }:${draft.type}`;
 
   const resetAiGenerationState = () => {
     setAiError("");
     setGeneratedExercises([]);
     setSelectedGeneratedExerciseId(null);
+    setIsGeneratedSelectionCommitted(false);
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(aiDraftStorageKey);
+    }
   };
 
   const updateDraft = (updater: (currentDraft: ExerciseEditorDraft) => ExerciseEditorDraft) => {
@@ -443,6 +497,7 @@ export function ExerciseCreateModal({
   };
 
   const handleTypeChange = (nextType: ExerciseType) => {
+    setIsExerciseTypeSelected(true);
     resetAiGenerationState();
     updateDraft((currentDraft) => {
       if (currentDraft.type === nextType) {
@@ -501,32 +556,181 @@ export function ExerciseCreateModal({
     draft.type === "write_code" ? draft.content.initial_code.split("\n").length : 1;
   const hasAnswerSlot =
     draft.type === "write_code" ? hasWriteCodeAnswerSlot(draft.content.initial_code) : false;
-  const validationMessage = getExerciseValidationMessage(draft);
-  const isModeSelectionPending = creationMode === null;
-  const controlsDisabled = isSaving || isModeSelectionPending;
-  const canSave = validationMessage.length === 0 && !isModeSelectionPending;
+  const isCreationModePending = creationMode === null;
+  const isStepTwoLocked = isCreationModePending;
+  const isStepThreeLocked = isCreationModePending;
+  const isBuildLocked = isCreationModePending || !isExerciseTypeSelected;
+  const controlsDisabled = isSaving || isBuildLocked;
   const isAiMode = creationMode === "ai";
-  const exerciseAiContentLimit = draft.afterLessonId
-    ? getLessonAiQuestionLimit(
-        lessons.find((lesson) => lesson.id === draft.afterLessonId)?.content ?? ""
-      )
-    : getModuleAiQuestionLimit(lessons);
-  const canGenerateAi = exerciseAiContentLimit > 0;
+  const validationMessage =
+    isBuildLocked
+      ? "Complete steps 1-3 to continue."
+      : isAiMode && generatedExercises.length === 0
+        ? "Generate an exercise with AI to continue."
+        : isAiMode && selectedGeneratedExerciseId === null
+          ? "Select a generated exercise."
+          : isAiMode && !isGeneratedSelectionCommitted
+            ? "Press Done to keep the generated draft."
+        : getExerciseValidationMessage(draft);
+  const canSave =
+    validationMessage.length === 0 &&
+    !isBuildLocked &&
+    (isAiMode ? selectedGeneratedExerciseId !== null && isGeneratedSelectionCommitted : true);
+  const canGenerateAi = exerciseAiCountLimit > 0 && !isResolvingAiLimit;
   const hasSelectedDifficulties = selectedDifficulties.length > 0;
+  const hasMultipleSelectedDifficulties = selectedDifficulties.length > 1;
   const isExerciseCountValid =
-    exerciseCount >= EXERCISE_COUNT_MIN && exerciseCount <= EXERCISE_COUNT_MAX;
+    exerciseAiCountLimit > 0 &&
+    exerciseCount >= EXERCISE_COUNT_MIN &&
+    exerciseCount <= exerciseAiCountLimit;
   const canSubmitAiGeneration =
     canGenerateAi &&
     hasSelectedDifficulties &&
     isExerciseCountValid &&
     !isGeneratingAi &&
     !isSaving &&
-    !isModeSelectionPending;
+    !isBuildLocked;
+  const canAdjustExerciseCount =
+    exerciseAiCountLimit > 0 &&
+    !controlsDisabled &&
+    !isGeneratingAi &&
+    !hasMultipleSelectedDifficulties;
+  const exerciseCountInputValue =
+    exerciseAiCountLimit > 0 ? String(exerciseCount) : "0";
+  const generatedExercisesHeading =
+    generatedExercises.length === 1 ? "Generated exercise" : "Generated exercises";
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const payload = draft.afterLessonId
+      ? { afterLessonId: draft.afterLessonId }
+      : activeModuleId
+        ? { moduleId: activeModuleId }
+        : null;
+
+    if (!payload) {
+      setExerciseAiCountLimit(0);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsResolvingAiLimit(true);
+
+    void (async () => {
+      try {
+        const response = await getExerciseAiGenerationLimit(payload);
+
+        if (isCancelled) {
+          return;
+        }
+
+        setExerciseAiCountLimit(response.maxCount);
+        setExerciseCount((currentCount) => {
+          if (response.maxCount <= 0) {
+            return EXERCISE_COUNT_MIN;
+          }
+
+          return clampExerciseCount(currentCount, response.maxCount);
+        });
+        setExerciseCountLimitError(false);
+      } catch {
+        if (isCancelled) {
+          return;
+        }
+
+        setExerciseAiCountLimit(0);
+      } finally {
+        if (!isCancelled) {
+          setIsResolvingAiLimit(false);
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeModuleId, draft.afterLessonId, isOpen]);
+
+  useEffect(() => {
+    if (selectedDifficulties.length > 1) {
+      setExerciseCount(
+        exerciseAiCountLimit > 0
+          ? clampExerciseCount(selectedDifficulties.length, exerciseAiCountLimit)
+          : EXERCISE_COUNT_MIN
+      );
+      setExerciseCountLimitError(false);
+    }
+  }, [exerciseAiCountLimit, selectedDifficulties]);
+
+  useEffect(() => {
+    if (!isOpen || !isAiMode || typeof window === "undefined") {
+      return;
+    }
+
+    const rawValue = window.localStorage.getItem(aiDraftStorageKey);
+
+    if (!rawValue) {
+      return;
+    }
+
+    try {
+      const parsedValue = JSON.parse(rawValue) as PersistedAiExerciseState;
+      const persistedExercises = Array.isArray(parsedValue.generatedExercises)
+        ? parsedValue.generatedExercises
+        : [];
+
+      if (persistedExercises.length === 0) {
+        return;
+      }
+
+      setGeneratedExercises(persistedExercises);
+
+      const persistedSelectionId = parsedValue.selectedGeneratedExerciseId;
+      const hasPersistedSelection = persistedExercises.some(
+        (exercise) => exercise.id === persistedSelectionId
+      );
+
+      setSelectedGeneratedExerciseId(
+        hasPersistedSelection ? persistedSelectionId : persistedExercises[0]?.id ?? null
+      );
+      setIsGeneratedSelectionCommitted(Boolean(parsedValue.isGeneratedSelectionCommitted));
+    } catch {
+      window.localStorage.removeItem(aiDraftStorageKey);
+    }
+  }, [aiDraftStorageKey, isAiMode, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !isAiMode || typeof window === "undefined") {
+      return;
+    }
+
+    if (generatedExercises.length === 0 || isGeneratedSelectionCommitted) {
+      window.localStorage.removeItem(aiDraftStorageKey);
+      return;
+    }
+
+    const payload: PersistedAiExerciseState = {
+      generatedExercises,
+      selectedGeneratedExerciseId,
+      isGeneratedSelectionCommitted,
+    };
+
+    window.localStorage.setItem(aiDraftStorageKey, JSON.stringify(payload));
+  }, [
+    aiDraftStorageKey,
+    generatedExercises,
+    isAiMode,
+    isGeneratedSelectionCommitted,
+    isOpen,
+    selectedGeneratedExerciseId,
+  ]);
 
   const handleDifficultyToggle = (difficulty: ExerciseDifficulty) => {
-    setAiError("");
-    setGeneratedExercises([]);
-    setSelectedGeneratedExerciseId(null);
+    resetAiGenerationState();
+    setExerciseCountLimitError(false);
     setSelectedDifficulties((currentDifficulties) =>
       currentDifficulties.includes(difficulty)
         ? currentDifficulties.filter((currentDifficulty) => currentDifficulty !== difficulty)
@@ -534,16 +738,87 @@ export function ExerciseCreateModal({
     );
   };
 
-  const handleExerciseCountChange = (value: string) => {
+  const applyExerciseCount = (nextValue: number, markLimitError = false) => {
+    if (exerciseAiCountLimit <= 0) {
+      setExerciseCountLimitError(markLimitError);
+      return;
+    }
+
     resetAiGenerationState();
-    const numericValue = Number(value);
-    setExerciseCount(clampExerciseCount(numericValue));
+    const safeValue = clampExerciseCount(nextValue, exerciseAiCountLimit);
+    setExerciseCountLimitError(markLimitError || nextValue > exerciseAiCountLimit);
+    setExerciseCount(safeValue);
   };
 
-  const applyGeneratedExercise = (generatedExercise: GeneratedExerciseAiDraft) => {
-    setSelectedGeneratedExerciseId(generatedExercise.id);
-    setDraft(normalizeDraft(generatedExercise.draft));
+  const handleExerciseCountInputChange = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, "");
+
+    if (!digitsOnly) {
+      setExerciseCountLimitError(false);
+      return;
+    }
+
+    const parsedValue = Number(digitsOnly);
+
+    if (parsedValue > exerciseAiCountLimit && exerciseAiCountLimit > 0) {
+      applyExerciseCount(exerciseAiCountLimit, true);
+      return;
+    }
+
+    applyExerciseCount(parsedValue);
+  };
+
+  const handleIncreaseExerciseCount = () => {
+    if (!canAdjustExerciseCount) {
+      return;
+    }
+
+    if (exerciseCount >= exerciseAiCountLimit) {
+      setExerciseCountLimitError(true);
+      return;
+    }
+
+    applyExerciseCount(exerciseCount + 1);
+  };
+
+  const handleDecreaseExerciseCount = () => {
+    if (!canAdjustExerciseCount) {
+      return;
+    }
+
+    applyExerciseCount(exerciseCount - 1);
+  };
+
+  const handleSelectGeneratedExercise = (generatedExerciseId: string) => {
+    if (controlsDisabled) {
+      return;
+    }
+
+    setSelectedGeneratedExerciseId(generatedExerciseId);
+    setIsGeneratedSelectionCommitted(false);
     setAiError("");
+  };
+
+  const handleConfirmGeneratedExercise = () => {
+    if (!selectedGeneratedExerciseId) {
+      return;
+    }
+
+    const selectedGeneratedExercise = generatedExercises.find(
+      (exercise) => exercise.id === selectedGeneratedExerciseId
+    );
+
+    if (!selectedGeneratedExercise) {
+      return;
+    }
+
+    setDraft(normalizeDraft(selectedGeneratedExercise.draft));
+    setIsGeneratedSelectionCommitted(true);
+    setAiError("");
+
+    if (typeof window !== "undefined") {
+      window.localStorage.removeItem(aiDraftStorageKey);
+    }
   };
 
   const handleGenerateAi = async () => {
@@ -567,11 +842,14 @@ export function ExerciseCreateModal({
       });
 
       setGeneratedExercises(nextExercises);
+      setIsGeneratedSelectionCommitted(false);
 
       const firstExercise = nextExercises[0];
 
       if (firstExercise) {
-        applyGeneratedExercise(firstExercise);
+        setSelectedGeneratedExerciseId(firstExercise.id);
+      } else {
+        setSelectedGeneratedExerciseId(null);
       }
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
@@ -630,8 +908,14 @@ export function ExerciseCreateModal({
   };
 
   const handleCreationModeChange = (mode: CreateContentMode) => {
+    resetAiGenerationState();
+    setExerciseCountLimitError(false);
     setCreationMode(mode);
   };
+
+  if (!isOpen) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 z-[90] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
@@ -643,6 +927,7 @@ export function ExerciseCreateModal({
           testsByModule={testsByModule}
           exercisesByModule={exercisesByModule}
           accent="exercise"
+          isResizable
           restrictToActiveModule
           activeModuleId={activeModuleId}
           activeExerciseId={activeExerciseId}
@@ -663,11 +948,6 @@ export function ExerciseCreateModal({
                 <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                   {heading}
                 </h3>
-                {activeModule ? (
-                  <p className="mt-1 text-sm font-medium text-slate-600">
-                    {`Module ${activeModule.order}: ${activeModule.title}`}
-                  </p>
-                ) : null}
               </div>
             </div>
 
@@ -686,7 +966,9 @@ export function ExerciseCreateModal({
               <section className={sectionClassName}>
                 <div className="flex items-center gap-3">
                   <span className={sectionStepClassName}>1</span>
-                  <h4 className={stageTitleClassName}>How would you like to create this exercise?</h4>
+                  <h4 className={stageTitleClassName}>
+                    How would you like to create this exercise?
+                  </h4>
                 </div>
 
                 <div className="mt-5 grid gap-3 xl:grid-cols-2">
@@ -748,590 +1030,636 @@ export function ExerciseCreateModal({
                     </div>
                   </button>
                 </div>
-
               </section>
 
-              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+              <section className={`${sectionClassName} ${isStepTwoLocked ? "opacity-45" : ""}`}>
                 <div className="flex items-center gap-3">
                   <span className={sectionStepClassName}>2</span>
-                  <h4 className={stageTitleClassName}>Place this exercise after:</h4>
+                  <h4 className={stageTitleClassName}>Choose where this exercise will be placed</h4>
                 </div>
 
                 <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetAiGenerationState();
-                    updateDraft((currentDraft) => ({
-                      ...currentDraft,
-                      afterLessonId: null,
-                    }));
-                  }}
-                  className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
-                    draft.afterLessonId === null
-                      ? "border-orange-200 bg-orange-50 text-orange-700"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                  disabled={controlsDisabled}
-                >
-                  This Module
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      resetAiGenerationState();
+                      updateDraft((currentDraft) => ({
+                        ...currentDraft,
+                        afterLessonId: null,
+                      }));
+                    }}
+                    className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
+                      draft.afterLessonId === null
+                        ? "border-orange-200 bg-orange-50 text-orange-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                    disabled={isSaving || isStepTwoLocked}
+                  >
+                    This Module
+                  </button>
 
-                <select
-                  value={draft.afterLessonId ?? ""}
-                  onChange={(event) => {
-                    resetAiGenerationState();
-                    updateDraft((currentDraft) => ({
-                      ...currentDraft,
-                      afterLessonId: event.target.value || null,
-                    }));
-                  }}
-                  disabled={lessons.length === 0 || controlsDisabled}
-                  className={`${surfaceControlClassName} ${
-                    draft.afterLessonId !== null
-                      ? "border-orange-200 bg-orange-50 text-orange-700"
-                      : "text-slate-700"
-                  }`}
-                >
-                  <option value="" disabled>
-                    {lessons.length === 0 ? "No lessons available" : "Select lesson"}
-                  </option>
-                  {lessons.map((lesson) => (
-                    <option key={lesson.id} value={lesson.id}>
-                      {`${lesson.order}. ${lesson.title}`}
+                  <select
+                    value={draft.afterLessonId ?? ""}
+                    onChange={(event) => {
+                      resetAiGenerationState();
+                      updateDraft((currentDraft) => ({
+                        ...currentDraft,
+                        afterLessonId: event.target.value || null,
+                      }));
+                    }}
+                    disabled={lessons.length === 0 || isSaving || isStepTwoLocked}
+                    className={`${surfaceControlClassName} ${
+                      draft.afterLessonId !== null
+                        ? "border-orange-200 bg-orange-50 text-orange-700"
+                        : "text-slate-700"
+                    }`}
+                  >
+                    <option value="" disabled>
+                      {lessons.length === 0 ? "No lessons available" : "Select lesson"}
                     </option>
-                  ))}
-                </select>
+                    {lessons.map((lesson) => (
+                      <option key={lesson.id} value={lesson.id}>
+                        {`${lesson.order}. ${lesson.title}`}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </section>
-              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+
+              <section className={`${sectionClassName} ${isStepThreeLocked ? "opacity-45" : ""}`}>
                 <div className="flex items-center gap-3">
                   <span className={sectionStepClassName}>3</span>
                   <h4 className={stageTitleClassName}>Choose the exercise format</h4>
                 </div>
 
                 <div className="mt-5 grid gap-3 xl:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleTypeChange("drag_drop_code");
-                  }}
-                  aria-pressed={draft.type === "drag_drop_code"}
-                  className={`${selectionCardClassName} ${
-                    draft.type === "drag_drop_code"
-                      ? "border-orange-200 bg-orange-50"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                  disabled={controlsDisabled}
-                >
-                  <div className="min-h-[3.5rem]">
-                    <h5 className="text-base font-semibold text-[#14213d]">
-                      Fill Missing Code
-                    </h5>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Students select correct parts of code.
-                    </p>
-                  </div>
-
-                  <div className={previewCardClassName}>
-                    <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Preview
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleTypeChange("drag_drop_code");
+                    }}
+                    aria-pressed={isExerciseTypeSelected && draft.type === "drag_drop_code"}
+                    className={`${selectionCardClassName} ${
+                      isExerciseTypeSelected && draft.type === "drag_drop_code"
+                        ? "border-orange-200 bg-orange-50"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                    disabled={isSaving || isStepThreeLocked}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          isExerciseTypeSelected && draft.type === "drag_drop_code"
+                            ? "bg-white text-orange-500"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        <Code2 className="h-4 w-4" />
+                      </span>
+                      <div className="min-h-[3.5rem] min-w-0">
+                        <h5 className="text-base font-semibold text-[#14213d]">
+                          Fill Missing Code
+                        </h5>
+                        <p className="mt-2 text-sm text-slate-500">
+                          Students select correct parts of code.
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex flex-1 flex-col justify-between gap-4 px-4 py-4">
-                      <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-6 text-slate-100">
-                        <span>print(</span>
-                        <span className="mx-1 inline-flex rounded-md border border-dashed border-sky-300/50 bg-sky-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
-                          blank
-                        </span>
-                        <span>)</span>
-                      </pre>
-                      <div className="flex flex-wrap gap-2">
-                        {["Hello", "Hi", "Test"].map((token) => (
-                          <span
-                            key={token}
-                            className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700"
-                          >
-                            {token}
+
+                    <div className={previewCardClassName}>
+                      <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Preview
+                      </div>
+                      <div className="flex flex-1 flex-col justify-between gap-4 px-4 py-4">
+                        <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-6 text-slate-100">
+                          <span>print(</span>
+                          <span className="mx-1 inline-flex rounded-md border border-dashed border-sky-300/50 bg-sky-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
+                            blank
                           </span>
-                        ))}
+                          <span>)</span>
+                        </pre>
+                        <div className="flex flex-wrap gap-2">
+                          {["Hello", "Hi", "Test"].map((token) => (
+                            <span
+                              key={token}
+                              className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700"
+                            >
+                              {token}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleTypeChange("write_code");
-                  }}
-                  aria-pressed={draft.type === "write_code"}
-                  className={`${selectionCardClassName} ${
-                    draft.type === "write_code"
-                      ? "border-orange-200 bg-orange-50"
-                      : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                  disabled={controlsDisabled}
-                >
-                  <div className="min-h-[3.5rem]">
-                    <h5 className="text-base font-semibold text-[#14213d]">
-                      Write Code
-                    </h5>
-                    <p className="mt-2 text-sm text-slate-500">
-                      Students type missing code manually.
-                    </p>
-                  </div>
-
-                  <div className={previewCardClassName}>
-                    <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
-                      Preview
-                    </div>
-                    <div className="flex flex-1 items-start px-4 py-4 font-mono text-xs leading-6 text-slate-100">
-                      <div>
-                        <span>return </span>
-                        <span className="inline-flex min-w-[6rem] translate-y-[0.15rem] items-center rounded-md border border-sky-300/50 bg-white px-2 py-1 text-[11px] font-medium text-slate-400">
-                          input
-                        </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleTypeChange("write_code");
+                    }}
+                    aria-pressed={isExerciseTypeSelected && draft.type === "write_code"}
+                    className={`${selectionCardClassName} ${
+                      isExerciseTypeSelected && draft.type === "write_code"
+                        ? "border-orange-200 bg-orange-50"
+                        : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+                    }`}
+                    disabled={isSaving || isStepThreeLocked}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+                          isExerciseTypeSelected && draft.type === "write_code"
+                            ? "bg-white text-orange-500"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        <PenSquare className="h-4 w-4" />
+                      </span>
+                      <div className="min-h-[3.5rem] min-w-0">
+                        <h5 className="text-base font-semibold text-[#14213d]">Write Code</h5>
+                        <p className="mt-2 text-sm text-slate-500">
+                          Students type missing code manually.
+                        </p>
                       </div>
                     </div>
-                  </div>
-                </button>
+
+                    <div className={previewCardClassName}>
+                      <div className="border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
+                        Preview
+                      </div>
+                      <div className="flex flex-1 items-start px-4 py-4 font-mono text-xs leading-6 text-slate-100">
+                        <div>
+                          <span>return </span>
+                          <span className="inline-flex min-w-[6rem] translate-y-[0.15rem] items-center rounded-md border border-sky-300/50 bg-white px-2 py-1 text-[11px] font-medium text-slate-400">
+                            input
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
                 </div>
               </section>
-              <section className={`${sectionClassName} ${isModeSelectionPending ? "opacity-45" : ""}`}>
+
+              <section className={`${sectionClassName} ${isBuildLocked ? "opacity-45" : ""}`}>
                 <div className="flex items-center gap-3">
                   <span className={sectionStepClassName}>4</span>
                   <h4 className={stageTitleClassName}>Build the exercise</h4>
                 </div>
 
-                <div className="space-y-5 pt-4">
-                {isAiMode ? (
-                  <section className="rounded-xl border border-orange-200 bg-orange-50/60 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <div className="inline-flex items-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-orange-600">
-                          <Sparkles className="h-4 w-4" />
-                          AI Generation
-                        </div>
-                        <h5 className="mt-3 text-base font-semibold text-[#14213d]">
-                          Choose difficulty and number of exercises
-                        </h5>
-                      </div>
+                <div className="space-y-5 ">
+                  {isAiMode ? (
+                    <>
+                      <section className="rounded-xl p-4">
+                    
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-[#14213d]">Difficulty</p>
+                          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                            {AI_DIFFICULTY_OPTIONS.map((option) => {
+                              const isActive = selectedDifficulties.includes(option.value);
 
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          void handleGenerateAi();
-                        }}
-                        disabled={!canSubmitAiGeneration}
-                        className="h-10 rounded-xl bg-orange-500 px-4 text-sm font-semibold text-white hover:bg-orange-600"
-                      >
-                        {isGeneratingAi ? "Generating..." : "Generate"}
-                      </Button>
-                    </div>
-
-                    <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_13rem]">
-                      <div>
-                        <p className="text-sm font-semibold text-[#14213d]">Difficulty</p>
-                        <div className="mt-3 flex flex-wrap gap-3">
-                          {AI_DIFFICULTY_OPTIONS.map((option) => {
-                            const isChecked = selectedDifficulties.includes(option.value);
-
-                            return (
-                              <label
-                                key={option.value}
-                                className={`inline-flex cursor-pointer items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition ${
-                                  isChecked
-                                    ? "border-orange-200 bg-white text-orange-700"
-                                    : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                                }`}
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => handleDifficultyToggle(option.value)}
+                              return (
+                                <button
+                                  key={option.value}
+                                  type="button"
+                                  onClick={() => handleDifficultyToggle(option.value)}
                                   disabled={controlsDisabled || isGeneratingAi}
-                                  className="h-4 w-4 rounded border-slate-300 accent-orange-500"
-                                />
-                                <span>{option.label}</span>
-                              </label>
-                            );
-                          })}
+                                  className={`inline-flex min-h-10 items-center justify-center rounded-lg border px-4 py-2 text-sm font-medium transition ${
+                                    getDifficultyOptionClassName(option.value, isActive)
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
 
-                      <div>
-                        <label
-                          htmlFor="exercise-count"
-                          className="text-sm font-semibold text-[#14213d]"
-                        >
-                          Exercise count
-                        </label>
-                        <Input
-                          id="exercise-count"
-                          type="number"
-                          min={EXERCISE_COUNT_MIN}
-                          max={EXERCISE_COUNT_MAX}
-                          step={1}
-                          value={exerciseCount}
-                          onChange={(event) => handleExerciseCountChange(event.target.value)}
-                          disabled={controlsDisabled || isGeneratingAi}
-                          className="mt-3 h-12 border-slate-200 bg-white px-4 text-sm text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
-                        />
-                        <p className="mt-2 text-sm text-slate-500">
-                          {`Choose from ${EXERCISE_COUNT_MIN} to ${EXERCISE_COUNT_MAX}.`}
-                        </p>
-                      </div>
-                    </div>
-
-                    {!canGenerateAi ? (
-                      <p className="mt-4 text-sm font-medium text-amber-700">
-                        Source content is too short for AI exercise generation.
-                      </p>
-                    ) : null}
-
-                    {aiError ? (
-                      <p className="mt-4 text-sm font-medium text-rose-600">{aiError}</p>
-                    ) : null}
-                  </section>
-                ) : null}
-
-                {isAiMode && generatedExercises.length > 0 ? (
-                  <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                    <div>
-                      <h5 className="text-base font-semibold text-[#14213d]">
-                        Generated exercises
-                      </h5>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Review the generated options and choose one to continue editing.
-                      </p>
-                    </div>
-
-                    <div className="mt-4 space-y-4">
-                      {generatedExercises.map((generatedExercise) => {
-                        const isSelected =
-                          selectedGeneratedExerciseId === generatedExercise.id;
-
-                        return (
-                          <article
-                            key={generatedExercise.id}
-                            className={`rounded-xl border p-4 transition ${
-                              isSelected
-                                ? "border-orange-200 bg-white"
-                                : "border-slate-200 bg-white"
+                        <div className="mt-4">
+                          <p className="text-sm font-semibold text-[#14213d]">Exercise count</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-3">
+                            <div
+                              className={`inline-flex h-10 items-center overflow-hidden rounded-xl border ${
+                                exerciseCountLimitError
+                                  ? "border-rose-200 bg-rose-50"
+                                  : "border-slate-200 bg-[#f9fbfd]"
+                              }`}
+                            >
+                              <button
+                                type="button"
+                                onClick={handleDecreaseExerciseCount}
+                                disabled={!canAdjustExerciseCount || exerciseCount <= EXERCISE_COUNT_MIN}
+                                aria-label="Decrease exercise count"
+                                className="inline-flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
+                              >
+                                <Minus className="h-4 w-4" />
+                              </button>
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
+                                value={exerciseCountInputValue}
+                                onChange={(event) =>
+                                  handleExerciseCountInputChange(event.target.value)
+                                }
+                                disabled={!canAdjustExerciseCount}
+                                aria-label="Exercise count"
+                                className="h-full w-20 bg-transparent px-3 text-center text-sm font-semibold text-[#14213d] outline-none disabled:cursor-not-allowed disabled:text-slate-400"
+                              />
+                              <button
+                                type="button"
+                                onClick={handleIncreaseExerciseCount}
+                                disabled={!canAdjustExerciseCount}
+                                aria-label="Increase exercise count"
+                                className="inline-flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
+                              >
+                                <Plus className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                          <p
+                            className={`mt-2 text-sm ${
+                              exerciseCountLimitError ? "font-medium text-rose-600" : "text-slate-500"
                             }`}
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-3">
-                              <div>
-                                <h6 className="text-base font-semibold text-[#14213d]">
-                                  {formatDifficultyLabel(generatedExercise.difficulty)} Exercise
-                                </h6>
-                                <p className="mt-1 text-sm text-slate-500">
-                                  {generatedExercise.draft.type === "drag_drop_code"
-                                    ? "Fill Missing Code"
-                                    : "Write Code"}
-                                </p>
-                              </div>
+                            {hasMultipleSelectedDifficulties
+                              ? `Count is locked to ${exerciseCount}: one exercise per selected difficulty.`
+                              : `Maximum quantity: ${exerciseAiCountLimit}`}
+                          </p>
+                        </div>
 
-                              <Button
-                                type="button"
-                                variant={isSelected ? "primary" : "secondary"}
-                                onClick={() => applyGeneratedExercise(generatedExercise)}
-                                disabled={controlsDisabled}
-                                className={`h-10 rounded-xl px-4 text-sm ${
-                                  isSelected
-                                    ? "bg-orange-500 text-white hover:bg-orange-600"
-                                    : ""
-                                }`}
-                              >
-                                {isSelected ? "Selected" : "Use This Exercise"}
-                              </Button>
-                            </div>
+                        {isResolvingAiLimit ? (
+                          <p className="mt-4 text-sm font-medium text-slate-600">
+                            Resolving maximum quantity...
+                          </p>
+                        ) : !canGenerateAi ? (
+                          <p className="mt-4 text-sm font-medium text-amber-700">
+                            Source content is too short for AI exercise generation.
+                          </p>
+                        ) : null}
 
-                            <div className="mt-4">
-                              <ExercisePreview
-                                content={generatedExercise.draft.content}
-                                description={generatedExercise.draft.description}
-                                compact
-                                showAnswerKey
-                              />
-                            </div>
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ) : null}
+                        {aiError ? (
+                          <p className="mt-4 text-sm font-medium text-rose-600">{aiError}</p>
+                        ) : null}
 
-                <div>
-                  <label className="text-sm font-semibold text-[#14213d]">
-                    Task for student
-                  </label>
-                  <Input
-                    value={draft.content.question}
-                    onChange={(event) => handleQuestionChange(event.target.value)}
-                    disabled={controlsDisabled}
-                    placeholder="Type the task for the student..."
-                    className="mt-3 h-12 border-slate-200 bg-[#f9fbfd] px-4 text-sm text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
-                  />
-                  </div>
-                {draft.type === "drag_drop_code" ? (
-                  <section className={editorShellClassName}>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-300">
-                        Code template
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          insertSnippetIntoEditor(
-                            dragDropEditorRef.current,
-                            draft.content.code_template,
-                            AUTHOR_BLANK_TOKEN,
-                            (nextValue) =>
-                              updateDragDropContent((content) => ({
-                                ...content,
-                                code_template: nextValue,
-                              }))
-                          )
-                        }
-                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
-                        disabled={controlsDisabled}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Add Blank
-                      </button>
-                    </div>
+                        <Button
+                          type="button"
+                          onClick={() => {
+                            void handleGenerateAi();
+                          }}
+                          disabled={!canSubmitAiGeneration}
+                          className="mt-5 h-12 w-full rounded-xl bg-orange-500 px-6 text-base font-semibold text-white hover:bg-orange-600"
+                        >
+                          {isGeneratingAi ? "Generating..." : "Generate"}
+                        </Button>
+                      </section>
 
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)]">
-                      <div className="border-r border-white/10 bg-slate-950/50 px-3 py-4 text-right font-mono text-xs leading-7 text-slate-500">
-                        {renderEditorLineNumbers(dragDropEditorLineCount)}
-                      </div>
+                      {generatedExercises.length > 0 ? (
+                        <section className="rounded-xl bg-slate-50/70 p-4">
+                          <div>
+                            <h5 className="text-base font-semibold text-[#14213d]">
+                              {generatedExercisesHeading}
+                            </h5>
+                          </div>
 
-                      <textarea
-                        ref={dragDropEditorRef}
-                        value={draft.content.code_template}
-                        onChange={(event) =>
-                          updateDragDropContent((content) => ({
-                            ...content,
-                            code_template: event.target.value,
-                          }))
-                        }
-                        disabled={controlsDisabled}
-                        className="min-h-[12rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
-                        placeholder={`Example:\nprint(${AUTHOR_BLANK_TOKEN})`}
-                        spellCheck={false}
-                      />
-                    </div>
+                          <div className="mt-4 space-y-4">
+                            {generatedExercises.map((generatedExercise) => {
+                              const isSelected =
+                                selectedGeneratedExerciseId === generatedExercise.id;
 
-                    <div className="border-t border-white/10 bg-slate-950/30 px-4 py-4">
-                      <div className="space-y-3 overflow-hidden">
-                        {(draft.content.blanks ?? []).length > 0 ? (
-                          (draft.content.blanks ?? []).map((blank, index) => (
-                            <div
-                              key={blank.id}
-                              className="rounded-xl border border-slate-200 bg-white p-4 text-sm"
-                            >
-                              <div className="flex flex-wrap items-start gap-4">
-                                <span className="mt-1 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 px-2 text-xs font-semibold text-orange-600">
-                                  {index + 1}
-                                </span>
-                                <div className="min-w-[12rem] flex-[0.7]">
-                                  <p className="text-sm font-semibold text-slate-600">
-                                    Correct Option
-                                  </p>
-                                  <Input
-                                    value={blank.correct}
-                                    onChange={(event) =>
-                                      updateDragDropBlank(index, (currentBlank) => ({
-                                        ...currentBlank,
-                                        correct: event.target.value,
-                                      }))
+                              return (
+                                <article
+                                  key={generatedExercise.id}
+                                  role="button"
+                                  tabIndex={0}
+                                  onClick={() =>
+                                    handleSelectGeneratedExercise(generatedExercise.id)
+                                  }
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter" || event.key === " ") {
+                                      event.preventDefault();
+                                      handleSelectGeneratedExercise(generatedExercise.id);
                                     }
-                                    disabled={controlsDisabled}
-                                    placeholder={`Correct value for blank ${index + 1}`}
-                                    className="mt-2 h-11 border-slate-200 bg-[#f9fbfd] px-4 text-sm font-medium text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
-                                  />
-                                </div>
-                                <div className="min-w-[18rem] flex-1">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-semibold text-slate-600">
-                                      Other Options
-                                    </p>
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        updateDragDropBlank(index, (currentBlank) => ({
-                                          ...currentBlank,
-                                          distractors: [...currentBlank.distractors, ""],
-                                        }))
-                                      }
-                                      disabled={controlsDisabled}
-                                      className="inline-flex h-8 items-center rounded-xl border border-slate-200 bg-[#f9fbfd] px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
+                                  }}
+                                  className={`rounded-2xl p-4 transition ${
+                                    isSelected
+                                      ? "cursor-pointer bg-orange-50 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.36)]"
+                                      : "cursor-pointer bg-white hover:shadow-[inset_0_0_0_1px_rgba(15,23,42,0.1)]"
+                                  } ${
+                                    controlsDisabled
+                                      ? "pointer-events-none cursor-not-allowed opacity-70"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span
+                                      className={`inline-flex h-8 items-center rounded-full border px-3 text-xs font-semibold ${getDifficultyBadgeClassName(
+                                        generatedExercise.difficulty
+                                      )}`}
                                     >
-                                      + Add option
-                                    </button>
+                                      {formatDifficultyLabel(generatedExercise.difficulty)}
+                                    </span>
+                                    <span className="text-sm font-medium text-slate-600">
+                                      {getExerciseTypeLabel(generatedExercise.draft.type)}
+                                    </span>
+                                    {isSelected ? (
+                                      <span className="inline-flex h-8 items-center rounded-full border border-orange-200 bg-orange-100 px-3 text-xs font-semibold text-orange-700">
+                                        Selected
+                                      </span>
+                                    ) : null}
                                   </div>
 
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    {(blank.distractors ?? []).length > 0 ? (
-                                      blank.distractors.map((distractor, distractorIndex) => (
-                                        <div
-                                          key={`${blank.id}-distractor-${distractorIndex}`}
-                                          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-[#f9fbfd] px-3 py-2"
-                                        >
-                                          <input
-                                            value={distractor}
-                                            onChange={(event) =>
-                                              updateDragDropBlank(index, (currentBlank) => ({
-                                                ...currentBlank,
-                                                distractors: currentBlank.distractors.map(
-                                                  (currentDistractor, currentDistractorIndex) =>
-                                                    currentDistractorIndex === distractorIndex
-                                                      ? event.target.value
-                                                      : currentDistractor
-                                                ),
-                                              }))
-                                            }
-                                            disabled={controlsDisabled}
-                                            style={{
-                                              width: getChipInputWidth(distractor, 8),
-                                            }}
-                                            className="min-w-0 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
-                                            placeholder="Option"
-                                          />
+                                  <div className="mt-4">
+                                    <ExercisePreview
+                                      content={generatedExercise.draft.content}
+                                      description={generatedExercise.draft.description}
+                                      compact
+                                      showAnswerKey
+                                    />
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-5 flex justify-end">
+                            <Button
+                              type="button"
+                              onClick={handleConfirmGeneratedExercise}
+                              disabled={controlsDisabled || selectedGeneratedExerciseId === null}
+                              className={`h-10 rounded-xl border-transparent px-5 text-sm font-semibold ${
+                                isGeneratedSelectionCommitted
+                                  ? "bg-emerald-500 text-white hover:bg-emerald-600"
+                                  : "bg-orange-500 text-white hover:bg-orange-600"
+                              }`}
+                            >
+                              {isGeneratedSelectionCommitted ? "Saved as draft" : "Done"}
+                            </Button>
+                          </div>
+                        </section>
+                      ) : null}
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <label className="text-sm font-semibold text-[#14213d]">
+                          Task for student
+                        </label>
+                        <Input
+                          value={draft.content.question}
+                          onChange={(event) => handleQuestionChange(event.target.value)}
+                          disabled={controlsDisabled}
+                          placeholder="Type the task for the student..."
+                          className="mt-3 h-12 border-slate-200 bg-[#f9fbfd] px-4 text-sm text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
+                        />
+                      </div>
+
+                      {draft.type === "drag_drop_code" ? (
+                        <section className={editorShellClassName}>
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-300">
+                              Code template
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                insertSnippetIntoEditor(
+                                  dragDropEditorRef.current,
+                                  draft.content.code_template,
+                                  AUTHOR_BLANK_TOKEN,
+                                  (nextValue) =>
+                                    updateDragDropContent((content) => ({
+                                      ...content,
+                                      code_template: nextValue,
+                                    }))
+                                )
+                              }
+                              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
+                              disabled={controlsDisabled}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add Blank
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)]">
+                            <div className="border-r border-white/10 bg-slate-950/50 px-3 py-4 text-right font-mono text-xs leading-7 text-slate-500">
+                              {renderEditorLineNumbers(dragDropEditorLineCount)}
+                            </div>
+
+                            <textarea
+                              ref={dragDropEditorRef}
+                              value={draft.content.code_template}
+                              onChange={(event) =>
+                                updateDragDropContent((content) => ({
+                                  ...content,
+                                  code_template: event.target.value,
+                                }))
+                              }
+                              disabled={controlsDisabled}
+                              className="min-h-[12rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
+                              placeholder={`Example:\nprint(${AUTHOR_BLANK_TOKEN})`}
+                              spellCheck={false}
+                            />
+                          </div>
+
+                          <div className="border-t border-white/10 bg-slate-950/30 px-4 py-4">
+                            <div className="space-y-3 overflow-hidden">
+                              {(draft.content.blanks ?? []).length > 0 ? (
+                                (draft.content.blanks ?? []).map((blank, index) => (
+                                  <div
+                                    key={blank.id}
+                                    className="rounded-xl border border-slate-200 bg-white p-4 text-sm"
+                                  >
+                                    <div className="flex flex-wrap items-start gap-4">
+                                      <span className="mt-1 flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg bg-orange-50 px-2 text-xs font-semibold text-orange-600">
+                                        {index + 1}
+                                      </span>
+                                      <div className="min-w-[12rem] flex-[0.7]">
+                                        <p className="text-sm font-semibold text-slate-600">
+                                          Correct Option
+                                        </p>
+                                        <Input
+                                          value={blank.correct}
+                                          onChange={(event) =>
+                                            updateDragDropBlank(index, (currentBlank) => ({
+                                              ...currentBlank,
+                                              correct: event.target.value,
+                                            }))
+                                          }
+                                          disabled={controlsDisabled}
+                                          placeholder={`Correct value for blank ${index + 1}`}
+                                          className="mt-2 h-11 border-slate-200 bg-[#f9fbfd] px-4 text-sm font-medium text-[#14213d] focus:border-orange-200 focus:ring-orange-50"
+                                        />
+                                      </div>
+                                      <div className="min-w-[18rem] flex-1">
+                                        <div className="flex items-center justify-between gap-3">
+                                          <p className="text-sm font-semibold text-slate-600">
+                                            Other Options
+                                          </p>
                                           <button
                                             type="button"
                                             onClick={() =>
                                               updateDragDropBlank(index, (currentBlank) => ({
                                                 ...currentBlank,
-                                                distractors: currentBlank.distractors.filter(
-                                                  (_, currentDistractorIndex) =>
-                                                    currentDistractorIndex !== distractorIndex
-                                                ),
+                                                distractors: [...currentBlank.distractors, ""],
                                               }))
                                             }
                                             disabled={controlsDisabled}
-                                            className="text-xs font-bold text-slate-400 transition hover:text-rose-500"
+                                            className="inline-flex h-8 items-center rounded-xl border border-slate-200 bg-[#f9fbfd] px-3 text-xs font-semibold text-slate-600 transition hover:bg-slate-100"
                                           >
-                                            x
+                                            + Add option
                                           </button>
                                         </div>
-                                      ))
-                                    ) : (
-                                      <span className="text-sm text-slate-400">
-                                        Add as many wrong options as you need.
-                                      </span>
-                                    )}
+
+                                        <div className="mt-3 flex flex-wrap gap-2">
+                                          {(blank.distractors ?? []).length > 0 ? (
+                                            blank.distractors.map((distractor, distractorIndex) => (
+                                              <div
+                                                key={`${blank.id}-distractor-${distractorIndex}`}
+                                                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-[#f9fbfd] px-3 py-2"
+                                              >
+                                                <input
+                                                  value={distractor}
+                                                  onChange={(event) =>
+                                                    updateDragDropBlank(index, (currentBlank) => ({
+                                                      ...currentBlank,
+                                                      distractors: currentBlank.distractors.map(
+                                                        (currentDistractor, currentDistractorIndex) =>
+                                                          currentDistractorIndex === distractorIndex
+                                                            ? event.target.value
+                                                            : currentDistractor
+                                                      ),
+                                                    }))
+                                                  }
+                                                  disabled={controlsDisabled}
+                                                  style={{
+                                                    width: getChipInputWidth(distractor, 8),
+                                                  }}
+                                                  className="min-w-0 bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:text-slate-400"
+                                                  placeholder="Option"
+                                                />
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    updateDragDropBlank(index, (currentBlank) => ({
+                                                      ...currentBlank,
+                                                      distractors: currentBlank.distractors.filter(
+                                                        (_, currentDistractorIndex) =>
+                                                          currentDistractorIndex !== distractorIndex
+                                                      ),
+                                                    }))
+                                                  }
+                                                  disabled={controlsDisabled}
+                                                  className="text-xs font-bold text-slate-400 transition hover:text-rose-500"
+                                                >
+                                                  x
+                                                </button>
+                                              </div>
+                                            ))
+                                          ) : (
+                                            <span className="text-sm text-slate-400">
+                                              Add as many wrong options as you need.
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
-                                </div>
-                              </div>
+                                ))
+                              ) : (
+                                <span className="text-sm text-slate-400">
+                                  Click “Add Blank” to insert `___` into the code and define the options for that blank.
+                                </span>
+                              )}
                             </div>
-                          ))
-                        ) : (
-                          <span className="text-sm text-slate-400">
-                            Click “Add Blank” to insert `___` into the code and define the options for that blank.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-                ) : (
-                  <section className={editorShellClassName}>
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-                      <p className="text-sm font-semibold text-slate-300">Starter code</p>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (hasWriteCodeAnswerSlot(draft.content.initial_code)) {
-                            writeCodeEditorRef.current?.focus();
-                            return;
-                          }
+                          </div>
+                        </section>
+                      ) : (
+                        <section className={editorShellClassName}>
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+                            <p className="text-sm font-semibold text-slate-300">Starter code</p>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (hasWriteCodeAnswerSlot(draft.content.initial_code)) {
+                                  writeCodeEditorRef.current?.focus();
+                                  return;
+                                }
 
-                          insertSnippetIntoEditor(
-                            writeCodeEditorRef.current,
-                            draft.content.initial_code,
-                            WRITE_CODE_SLOT_TOKEN,
-                            (nextValue) =>
-                              updateWriteCodeContent((content) => ({
-                                ...content,
-                                initial_code: nextValue,
-                              }))
-                          );
-                        }}
-                        className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
-                        disabled={controlsDisabled}
-                      >
-                        <Plus className="h-4 w-4" />
-                        Insert Answer Slot
-                      </button>
-                    </div>
+                                insertSnippetIntoEditor(
+                                  writeCodeEditorRef.current,
+                                  draft.content.initial_code,
+                                  WRITE_CODE_SLOT_TOKEN,
+                                  (nextValue) =>
+                                    updateWriteCodeContent((content) => ({
+                                      ...content,
+                                      initial_code: nextValue,
+                                    }))
+                                );
+                              }}
+                              className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-4 text-sm font-semibold text-white transition hover:bg-white/15"
+                              disabled={controlsDisabled}
+                            >
+                              <Plus className="h-4 w-4" />
+                              Insert Answer Slot
+                            </button>
+                          </div>
 
-                    <div className="grid grid-cols-[auto_minmax(0,1fr)]">
-                      <div className="border-r border-white/10 bg-slate-950/50 px-3 py-4 text-right font-mono text-xs leading-7 text-slate-500">
-                        {renderEditorLineNumbers(writeCodeEditorLineCount)}
-                      </div>
+                          <div className="grid grid-cols-[auto_minmax(0,1fr)]">
+                            <div className="border-r border-white/10 bg-slate-950/50 px-3 py-4 text-right font-mono text-xs leading-7 text-slate-500">
+                              {renderEditorLineNumbers(writeCodeEditorLineCount)}
+                            </div>
 
-                      <textarea
-                        ref={writeCodeEditorRef}
-                        value={draft.content.initial_code}
-                        onChange={(event) =>
-                          updateWriteCodeContent((content) => ({
-                            ...content,
-                            initial_code: event.target.value,
-                          }))
-                        }
-                        disabled={controlsDisabled}
-                        className="min-h-[12rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
-                        placeholder={`Example:\nreturn ${WRITE_CODE_SLOT_TOKEN}`}
-                        spellCheck={false}
-                      />
-                    </div>
-
-                    <div className="border-t border-white/10 bg-slate-950/30 px-4 py-4">
-                      <div className="flex flex-wrap gap-3 overflow-hidden">
-                        {hasAnswerSlot || draft.content.expected_answer.trim() ? (
-                          <div className="inline-flex max-w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm">
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-xs font-semibold text-orange-600">
-                              1
-                            </span>
-                            <input
-                              value={draft.content.expected_answer}
+                            <textarea
+                              ref={writeCodeEditorRef}
+                              value={draft.content.initial_code}
                               onChange={(event) =>
                                 updateWriteCodeContent((content) => ({
                                   ...content,
-                                  expected_answer: event.target.value,
+                                  initial_code: event.target.value,
                                 }))
                               }
                               disabled={controlsDisabled}
-                              style={{
-                                width: getChipInputWidth(draft.content.expected_answer, 14),
-                              }}
-                              className="min-w-0 max-w-[20rem] bg-transparent text-sm font-semibold text-[#14213d] outline-none placeholder:text-slate-400"
-                              placeholder="Correct answer"
+                              className="min-h-[12rem] w-full resize-y border-0 bg-transparent px-4 py-4 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500"
+                              placeholder={`Example:\nreturn ${WRITE_CODE_SLOT_TOKEN}`}
+                              spellCheck={false}
                             />
                           </div>
-                        ) : (
-                          <span className="text-sm text-slate-400">
-                            Click “Insert Answer Slot” to add the correct answer.
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </section>
-                )}
 
-                <section className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                  <h5 className="text-base font-semibold text-[#14213d]">
-                    Student Preview
-                  </h5>
-
-                  <div className="mt-4">
-                    <ExercisePreview
-                      content={draft.content}
-                      description={draft.description}
-                    />
-                  </div>
-                </section>
+                          <div className="border-t border-white/10 bg-slate-950/30 px-4 py-4">
+                            <div className="flex flex-wrap gap-3 overflow-hidden">
+                              {hasAnswerSlot || draft.content.expected_answer.trim() ? (
+                                <div className="inline-flex max-w-full items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm">
+                                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-orange-50 text-xs font-semibold text-orange-600">
+                                    1
+                                  </span>
+                                  <input
+                                    value={draft.content.expected_answer}
+                                    onChange={(event) =>
+                                      updateWriteCodeContent((content) => ({
+                                        ...content,
+                                        expected_answer: event.target.value,
+                                      }))
+                                    }
+                                    disabled={controlsDisabled}
+                                    style={{
+                                      width: getChipInputWidth(draft.content.expected_answer, 14),
+                                    }}
+                                    className="min-w-0 max-w-[20rem] bg-transparent text-sm font-semibold text-[#14213d] outline-none placeholder:text-slate-400"
+                                    placeholder="Correct answer"
+                                  />
+                                </div>
+                              ) : (
+                                <span className="text-sm text-slate-400">
+                                  Click “Insert Answer Slot” to add the correct answer.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </section>
+                      )}
+                    </>
+                  )}
               </div>
             </section>
           </div>

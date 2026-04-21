@@ -156,6 +156,17 @@ const buildOrderedModuleItems = (
   return items;
 };
 
+const getLessonRowKey = (moduleId: string, lessonId: string) =>
+  `lesson:${moduleId}:${lessonId}`;
+
+const getTestRowKey = (moduleId: string, testId: string) =>
+  `test:${moduleId}:${testId}`;
+
+const getExerciseRowKey = (moduleId: string, exerciseId: string) =>
+  `exercise:${moduleId}:${exerciseId}`;
+
+const getDraftRowKey = (moduleId: string) => `draft:${moduleId}`;
+
 export function CourseStructureSidebar({
   courseTitle,
   modules,
@@ -225,21 +236,32 @@ export function CourseStructureSidebar({
     exerciseId: string;
   } | null>(null);
   const [isResizing, setIsResizing] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const moduleSectionRefs = useRef<Record<string, HTMLElement | null>>({});
+  const moduleItemRefs = useRef<Record<string, HTMLElement | null>>({});
   const resizeStartRef = useRef<{ pointerX: number; width: number } | null>(null);
+  const previousSelectedAfterLessonIdRef = useRef<string | null>(selectedAfterLessonId);
   const collapsedModuleIds = collapsedModuleIdsState;
 
-  const totalLessons = modules.reduce(
-    (sum, module) => sum + (lessonsByModule[module.id]?.length || 0),
-    0
-  );
-  const totalTests = modules.reduce(
-    (sum, module) => sum + (testsByModule[module.id]?.length || 0),
-    0
-  );
-  const totalExercises = modules.reduce(
-    (sum, module) => sum + (exercisesByModule[module.id]?.length || 0),
-    0
-  );
+  const registerModuleSectionRef = (moduleId: string) => (node: HTMLElement | null) => {
+    if (node) {
+      moduleSectionRefs.current[moduleId] = node;
+      return;
+    }
+
+    delete moduleSectionRefs.current[moduleId];
+  };
+
+  const registerModuleItemRef = (itemKey: string) => (node: HTMLElement | null) => {
+    if (node) {
+      moduleItemRefs.current[itemKey] = node;
+      return;
+    }
+
+    delete moduleItemRefs.current[itemKey];
+  };
+
+  
   const activeModule = modules.find((module) => module.id === activeModuleId) || null;
   const activeModuleLessons = activeModule ? lessonsByModule[activeModule.id] || [] : [];
   const activeModuleTests = activeModule ? testsByModule[activeModule.id] || [] : [];
@@ -311,6 +333,24 @@ export function CourseStructureSidebar({
     variant === "modal" && isResizable
       ? { width: `${sidebarWidth}px` }
       : undefined;
+  const scrollTargetKey =
+    activeModuleId === null
+      ? null
+      : previewExercise
+        ? getExerciseRowKey(activeModuleId, previewExercise.id)
+        : previewTest
+          ? getTestRowKey(activeModuleId, previewTest.id)
+          : selectedAfterLessonId
+            ? getLessonRowKey(activeModuleId, selectedAfterLessonId)
+            : activeExerciseId
+              ? getExerciseRowKey(activeModuleId, activeExerciseId)
+              : activeTestId
+                ? getTestRowKey(activeModuleId, activeTestId)
+                : activeLessonId
+                  ? getLessonRowKey(activeModuleId, activeLessonId)
+                  : draftLessonModuleId === activeModuleId
+                    ? getDraftRowKey(activeModuleId)
+                    : null;
 
   useEffect(() => {
     if (!isResizable || !isResizing) {
@@ -353,6 +393,34 @@ export function CourseStructureSidebar({
     };
   }, [isResizable, isResizing]);
 
+  useEffect(() => {
+    const scrollContainer = scrollContainerRef.current;
+
+    if (!scrollContainer) {
+      return;
+    }
+
+    const targetElement =
+      (scrollTargetKey ? moduleItemRefs.current[scrollTargetKey] : null) ??
+      (activeModuleId ? moduleSectionRefs.current[activeModuleId] : null);
+
+    if (!targetElement) {
+      return;
+    }
+
+    const targetRect = targetElement.getBoundingClientRect();
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const isAboveViewport = targetRect.top < containerRect.top;
+    const isBelowViewport = targetRect.bottom > containerRect.bottom;
+
+    if (isAboveViewport || isBelowViewport) {
+      targetElement.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+      });
+    }
+  }, [activeModuleId, collapsedModuleIdsState, scrollTargetKey, visibleModules.length]);
+
   const handleResizePointerDown = (event: ReactPointerEvent<HTMLButtonElement>) => {
     event.preventDefault();
     resizeStartRef.current = {
@@ -362,18 +430,59 @@ export function CourseStructureSidebar({
     setIsResizing(true);
   };
 
+  const collapseModuleContent = (moduleId: string) => {
+    if (!showTestSourcePreview) {
+      return;
+    }
+
+    setCollapsedModuleIds((previousState) =>
+      previousState[moduleId]
+        ? previousState
+        : {
+            ...previousState,
+            [moduleId]: true,
+          }
+    );
+  };
+
+  useEffect(() => {
+    const previousSelectedAfterLessonId = previousSelectedAfterLessonIdRef.current;
+    previousSelectedAfterLessonIdRef.current = selectedAfterLessonId;
+
+    if (
+      !showTestSourcePreview ||
+      !activeModuleId ||
+      !selectedAfterLessonId ||
+      selectedAfterLessonId === previousSelectedAfterLessonId
+    ) {
+      return;
+    }
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      setCollapsedModuleIds((previousState) =>
+        previousState[activeModuleId]
+          ? previousState
+          : {
+              ...previousState,
+              [activeModuleId]: true,
+            }
+      );
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+    };
+  }, [activeModuleId, selectedAfterLessonId, showTestSourcePreview]);
+
   return (
     <aside className={containerClassName} style={containerStyle}>
       <div className="flex min-h-[108px] flex-col justify-center border-b border-slate-200 px-6 py-4">
         <h3 className="text-xl font-extrabold tracking-tight text-[#14213d]">
           {courseTitle}
         </h3>
-        <p className="mt-4 text-sm font-medium text-slate-500">
-          {`${modules.length} modules • ${totalLessons} lessons • ${totalTests} tests • ${totalExercises} exercises`}
-        </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <div className="space-y-3">
           {visibleModules.map((module) => {
             const lessons = lessonsByModule[module.id];
@@ -389,10 +498,12 @@ export function CourseStructureSidebar({
               : false;
             const showDraftRow = draftLessonModuleId === module.id;
             const isDraftActive = showDraftRow && isActiveModule && activeLessonId === null;
+            const draftRowKey = getDraftRowKey(module.id);
 
             return (
               <section
                 key={module.id}
+                ref={registerModuleSectionRef(module.id)}
                 className={`rounded-[1.25rem] border px-4 py-4 ${
                   isCleanAccent
                     ? "border-slate-200 bg-transparent"
@@ -410,11 +521,6 @@ export function CourseStructureSidebar({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-[#14213d]">
                       {`Module ${module.order}: ${module.title}`}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {lessons && tests && exercises
-                        ? `${lessons.length} lessons • ${tests.length} tests • ${exercises.length} exercises`
-                        : "Loading . . ."}
                     </p>
                   </div>
                   {showTestSourcePreview ? (
@@ -472,6 +578,7 @@ export function CourseStructureSidebar({
                           isActiveModule &&
                           Boolean(onSelectPreviewLesson);
                         const showLessonEditButton = showTestSourcePreview && Boolean(onSelectLesson);
+                        const lessonRowKey = getLessonRowKey(module.id, item.lesson.id);
                         const lessonRowContent = (
                           <>
                             <span
@@ -509,6 +616,7 @@ export function CourseStructureSidebar({
                           return (
                             <div
                               key={item.lesson.id}
+                              ref={registerModuleItemRef(lessonRowKey)}
                               className={`flex w-full items-center gap-2 rounded-[1rem] border px-3 py-2.5 transition ${
                                 isActiveLesson
                                   ? previewAccentClasses.rowActive
@@ -521,6 +629,7 @@ export function CourseStructureSidebar({
                                   setManualPreviewTestSelection(null);
                                   setManualPreviewExerciseSelection(null);
                                   onSelectPreviewLesson(item.lesson.id);
+                                  collapseModuleContent(module.id);
                                 }}
                                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
                               >
@@ -544,6 +653,7 @@ export function CourseStructureSidebar({
                           return (
                             <button
                               key={item.lesson.id}
+                              ref={registerModuleItemRef(lessonRowKey)}
                               type="button"
                               onClick={() => onSelectLesson(module.id, item.lesson)}
                               className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition ${
@@ -574,6 +684,7 @@ export function CourseStructureSidebar({
                         return (
                           <div
                             key={item.lesson.id}
+                            ref={registerModuleItemRef(lessonRowKey)}
                             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${rowClass}`}
                           >
                             <span
@@ -602,6 +713,7 @@ export function CourseStructureSidebar({
                           item.test.afterLessonId &&
                             (lessons || []).some((lesson) => lesson.id === item.test.afterLessonId)
                         );
+                        const testRowKey = getTestRowKey(module.id, item.test.id);
                         const displayTitle = getGeneratedCourseTestTitle({
                           moduleOrder: module.order,
                           lessons: lessons || [],
@@ -639,6 +751,7 @@ export function CourseStructureSidebar({
                                 contextKey: previewSelectionContextKey,
                                 testId: item.test.id,
                               });
+                              collapseModuleContent(module.id);
                             }}
                             className={`flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition ${
                               isSelectedTest
@@ -677,6 +790,7 @@ export function CourseStructureSidebar({
                         return (
                           <div
                             key={item.test.id}
+                            ref={registerModuleItemRef(testRowKey)}
                             className={isNestedTest ? "pl-11" : ""}
                           >
                             {previewTestContent ?? testContent}
@@ -694,6 +808,7 @@ export function CourseStructureSidebar({
                             (lesson) => lesson.id === item.exercise.afterLessonId
                           )
                       );
+                      const exerciseRowKey = getExerciseRowKey(module.id, item.exercise.id);
                       const exerciseRowContent = (
                         <>
                           <span
@@ -727,6 +842,7 @@ export function CourseStructureSidebar({
                               contextKey: previewSelectionContextKey,
                               exerciseId: item.exercise.id,
                             });
+                            collapseModuleContent(module.id);
                           }}
                           className={`flex w-full items-center gap-3 rounded-[1rem] border px-3 py-2.5 text-left transition ${
                             isSelectedExercise
@@ -751,6 +867,7 @@ export function CourseStructureSidebar({
                       return (
                         <div
                           key={item.exercise.id}
+                          ref={registerModuleItemRef(exerciseRowKey)}
                           className={isNestedExercise ? "pl-11" : ""}
                         >
                           {exerciseContent}
@@ -762,6 +879,7 @@ export function CourseStructureSidebar({
                           ? onSelectDraftLesson
                             ? (
                               <button
+                                ref={registerModuleItemRef(draftRowKey)}
                                 type="button"
                                 onClick={() => onSelectDraftLesson(module.id)}
                                 className={`flex w-full items-center gap-3 rounded-xl border-l-4 px-3 py-2.5 text-left transition ${
@@ -792,7 +910,10 @@ export function CourseStructureSidebar({
                               </button>
                             )
                             : (
-                              <div className={`rounded-xl border-l-4 ${accentClasses.itemActiveBorder} ${accentClasses.itemActiveBg} px-3 py-2.5`}>
+                              <div
+                                ref={registerModuleItemRef(draftRowKey)}
+                                className={`rounded-xl border-l-4 ${accentClasses.itemActiveBorder} ${accentClasses.itemActiveBg} px-3 py-2.5`}
+                              >
                                 <div className="flex items-center gap-3">
                                   <span className={`h-2.5 w-2.5 rounded-full ${accentClasses.itemActiveDot}`} />
                                   <span className="min-w-0 flex-1 truncate text-sm font-semibold text-[#14213d]">

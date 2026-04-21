@@ -102,6 +102,16 @@ export type GenerateExerciseInput = {
   count?: number;
 };
 
+export type ExerciseGenerationLimitInput = {
+  afterLessonId?: string;
+  moduleId?: string;
+};
+
+export type ExerciseGenerationLimitResponse = {
+  maxCount: number;
+  maxDifficulty?: ExerciseDifficulty;
+};
+
 function normalizeCourseSlug(value: string) {
   return value
     .trim()
@@ -640,6 +650,18 @@ export async function generateExercisesWithAi(input: GenerateExerciseInput) {
   );
 
   return response;
+}
+
+export async function getExerciseAiGenerationLimit(
+  input: ExerciseGenerationLimitInput
+) {
+  return authorizedBackendRequest<ExerciseGenerationLimitResponse>(
+    "/api/ai/exercise-generation-limit",
+    {
+      method: "POST",
+      body: input,
+    }
+  );
 }
 
 export async function generateExerciseWithAi(input: GenerateExerciseInput) {

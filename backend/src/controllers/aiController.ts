@@ -188,6 +188,43 @@ async function generateExerciseWithRetry(
   throw new Error("AI failed to generate valid exercise after retries");
 }
 
+export async function getExerciseGenerationLimit(req: Request, res: Response) {
+  try {
+    const { afterLessonId, moduleId } = req.body;
+
+    if (!afterLessonId && !moduleId) {
+      return res.status(400).json({
+        error: "Provide either afterLessonId or moduleId",
+      });
+    }
+
+    const { text, questionCount } = await getContentForAI({
+      afterLessonId,
+      moduleId,
+    });
+
+    if (!text.trim() || questionCount <= 0) {
+      return res.json({
+        maxCount: 0,
+        maxDifficulty: "easy",
+      });
+    }
+
+    const maxDifficulty = detectMaxDifficulty(text);
+
+    return res.json({
+      maxCount: questionCount,
+      maxDifficulty,
+    });
+  } catch (error) {
+    console.error("[AI] Final error (exercise limit):", error);
+
+    return res.status(500).json({
+      error: "Failed to resolve exercise generation limit",
+    });
+  }
+}
+
 export async function generateTestQuestions(req: Request, res: Response) {
   try {
     const {

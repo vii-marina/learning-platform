@@ -111,14 +111,9 @@ export function ExercisePreview({
 
     return (
       <div className={sectionSpacing}>
+        <p className="text-sm font-normal leading-6 text-slate-600">{previewTitle}</p>
 
-        <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
-          <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-            <p className="ml-3 whitespace-pre-wrap text-sm font-semibold text-white">
-              {previewTitle}
-            </p>
-          </div>
-
+        <div className="overflow-hidden rounded-[1.5rem] bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
           <div
             className={`${previewBodyMinHeight} overflow-x-auto px-4 py-4 font-mono text-sm leading-7 text-slate-100`}
           >
@@ -139,6 +134,15 @@ export function ExercisePreview({
                   key={`blank-${index}`}
                   type="button"
                   onClick={() => {
+                    setDragDropSelections((currentSelections) => {
+                      if (!currentSelections[currentBlankIndex]?.trim()) {
+                        return currentSelections;
+                      }
+
+                      const nextSelections = [...currentSelections];
+                      nextSelections[currentBlankIndex] = "";
+                      return nextSelections;
+                    });
                     setActiveDragBlankIndex(currentBlankIndex);
                     setDragDropResult(null);
                   }}
@@ -197,19 +201,19 @@ export function ExercisePreview({
 
 
         {showAnswerKey ? (
-          <div className={`rounded-[1.5rem] border border-slate-200 bg-white ${sectionPadding}`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
-              Answer Key
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
+          <div className={`rounded-[1.5rem] bg-slate-100/70 ${sectionPadding}`}>
+            <div className="space-y-2">
               {correctAnswer.length > 0 ? (
                 correctAnswer.map((token, index) => (
-                  <span
+                  <p
                     key={`${token}-${index}`}
-                    className="rounded-full bg-[#14213d] px-3 py-1.5 text-xs font-semibold text-white"
+                    className="text-sm text-slate-700"
                   >
-                    {`${index + 1}. ${token}`}
-                  </span>
+                    <span className="font-semibold text-slate-500">
+                      {correctAnswer.length === 1 ? "Answer:" : `Answer ${index + 1}:`}
+                    </span>{" "}
+                    <span className="font-semibold text-[#14213d]">{token}</span>
+                  </p>
                 ))
               ) : (
                 <span className="text-sm text-slate-500">
@@ -229,15 +233,9 @@ export function ExercisePreview({
 
   return (
     <div className={sectionSpacing}>
+      <p className="text-sm font-normal leading-6 text-slate-600">{previewTitle}</p>
 
-
-      <div className="overflow-hidden rounded-[1.5rem] border border-slate-200 bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
-        <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
-          <p className="ml-3 whitespace-pre-wrap text-sm font-semibold text-white">
-            {previewTitle}
-          </p>
-        </div>
-
+      <div className="overflow-hidden rounded-[1.5rem] bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
         {hasInlineInput ? (
           <div
             className={`${previewBodyMinHeight} overflow-x-auto px-4 py-4 font-mono text-sm leading-7 text-slate-100`}
@@ -281,13 +279,13 @@ export function ExercisePreview({
       </div>
 
       {showAnswerKey ? (
-        <div className={`rounded-[1.5rem] border border-slate-200 bg-white ${sectionPadding}`}>
-          <p className="text-sm font-semibold  text-slate-400">
-            Expected Answer
+        <div className={`rounded-[1.5rem] bg-slate-100/70 ${sectionPadding}`}>
+          <p className="text-sm text-slate-700">
+            <span className="font-semibold text-slate-500">Answer:</span>{" "}
+            <span className="font-mono font-semibold text-[#14213d]">
+              {content.expected_answer || "// Add the expected answer to preview it here."}
+            </span>
           </p>
-          <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-2xl bg-slate-950 px-4 py-3 font-mono text-sm leading-6 text-slate-100">
-            {content.expected_answer || "// Add the expected answer to preview it here."}
-          </pre>
         </div>
       ) : null}
     </div>
