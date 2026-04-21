@@ -32,6 +32,7 @@ import {
 import {
   deleteCourseMedia,
   getCourseMediaPublicUrl,
+  isAllowedCourseThumbnailFile,
   uploadCourseMedia,
 } from "../../features/courses/api/courseMediaStorage";
 import type {
@@ -42,6 +43,7 @@ import { CourseBuilderContentStep } from "../../features/courses/components/cour
 import { CourseBuilderCourseInfoStep } from "../../features/courses/components/course-builder/components/CourseBuilderCourseInfoStep";
 import { CourseBuilderHeader } from "../../features/courses/components/course-builder/components/CourseBuilderHeader";
 import { CourseBuilderReviewStep } from "../../features/courses/components/course-builder/components/CourseBuilderReviewStep";
+import { CourseThumbnailCropModal } from "../../features/courses/components/course-builder/components/CourseThumbnailCropModal";
 import { ExerciseCreateModal } from "../../features/courses/components/course-builder/components/ExerciseCreateModal";
 import { LessonCreateModal } from "../../features/courses/components/course-builder/components/LessonCreateModal";
 import { TestCreateModal } from "../../features/courses/components/course-builder/components/TestCreateModal";
@@ -123,6 +125,7 @@ export const CourseBuilderPage = forwardRef<
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
   const [courseThumbnailPath, setCourseThumbnailPath] = useState<string | null>(null);
+  const [pendingThumbnailCropFile, setPendingThumbnailCropFile] = useState<File | null>(null);
   const [isUploadingCourseMedia, setIsUploadingCourseMedia] = useState(false);
 
   const {
@@ -961,7 +964,7 @@ export const CourseBuilderPage = forwardRef<
     };
   }, [canSaveDraft, handleSaveDraft, isPersistingCourse]);
 
-  const handleCourseMediaUpload = async (file: File) => {
+  const uploadCourseMediaFile = async (file: File) => {
     const mediaScopeId = currentCourseId ?? draftCourseSessionId;
 
     try {
@@ -987,14 +990,42 @@ export const CourseBuilderPage = forwardRef<
       }
 
       setMessage("");
+      return true;
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
       } else {
         setMessage("Unable to upload course media.");
       }
+
+      return false;
     } finally {
       setIsUploadingCourseMedia(false);
+    }
+  };
+
+  const handleCourseMediaSelect = (file: File) => {
+    if (!isAllowedCourseThumbnailFile(file)) {
+      setMessage("Course thumbnail must be a PNG, JPG, or JPEG image.");
+      return;
+    }
+
+    setPendingThumbnailCropFile(file);
+  };
+
+  const handleCourseThumbnailCropClose = () => {
+    if (isUploadingCourseMedia) {
+      return;
+    }
+
+    setPendingThumbnailCropFile(null);
+  };
+
+  const handleCourseThumbnailCropConfirm = async (file: File) => {
+    const didUploadSucceed = await uploadCourseMediaFile(file);
+
+    if (didUploadSucceed) {
+      setPendingThumbnailCropFile(null);
     }
   };
 
@@ -1229,9 +1260,7 @@ export const CourseBuilderPage = forwardRef<
             currentCourseId={builderContentKey}
             onCourseTitleChange={setCourseTitle}
             onCourseDescriptionChange={setCourseDescription}
-            onCourseMediaSelect={(file) => {
-              void handleCourseMediaUpload(file);
-            }}
+            onCourseMediaSelect={handleCourseMediaSelect}
             onCourseMediaRemove={() => {
               void handleCourseMediaRemove();
             }}
@@ -1452,7 +1481,13 @@ export const CourseBuilderPage = forwardRef<
           void handleSaveExercise(draft);
         }}
       />
-
+      <CourseThumbnailCropModal
+        isOpen={pendingThumbnailCropFile !== null}
+        sourceFile={pendingThumbnailCropFile}
+        isUploading={isUploadingCourseMedia}
+        onClose={handleCourseThumbnailCropClose}
+        onConfirm={handleCourseThumbnailCropConfirm}
+      />
     </div>
   );
 });

@@ -1,6 +1,10 @@
 import { supabase } from "../../../lib/supabase";
 
 export const COURSE_MEDIA_BUCKET = "course-media";
+export const COURSE_THUMBNAIL_ALLOWED_EXTENSIONS = ["png", "jpg", "jpeg"] as const;
+
+const COURSE_THUMBNAIL_ALLOWED_EXTENSION_SET = new Set(COURSE_THUMBNAIL_ALLOWED_EXTENSIONS);
+const COURSE_THUMBNAIL_ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg"]);
 
 const IMAGE_EXTENSIONS = new Set([
   "avif",
@@ -37,6 +41,16 @@ function normalizeFileName(name: string) {
 function getFileExtension(path: string) {
   const segments = path.split(".");
   return segments.length > 1 ? segments.at(-1)?.toLowerCase() ?? "" : "";
+}
+
+export function isAllowedCourseThumbnailFile(file: File) {
+  const extension = getFileExtension(file.name);
+
+  if (file.type) {
+    return COURSE_THUMBNAIL_ALLOWED_MIME_TYPES.has(file.type);
+  }
+
+  return COURSE_THUMBNAIL_ALLOWED_EXTENSION_SET.has(extension as (typeof COURSE_THUMBNAIL_ALLOWED_EXTENSIONS)[number]);
 }
 
 export function getCourseMediaKind(path: string | null) {
@@ -76,6 +90,10 @@ export function getCourseMediaPublicUrl(path: string | null) {
 }
 
 export async function uploadCourseMedia(courseId: string, file: File) {
+  if (!isAllowedCourseThumbnailFile(file)) {
+    throw new Error("Course thumbnail must be a PNG, JPG, or JPEG image.");
+  }
+
   const safeName = normalizeFileName(file.name) || "course-media";
   const path = `courses/${courseId}/${Date.now()}-${safeName}`;
 
