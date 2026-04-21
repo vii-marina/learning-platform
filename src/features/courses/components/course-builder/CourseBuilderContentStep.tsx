@@ -10,6 +10,7 @@ import {
   Plus,
   Trash2,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { LoadingState } from "../../../../components/ui/LoadingState";
@@ -18,6 +19,8 @@ import type { CourseExercise, CourseTest } from "./courseBuilderUiTypes";
 import type { CreateContentMode } from "./courseBuilderPageUtils";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 import { ModuleContentList } from "./ModuleContentList";
+
+const MODULE_CONTENT_BASE_HEIGHT_PX = 256;
 
 type CourseBuilderContentStepProps = {
   title: string;
@@ -114,6 +117,58 @@ export function CourseBuilderContentStep({
   onBack,
   onContinueToReview,
 }: CourseBuilderContentStepProps) {
+  const expandedModuleContentRef = useRef<HTMLDivElement | null>(null);
+  const [expandedModuleContentMaxHeightPx, setExpandedModuleContentMaxHeightPx] = useState(
+    MODULE_CONTENT_BASE_HEIGHT_PX
+  );
+
+  useEffect(() => {
+    if (!expandedModuleId) {
+      setExpandedModuleContentMaxHeightPx(MODULE_CONTENT_BASE_HEIGHT_PX);
+      return;
+    }
+
+    const container = expandedModuleContentRef.current;
+    if (!container) {
+      return;
+    }
+
+    const syncMaxHeight = () => {
+      const nextMaxHeight = Math.max(MODULE_CONTENT_BASE_HEIGHT_PX, container.scrollHeight);
+      setExpandedModuleContentMaxHeightPx((prev) =>
+        prev === nextMaxHeight ? prev : nextMaxHeight
+      );
+    };
+
+    syncMaxHeight();
+
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver(syncMaxHeight);
+    const observedNode = container.firstElementChild;
+
+    if (observedNode) {
+      observer.observe(observedNode);
+    } else {
+      observer.observe(container);
+    }
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [
+    expandedExerciseIds,
+    expandedLessonIds,
+    expandedModuleId,
+    expandedTestIds,
+    exercisesByModule,
+    lessonsByModule,
+    moduleContentLoadStateByModule,
+    testsByModule,
+  ]);
+
   const moduleCardClassName =
     "overflow-hidden rounded-[0.75rem] border border-[#13daec] shadow-[0_18px_45px_rgba(15,23,42,0.06)]";
   const moduleHeaderClassName =
@@ -263,7 +318,11 @@ export function CourseBuilderContentStep({
 
                 {isExpanded ? (
                   <div className="flex flex-col">
-                    <div className="max-h-[16rem] overflow-y-auto px-4 py-4 md:px-5 md:py-5">
+                    <div
+                      ref={isExpanded ? expandedModuleContentRef : null}
+                      style={{ maxHeight: `${expandedModuleContentMaxHeightPx}px` }}
+                      className="h-[16rem] min-h-[16rem] resize-y overflow-x-hidden overflow-y-auto px-4 py-4 md:px-5 md:py-5"
+                    >
                       {!hasLoadedModuleContent ? (
                         hasModuleContentError ? (
                           <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700">
