@@ -211,7 +211,8 @@ export function useCourseBuilderExerciseEditor({
         ? [
             {
               ...response.content,
-              difficulty: options.difficulties[0] ?? "medium",
+              difficulty:
+                options.difficulties[options.difficulties.length - 1] ?? "medium",
             } as GeneratedExerciseWithDifficulty,
           ]
         : []);
