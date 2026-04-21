@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { File as FileIcon, Film, Image as ImageIcon, Trash2, Upload } from "lucide-react";
+import { File as FileIcon, Image as ImageIcon, Trash2, Upload } from "lucide-react";
 import {
   getCourseMediaKind,
   getCourseMediaLabel,
@@ -47,6 +47,7 @@ export function CourseMediaUpload({
         ref={inputRef}
         type="file"
         className="hidden"
+        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
         disabled={isActionDisabled}
         onChange={(event) => {
           const file = event.target.files?.[0];
@@ -91,12 +92,6 @@ export function CourseMediaUpload({
                 alt="Course media preview"
                 className="aspect-video w-full object-cover"
               />
-            ) : mediaKind === "video" ? (
-              <video
-                src={mediaUrl}
-                controls
-                className="aspect-video w-full bg-slate-950 object-cover"
-              />
             ) : (
               <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-slate-50 px-6 text-slate-600">
                 <FileIcon className="h-10 w-10 text-[#08bfd4]" />
@@ -119,7 +114,6 @@ export function CourseMediaUpload({
               </div>
               <div className="flex items-center gap-3 text-slate-300">
                 <ImageIcon className="h-3.5 w-3.5" />
-                <Film className="h-3.5 w-3.5" />
                 <FileIcon className="h-3.5 w-3.5" />
               </div>
               <div className="space-y-1.5">
@@ -127,7 +121,7 @@ export function CourseMediaUpload({
                   {isUploading ? "Uploading file..." : "Drop your image here, or browse"}
                 </p>
                 <p className="mx-auto max-w-[15rem] text-xs leading-5 text-slate-500">
-                  16:9 aspect ratio recommended. JPG, PNG, WebP, video, or generic file.
+                  Images are cropped to 16:9 before upload. PNG, JPG, and JPEG only.
                 </p>
               </div>
             </div>

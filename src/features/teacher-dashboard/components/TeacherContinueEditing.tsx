@@ -27,14 +27,14 @@ function CourseHeroThumbnail({
 
   if (thumbnailUrl && thumbnailKind === "image") {
     return (
-      <div className="relative h-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
         <img src={thumbnailUrl} alt={course.title} className="h-full w-full object-cover" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-full min-h-[12.5rem] items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6">
+    <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6">
       <div className="space-y-3 text-center">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
           <BookOpen className="h-5 w-5" />
