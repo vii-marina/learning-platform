@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Minus, PenSquare, Plus, Sparkles, X } from "lucide-react";
+import { Minus, PenSquare, Plus, Sparkles, X, BadgeCheck } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { AiQuestionGenerationMode, Lesson, Module } from "../../../api/index";
 import type {
@@ -338,7 +338,7 @@ export function TestCreateModal({
           <div className="flex min-h-[108px] items-center justify-between border-b border-slate-200 px-6 py-4">
             <div className="inline-flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-violet-50 text-violet-600">
-                <Sparkles className="h-5 w-5" />
+                <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
               </div>
               <div>
                 <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
