@@ -284,7 +284,7 @@ export function ExercisePreview({
 
       {showAnswerKey ? (
         <div className={`${answerKeyClassName} space-y-2`}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-sky-600">
+          <p className="text-sm font-semibold  text-sky-600">
             Answer Key
           </p>
           <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 font-mono text-sm font-semibold text-[#14213d]">
