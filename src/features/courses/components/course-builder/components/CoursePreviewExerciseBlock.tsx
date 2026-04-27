@@ -83,7 +83,7 @@ export function CoursePreviewExerciseBlock({
     () => ({
       reference: `Module ${module.order} • Lesson ${module.order}.${lesson.order} • Exercise`,
       title: exercise.title,
-      description: "Your teacher will receive the current exercise reference with this message.",
+      
     }),
     [exercise.title, lesson.order, module.order]
   );

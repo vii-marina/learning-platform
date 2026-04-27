@@ -284,7 +284,7 @@ function TeacherCourseDetailsModal({
               variant="secondary"
               size="lg"
               onClick={onClose}
-              className="w-11 px-0"
+              className="w-15 px-0"
               aria-label="Close course details"
             >
               <X className="h-5 w-5" />

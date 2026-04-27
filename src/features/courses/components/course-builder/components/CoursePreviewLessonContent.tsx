@@ -76,8 +76,7 @@ export function CoursePreviewLessonContent({
   const askTeacherContext: CoursePreviewChatContext = {
     reference: `Module ${module.order} • Lesson ${module.order}.${lesson.order}`,
     title: lesson.title,
-    description: "Your teacher will receive the current lesson reference with this message.",
-  };
+};
 
   return (
     <div id="course-preview-main" className="min-w-0 flex-1 bg-white">

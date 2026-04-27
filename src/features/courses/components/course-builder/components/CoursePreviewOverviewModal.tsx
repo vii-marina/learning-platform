@@ -247,10 +247,10 @@ export function CoursePreviewOverviewModal({
               type="button"
               variant="secondary"
               onClick={onClose}
-              className="w-111 px-0"
+              className="w-15 px-0"
               aria-label="Close course overview modal"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
