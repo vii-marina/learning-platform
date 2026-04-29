@@ -5,6 +5,7 @@ import {
   createModuleLesson,
   deleteLessonBlockById,
   deleteLessonById,
+  listModuleContent,
   listBlocksByLesson,
   listModuleLessons,
   updateLessonBlockById,
@@ -33,6 +34,13 @@ export async function listModuleLessonsHandler(req: Request, res: Response) {
   const { moduleId } = moduleParamsSchema.parse(req.params);
   const lessons = await listModuleLessons(auth, moduleId);
   res.status(200).json({ lessons });
+}
+
+export async function listModuleContentHandler(req: Request, res: Response) {
+  const auth = getAuthenticatedUser(req);
+  const { moduleId } = moduleParamsSchema.parse(req.params);
+  const content = await listModuleContent(auth, moduleId);
+  res.status(200).json(content);
 }
 
 export async function createModuleLessonHandler(req: Request, res: Response) {

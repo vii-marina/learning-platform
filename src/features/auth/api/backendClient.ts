@@ -45,7 +45,23 @@ async function getAccessToken() {
     throw new BackendApiError(error.message, 401, "SESSION_READ_FAILED");
   }
 
-  const accessToken = data.session?.access_token;
+  let session = data.session;
+
+  const isExpired =
+    session?.expires_at !== undefined &&
+    session.expires_at * 1000 <= Date.now() + 5_000;
+
+  if (!session || isExpired) {
+    const { data: refreshedData, error: refreshError } = await supabase.auth.refreshSession();
+
+    if (refreshError) {
+      throw new BackendApiError(refreshError.message, 401, "SESSION_REFRESH_FAILED");
+    }
+
+    session = refreshedData.session;
+  }
+
+  const accessToken = session?.access_token;
 
   if (!accessToken) {
     throw new BackendApiError("No active Supabase session found.", 401, "SESSION_MISSING");

@@ -1,6 +1,7 @@
 import { AppError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext } from "../types/auth";
+import { listModuleExercises } from "./exerciseService";
 
 type CourseOwnershipRow = {
   id: string;
@@ -36,6 +37,34 @@ type LessonBlockRow = {
   order: number;
   created_at: string;
   updated_at: string;
+};
+
+type TestEntityRow = {
+  id: string;
+  after_lesson_id: string | null;
+  module_id: string;
+  title: string;
+  order: number;
+  created_at: string;
+  updated_at: string;
+};
+
+type TestQuestionRow = {
+  id: string;
+  test_id: string;
+  type: string;
+  question_text: string;
+  order: number;
+  hint: string | null;
+  created_at: string;
+};
+
+type TestAnswerRow = {
+  id: string;
+  question_id: string;
+  answer_text: string;
+  is_correct: boolean;
+  created_at: string;
 };
 
 function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: { message: string }) {
@@ -195,6 +224,56 @@ async function getNextLessonBlockOrder(lessonId: string) {
   return (data?.order ?? 0) + 1;
 }
 
+async function listModuleTestEntities(moduleId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("test_entities")
+    .select("*")
+    .eq("module_id", moduleId)
+    .order("order", { ascending: true });
+
+  if (error) {
+    throw toServiceError(500, "TESTS_LIST_FAILED", "Unable to list tests", error);
+  }
+
+  return (data ?? []) as TestEntityRow[];
+}
+
+async function listTestQuestionsByTestIds(testIds: string[]) {
+  if (testIds.length === 0) {
+    return [] as TestQuestionRow[];
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("test_questions")
+    .select("*")
+    .in("test_id", testIds)
+    .order("order", { ascending: true });
+
+  if (error) {
+    throw toServiceError(500, "TEST_QUESTIONS_LIST_FAILED", "Unable to list test questions", error);
+  }
+
+  return (data ?? []) as TestQuestionRow[];
+}
+
+async function listTestAnswersByQuestionIds(questionIds: string[]) {
+  if (questionIds.length === 0) {
+    return [] as TestAnswerRow[];
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("test_answers")
+    .select("*")
+    .in("question_id", questionIds)
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    throw toServiceError(500, "TEST_ANSWERS_LIST_FAILED", "Unable to list test answers", error);
+  }
+
+  return (data ?? []) as TestAnswerRow[];
+}
+
 export async function listModuleLessons(auth: AuthenticatedRequestContext, moduleId: string) {
   await authorizeModuleAccess(auth, moduleId);
 
@@ -209,6 +288,58 @@ export async function listModuleLessons(auth: AuthenticatedRequestContext, modul
   }
 
   return (data ?? []) as LessonRow[];
+}
+
+export async function listModuleContent(auth: AuthenticatedRequestContext, moduleId: string) {
+  await authorizeModuleAccess(auth, moduleId);
+
+  const [lessons, testEntities, exercises] = await Promise.all([
+    supabaseAdmin
+      .from("lessons")
+      .select("*")
+      .eq("module_id", moduleId)
+      .order("order", { ascending: true }),
+    listModuleTestEntities(moduleId),
+    listModuleExercises(auth, moduleId),
+  ]);
+
+  if (lessons.error) {
+    throw toServiceError(500, "LESSONS_LIST_FAILED", "Unable to list lessons", lessons.error);
+  }
+
+  const testQuestions = await listTestQuestionsByTestIds(testEntities.map((test) => test.id));
+  const testAnswers = await listTestAnswersByQuestionIds(testQuestions.map((question) => question.id));
+
+  const answersByQuestionId = new Map<string, TestAnswerRow[]>();
+  for (const answer of testAnswers) {
+    const currentAnswers = answersByQuestionId.get(answer.question_id) ?? [];
+    currentAnswers.push(answer);
+    answersByQuestionId.set(answer.question_id, currentAnswers);
+  }
+
+  const questionsByTestId = new Map<
+    string,
+    Array<TestQuestionRow & { answers: TestAnswerRow[] }>
+  >();
+  for (const question of testQuestions) {
+    const currentQuestions = questionsByTestId.get(question.test_id) ?? [];
+    currentQuestions.push({
+      ...question,
+      answers: answersByQuestionId.get(question.id) ?? [],
+    });
+    questionsByTestId.set(question.test_id, currentQuestions);
+  }
+
+  const tests = testEntities.map((test) => ({
+    ...test,
+    questions: questionsByTestId.get(test.id) ?? [],
+  }));
+
+  return {
+    lessons: (lessons.data ?? []) as LessonRow[],
+    tests,
+    exercises,
+  };
 }
 
 export async function createModuleLesson(
