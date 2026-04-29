@@ -3,6 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { Input } from "../../../../../components/ui/input";
 import type { TestQuestionType } from "../../../api/index";
 import type { CourseTestQuestion } from "../types/courseBuilderUiTypes";
+import { testQuestionTypeOptions } from "./testQuestionTypeOptions";
 
 type TestQuestionEditorProps = {
   question: CourseTestQuestion;
@@ -11,12 +12,6 @@ type TestQuestionEditorProps = {
   onChange: (questionId: string, nextQuestion: CourseTestQuestion) => void;
   onDelete: (questionId: string) => void;
 };
-
-const questionTypeOptions: { value: TestQuestionType; label: string }[] = [
-  { value: "true_false", label: "True/False" },
-  { value: "single_choice", label: "Multiple Choice (Single)" },
-  { value: "multiple_choice", label: "Multiple Choice (Multiple)" },
-];
 
 const surfaceFieldClassName =
   "mt-2 w-full rounded-xl border border-transparent bg-white px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-violet-200 focus:ring-4 focus:ring-violet-50";
@@ -138,24 +133,26 @@ export function TestQuestionEditor({
 
   return (
     <div className="rounded-[1.25rem] border border-violet-200 bg-slate-50 p-4 shadow-[0_14px_30px_rgba(139,92,246,0.06)]">
-      <div className="flex items-start justify-between gap-2">
-        <span className={questionIndexClassName}>{index + 1}</span>
-        <button
-          type="button"
-          onClick={() => onDelete(question.id)}
-          aria-label={`Delete question ${index + 1}`}
-          disabled={!canDelete}
-          className={iconButtonClassName}
-        >
-          <Trash2 className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="mt-4 space-y-4">
+      <div className="space-y-4">
         <div>
-          <label className="text-sm font-semibold text-[#14213d]">Type</label>
-          <div className="mt-2 grid gap-2 rounded-2xl bg-white/80 p-1 sm:grid-cols-3">
-            {questionTypeOptions.map((option) => {
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className={questionIndexClassName}>{index + 1}</span>
+              <label className="text-sm font-semibold text-[#14213d]">Type</label>
+            </div>
+            <button
+              type="button"
+              onClick={() => onDelete(question.id)}
+              aria-label={`Delete question ${index + 1}`}
+              disabled={!canDelete}
+              className={iconButtonClassName}
+            >
+              <Trash2 className="h-5 w-5" />
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-2 rounded-2xl bg-white/80 p-1 sm:grid-cols-3">
+            {testQuestionTypeOptions.map((option) => {
               const isActive = question.type === option.value;
 
               return (

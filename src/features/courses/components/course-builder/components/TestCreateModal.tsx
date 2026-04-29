@@ -11,6 +11,7 @@ import type { CreateContentMode } from "../lib/courseBuilderPageUtils";
 import { hasMeaningfulTestQuestionDraft } from "../lib/courseBuilderPageUtils";
 import { CourseStructureSidebar } from "./CourseStructureSidebar";
 import { TestQuestionEditor } from "./TestQuestionEditor";
+import { aiQuestionGenerationModeOptions } from "./testQuestionTypeOptions";
 
 type TestCreateModalProps = {
   isOpen: boolean;
@@ -44,16 +45,6 @@ type TestCreateModalProps = {
   onQuestionChange: (questionId: string, nextQuestion: CourseTestQuestion) => void;
   onDeleteQuestion: (questionId: string) => void;
 };
-
-const aiGenerationModeOptions: Array<{
-  value: AiQuestionGenerationMode;
-  label: string;
-}> = [
-  { value: "true_false", label: "True / False" },
-  { value: "single_choice", label: "One Correct Answer" },
-  { value: "multiple_choice", label: "Multiple Correct Answers" },
-  { value: "mixed", label: "Mixed" },
-];
 
 export function TestCreateModal({
   isOpen,
@@ -115,6 +106,8 @@ export function TestCreateModal({
   const stageTitleClassName = "text-base font-semibold text-slate-600";
   const surfaceControlClassName =
     "h-12 w-full rounded-xl border border-slate-200 bg-[#f9fbfd] px-4 text-sm text-[#14213d] outline-none transition placeholder:text-slate-400 focus:border-violet-200 focus:ring-4 focus:ring-violet-50 disabled:cursor-not-allowed disabled:opacity-60";
+  const aiActionButtonClassName =
+    "inline-flex h-10 items-center justify-center rounded-xl border border-violet-400 bg-violet-600 px-5 text-sm font-semibold text-white shadow-[0_0_18px_rgba(124,58,237,0.5),0_0_34px_rgba(139,92,246,0.24)] transition hover:bg-violet-700 hover:shadow-[0_0_22px_rgba(124,58,237,0.68),0_0_42px_rgba(139,92,246,0.32)] disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none";
   const showQuestionToolbar = mode === "manual" || showAiQuestions;
   const canAdjustAiQuestionCount =
     maxAiQuestionCount > 0 && !controlsDisabled && !isGeneratingAi;
@@ -417,7 +410,7 @@ export function TestCreateModal({
                         Choose question type:
                       </p>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                        {aiGenerationModeOptions.map((option) => {
+                        {aiQuestionGenerationModeOptions.map((option) => {
                           const isActive = aiGenerationMode === option.value;
 
                           return (
@@ -443,44 +436,46 @@ export function TestCreateModal({
                       <p className="text-sm font-semibold text-[#14213d]">
                         Question count
                       </p>
-                      <div className="mt-3 flex flex-wrap items-center gap-3">
-                        <div
-                          className={`inline-flex h-10 items-center overflow-hidden rounded-xl border ${
-                            aiQuestionCountLimitError
-                              ? "border-rose-200 bg-rose-50"
-                              : "border-slate-200 bg-[#f9fbfd]"
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={handleDecreaseAiQuestionCount}
-                            disabled={!canAdjustAiQuestionCount || aiQuestionCount <= 1}
-                            aria-label="Decrease question count"
-                            className="inline-flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
+                      <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
+                        <div className="min-w-[16rem]">
+                          <div
+                            className={`inline-flex h-10 items-center overflow-hidden rounded-xl border ${
+                              aiQuestionCountLimitError
+                                ? "border-rose-200 bg-rose-50"
+                                : "border-slate-200 bg-[#f9fbfd]"
+                            }`}
                           >
-                            <Minus className="h-4 w-4" />
-                          </button>
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={aiQuestionInputValue}
-                            onChange={(event) =>
-                              handleAiQuestionInputChange(event.target.value)
-                            }
-                            disabled={!canAdjustAiQuestionCount}
-                            aria-label="Question count"
-                            className="h-full w-20 bg-transparent px-3 text-center text-sm font-semibold text-[#14213d] outline-none disabled:cursor-not-allowed disabled:text-slate-400"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleIncreaseAiQuestionCount}
-                            disabled={!canAdjustAiQuestionCount}
-                            aria-label="Increase question count"
-                            className="inline-flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </button>
+                            <button
+                              type="button"
+                              onClick={handleDecreaseAiQuestionCount}
+                              disabled={!canAdjustAiQuestionCount || aiQuestionCount <= 1}
+                              aria-label="Decrease question count"
+                              className="inline-flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              value={aiQuestionInputValue}
+                              onChange={(event) =>
+                                handleAiQuestionInputChange(event.target.value)
+                              }
+                              disabled={!canAdjustAiQuestionCount}
+                              aria-label="Question count"
+                              className="h-full w-20 bg-transparent px-3 text-center text-sm font-semibold text-[#14213d] outline-none disabled:cursor-not-allowed disabled:text-slate-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleIncreaseAiQuestionCount}
+                              disabled={!canAdjustAiQuestionCount}
+                              aria-label="Increase question count"
+                              className="inline-flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
                         </div>
 
                         <button
@@ -489,7 +484,7 @@ export function TestCreateModal({
                             void handleGenerateAi();
                           }}
                           disabled={!canGenerateAi || controlsDisabled || isGeneratingAi}
-                          className="inline-flex h-10 items-center justify-center rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          className={aiActionButtonClassName}
                         >
                           {isGeneratingAi ? "Generating..." : "Generate"}
                         </button>

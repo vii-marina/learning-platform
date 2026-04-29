@@ -7,6 +7,7 @@ type ExercisePreviewProps = {
   allowWriteCodeInput?: boolean;
   compact?: boolean;
   showAnswerKey?: boolean;
+  showQuestion?: boolean;
 };
 
 const DRAG_DROP_SLOT_PATTERN = /(___|{{blank_\d+}})/g;
@@ -23,6 +24,7 @@ export function ExercisePreview({
   allowWriteCodeInput = false,
   compact = false,
   showAnswerKey = false,
+  showQuestion = true,
 }: ExercisePreviewProps) {
   const [activeDragBlankIndex, setActiveDragBlankIndex] = useState<number | null>(null);
   const [dragDropSelections, setDragDropSelections] = useState<string[]>([]);
@@ -113,7 +115,9 @@ export function ExercisePreview({
 
     return (
       <div className={sectionSpacing}>
-        <p className="text-sm font-normal leading-6 text-slate-600">{previewTitle}</p>
+        {showQuestion ? (
+          <p className="text-sm font-normal leading-6 text-slate-600">{previewTitle}</p>
+        ) : null}
 
         <div className="overflow-hidden rounded-[1.5rem] bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
           <div
@@ -237,7 +241,9 @@ export function ExercisePreview({
 
   return (
     <div className={sectionSpacing}>
-      <p className="text-sm font-normal leading-6 text-slate-600">{previewTitle}</p>
+      {showQuestion ? (
+        <p className="text-sm font-normal leading-6 text-slate-600">{previewTitle}</p>
+      ) : null}
 
       <div className="overflow-hidden rounded-[1.5rem] bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
         {hasInlineInput ? (

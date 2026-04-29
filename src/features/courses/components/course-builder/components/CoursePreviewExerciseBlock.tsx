@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Code2, MessageSquareText } from "lucide-react";
+import { useEffect,  useState } from "react";
+import { Code2  } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
 import type { CourseExercise } from "../types/courseBuilderUiTypes";
@@ -47,18 +47,26 @@ function normalizeWriteCodeValue(value: string, matchMode: "strict" | "flexible"
 }
 
 export function CoursePreviewExerciseBlock({
-  module,
-  lesson,
+
+
   exercise,
   isGenerated,
   isHighlighted,
-  onAskTeacher,
   onResolved,
 }: CoursePreviewExerciseBlockProps) {
   const [activeBlankIndex, setActiveBlankIndex] = useState<number | null>(null);
   const [dragDropSelections, setDragDropSelections] = useState<string[]>([]);
   const [result, setResult] = useState<"correct" | "incorrect" | "revealed" | null>(null);
   const [writeCodeValue, setWriteCodeValue] = useState(getInitialWriteCodeValue(exercise));
+  const exerciseTypeLabel = getExerciseTypeLabel(exercise);
+  const showExerciseTitle =
+    exercise.title.trim().length > 0 &&
+    exercise.title.trim().toLowerCase() !== exerciseTypeLabel.toLowerCase();
+  const accentButtonClassName =
+    "border-orange-500 bg-orange-500 text-white hover:border-orange-400 hover:bg-orange-400";
+  const secondaryButtonClassName =
+    "border-orange-200 text-orange-800 hover:border-orange-300 hover:bg-orange-50";
+  const ghostButtonClassName = "text-orange-700 hover:bg-orange-50 hover:text-orange-900";
 
   useEffect(() => {
     if (exercise.content.type === "drag_drop_code") {
@@ -79,14 +87,7 @@ export function CoursePreviewExerciseBlock({
     setWriteCodeValue(getInitialWriteCodeValue(exercise));
   }, [exercise]);
 
-  const askTeacherContext = useMemo<CoursePreviewChatContext>(
-    () => ({
-      reference: `Module ${module.order} • Lesson ${module.order}.${lesson.order} • Exercise`,
-      title: exercise.title,
-      
-    }),
-    [exercise.title, lesson.order, module.order]
-  );
+  
 
   const feedbackLabel =
     result === "correct"
@@ -135,49 +136,45 @@ export function CoursePreviewExerciseBlock({
         id={`course-preview-exercise-${exercise.id}`}
         className={`rounded-xl border bg-white px-5 py-5 ${
           isHighlighted
-            ? "border-[#13daec] shadow-[0_0_0_4px_rgba(19,218,236,0.08)]"
+            ? "border-orange-300 shadow-[0_0_0_4px_rgba(251,146,60,0.12)]"
             : "border-slate-200"
         }`}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">
                 <Code2 className="h-3.5 w-3.5" />
-                <span>{getExerciseTypeLabel(exercise)}</span>
+                <span>{exerciseTypeLabel}</span>
               </span>
               {isGenerated ? (
-                <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
+                <span className="rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-semibold text-orange-600">
                   AI Practice
                 </span>
               ) : null}
             </div>
             <div>
-              <h3 className="text-lg font-semibold tracking-tight text-slate-950">
-                {exercise.title}
-              </h3>
+              {showExerciseTitle ? (
+                <h3 className="text-lg font-semibold tracking-tight text-slate-950">
+                  {exercise.title}
+                </h3>
+              ) : null}
               {exercise.description?.trim() ? (
-                <p className="mt-2 text-sm leading-6 text-slate-500">{exercise.description}</p>
+                <p className={`${showExerciseTitle ? "mt-2" : ""} text-sm leading-6 text-slate-500`}>
+                  {exercise.description}
+                </p>
               ) : null}
             </div>
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onAskTeacher(askTeacherContext)}
-          >
-            <MessageSquareText className="h-4 w-4" />
-            <span>Ask Teacher</span>
-          </Button>
+          
         </div>
 
         {exercise.content.question.trim() ? (
           <p className="mt-4 text-sm leading-6 text-slate-700">{exercise.content.question}</p>
         ) : null}
 
-        <div className="mt-5 overflow-x-auto rounded-xl border border-slate-200 bg-[#f8fafc] px-4 py-4 font-mono text-sm leading-7 text-slate-700">
+        <div className="mt-5 overflow-x-auto rounded-[1.25rem] border border-slate-800 bg-[#0f172a] px-4 py-4 font-mono text-sm leading-7 text-slate-100 shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
           {templateParts.map((part, index) => {
             if (!DRAG_DROP_SLOT_FRAGMENT_PATTERN.test(part)) {
               return (
@@ -200,8 +197,8 @@ export function CoursePreviewExerciseBlock({
                 }}
                 className={`mx-1 inline-flex min-w-[6.5rem] items-center justify-center rounded-lg border px-3 py-1.5 text-sm font-semibold transition ${
                   activeBlankIndex === currentBlankIndex
-                    ? "border-[#13daec] bg-white text-[#0f172a]"
-                    : "border-slate-200 bg-white text-slate-500 hover:border-slate-300"
+                    ? "border-orange-300 bg-white text-[#14213d]"
+                    : "border-white/20 bg-white/90 text-[#14213d] hover:border-orange-200"
                 }`}
               >
                 {dragDropSelections[currentBlankIndex]?.trim() || "___"}
@@ -217,7 +214,7 @@ export function CoursePreviewExerciseBlock({
                 key={`${token}-${index}`}
                 type="button"
                 onClick={() => handleTokenSelect(token)}
-                className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-[#13daec]/40 hover:bg-slate-50 hover:text-[#0f172a]"
+                className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1.5 text-sm font-semibold text-orange-700 transition hover:border-orange-300 hover:bg-orange-100"
               >
                 {token}
               </button>
@@ -235,6 +232,7 @@ export function CoursePreviewExerciseBlock({
               type="button"
               variant="accent"
               size="sm"
+              className={accentButtonClassName}
               onClick={() => {
                 const isCorrect =
                   dragDropSelections.length === correctAnswer.length &&
@@ -256,6 +254,7 @@ export function CoursePreviewExerciseBlock({
               type="button"
               variant="secondary"
               size="sm"
+              className={secondaryButtonClassName}
               onClick={() => {
                 setDragDropSelections(Array.from({ length: correctAnswer.length }, () => ""));
                 setActiveBlankIndex(correctAnswer.length > 0 ? 0 : null);
@@ -268,6 +267,7 @@ export function CoursePreviewExerciseBlock({
               type="button"
               variant="ghost"
               size="sm"
+              className={ghostButtonClassName}
               onClick={() => {
                 setDragDropSelections(correctAnswer);
                 setActiveBlankIndex(null);
@@ -285,15 +285,15 @@ export function CoursePreviewExerciseBlock({
         </div>
 
         {result === "revealed" ? (
-          <div className="mt-4 rounded-xl border border-slate-200 bg-[#f8fafc] px-4 py-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+          <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/40 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-600">
               Answer
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {correctAnswer.map((token, index) => (
                 <span
                   key={`${exercise.id}-${index}`}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-sm font-medium text-slate-700"
+                  className="rounded-full border border-orange-200 bg-white px-3 py-1 text-sm font-medium text-orange-800"
                 >
                   {token}
                 </span>
@@ -319,56 +319,52 @@ export function CoursePreviewExerciseBlock({
       id={`course-preview-exercise-${exercise.id}`}
       className={`rounded-xl border bg-white px-5 py-5 ${
         isHighlighted
-          ? "border-[#13daec] shadow-[0_0_0_4px_rgba(19,218,236,0.08)]"
+          ? "border-orange-300 shadow-[0_0_0_4px_rgba(251,146,60,0.12)]"
           : "border-slate-200"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                <Code2 className="h-3.5 w-3.5" />
-                <span>{getExerciseTypeLabel(exercise)}</span>
-              </span>
+            <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">
+              <Code2 className="h-3.5 w-3.5" />
+              <span>{exerciseTypeLabel}</span>
+            </span>
             {isGenerated ? (
-              <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
+              <span className="rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-semibold text-orange-600">
                 AI Practice
               </span>
             ) : null}
           </div>
           <div>
-            <h3 className="text-lg font-semibold tracking-tight text-slate-950">
-              {exercise.title}
-            </h3>
+            {showExerciseTitle ? (
+              <h3 className="text-lg font-semibold tracking-tight text-slate-950">
+                {exercise.title}
+              </h3>
+            ) : null}
             {exercise.description?.trim() ? (
-              <p className="mt-2 text-sm leading-6 text-slate-500">{exercise.description}</p>
+              <p className={`${showExerciseTitle ? "mt-2" : ""} text-sm leading-6 text-slate-500`}>
+                {exercise.description}
+              </p>
             ) : null}
           </div>
         </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={() => onAskTeacher(askTeacherContext)}
-        >
-          <MessageSquareText className="h-4 w-4" />
-          <span>Ask Teacher</span>
-        </Button>
+        
       </div>
 
       {exercise.content.question.trim() ? (
         <p className="mt-4 text-sm leading-6 text-slate-700">{exercise.content.question}</p>
       ) : null}
 
-      <div className="mt-5 rounded-xl border border-slate-200 bg-[#f8fafc]">
+      <div className="mt-5 overflow-hidden rounded-[1.25rem] border border-slate-800 bg-[#0f172a] shadow-[0_16px_40px_rgba(15,23,42,0.18)]">
         {hasInlineInput ? (
-          <div className="overflow-x-auto px-4 py-4 font-mono text-sm leading-7 text-slate-700">
+          <div className="overflow-x-auto px-4 py-4 font-mono text-sm leading-7 text-slate-100">
             {initialCodeParts.map((part, index) =>
               WRITE_CODE_SLOT_FRAGMENT_PATTERN.test(part) ? (
                 <span
                   key={`exercise-inline-slot-${index}`}
-                  className="mx-1 inline-flex min-w-[8rem] translate-y-[0.15rem] items-center rounded-lg border border-slate-200 bg-white px-2.5 py-1.5"
+                  className="mx-1 inline-flex min-w-[8rem] translate-y-[0.15rem] items-center rounded-lg border border-orange-200 bg-white px-2.5 py-1.5"
                 >
                   <input
                     value={writeCodeValue}
@@ -394,7 +390,7 @@ export function CoursePreviewExerciseBlock({
               setWriteCodeValue(event.target.value);
               setResult(null);
             }}
-            className="min-h-[15rem] w-full rounded-xl bg-transparent px-4 py-4 font-mono text-sm leading-6 text-slate-700 outline-none"
+            className="min-h-[15rem] w-full rounded-[1.25rem] bg-slate-950 px-4 py-4 font-mono text-sm leading-6 text-slate-100 outline-none"
             spellCheck={false}
           />
         )}
@@ -406,6 +402,7 @@ export function CoursePreviewExerciseBlock({
             type="button"
             variant="accent"
             size="sm"
+            className={accentButtonClassName}
             onClick={() => {
               const normalizedInput = normalizeWriteCodeValue(
                 writeCodeValue,
@@ -427,6 +424,7 @@ export function CoursePreviewExerciseBlock({
             type="button"
             variant="secondary"
             size="sm"
+            className={secondaryButtonClassName}
             onClick={() => {
               setWriteCodeValue(getInitialWriteCodeValue(exercise));
               setResult(null);
@@ -438,6 +436,7 @@ export function CoursePreviewExerciseBlock({
             type="button"
             variant="ghost"
             size="sm"
+            className={ghostButtonClassName}
             onClick={() => {
               setWriteCodeValue(writeCodeContent.expected_answer);
               setResult("revealed");
@@ -454,11 +453,11 @@ export function CoursePreviewExerciseBlock({
       </div>
 
       {result === "revealed" ? (
-        <div className="mt-4 rounded-xl border border-slate-200 bg-[#f8fafc] px-4 py-4">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+        <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/40 px-4 py-4">
+          <p className="text-sm font-semibold text-orange-600">
             Answer
           </p>
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap font-mono text-sm leading-6 text-slate-700">
+          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-xl bg-slate-950 px-4 py-4 font-mono text-sm leading-6 text-slate-100">
             {writeCodeContent.expected_answer}
           </pre>
         </div>

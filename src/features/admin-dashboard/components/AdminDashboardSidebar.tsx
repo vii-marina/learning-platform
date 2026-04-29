@@ -62,7 +62,7 @@ export function AdminDashboardSidebar() {
             <p className="text-[1.45rem] font-black tracking-tight text-[#14213d]">
               Learning Platform
             </p>
-            <p className="mt-1 text-sm leading-6 text-slate-500">
+            <p className="text-ml font-semibold  text-slate-9500">
               Admin Panel
             </p>
           </div>

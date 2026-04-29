@@ -420,9 +420,7 @@ export function StudentDashboardProfile({
   return (
     <div className="mx-auto max-w-[72rem] space-y-6">
       <div className="space-y-2">
-        <span className="inline-flex w-fit items-center rounded-full bg-[#13daec]/12 px-3 py-1 text-xs font-semibold tracking-[0.14em] text-[#0f172a]">
-          Student Profile
-        </span>
+        
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
           Profile Settings
         </h1>

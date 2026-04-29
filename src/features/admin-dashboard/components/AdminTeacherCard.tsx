@@ -62,11 +62,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
           <Mail className="h-4 w-4 shrink-0 text-[#08bfd4]" />
           <p className="truncate">{teacher.email}</p>
         </div>
-        <p className="text-sm leading-6 text-slate-500">
-          {teacher.assignedStudents.length > 0
-            ? `${teacher.assignedStudents.length} assigned students`
-            : "No assigned students found"}
-        </p>
+        
       </div>
 
       <div className="mt-6 flex gap-3">

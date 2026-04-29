@@ -59,6 +59,14 @@ const PREVIEW_MODAL_SIDEBAR_WIDTH = 480;
 const RESIZABLE_SIDEBAR_MIN_WIDTH = 288;
 const RESIZABLE_SIDEBAR_MAX_WIDTH = 620;
 const moduleHeaderIconClassName = "bg-[#13daec]/12 text-[#08bfd4]";
+const lessonSidebarIconClassNames = {
+  active: "bg-emerald-100 text-emerald-700",
+  inactive: "bg-emerald-50 text-emerald-600",
+} as const;
+const testSidebarIconClassNames = {
+  active: "bg-violet-100 text-violet-700",
+  inactive: "bg-violet-50 text-violet-600",
+} as const;
 
 const accentClassNames = {
   default: {
@@ -579,20 +587,19 @@ export function CourseStructureSidebar({
                           Boolean(onSelectPreviewLesson);
                         const showLessonEditButton = showTestSourcePreview && Boolean(onSelectLesson);
                         const lessonRowKey = getLessonRowKey(module.id, item.lesson.id);
+                        const lessonIconClassName = isActiveLesson
+                          ? lessonSidebarIconClassNames.active
+                          : lessonSidebarIconClassNames.inactive;
                         const lessonRowContent = (
                           <>
                             <span
-                              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] ${
                                 showTestSourcePreview
-                                  ? previewAccentClasses.icon
-                                  : isActiveLesson
-                                    ? accentClasses.itemActiveDot
-                                    : "bg-slate-300"
+                                  ? lessonIconClassName
+                                  : lessonIconClassName
                               }`}
                             >
-                              {showTestSourcePreview ? (
-                                <Play className="ml-0.5 h-3.5 w-3.5 fill-current" />
-                              ) : null}
+                              <Play className="ml-0.5 h-4 w-4" />
                             </span>
                             <span className="min-w-0 flex-1 truncate text-sm font-medium">
                               {`${module.order}.${item.lesson.order} ${item.lesson.title}`}
@@ -665,10 +672,10 @@ export function CourseStructureSidebar({
                               }`}
                             >
                               <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  isActiveLesson ? accentClasses.itemActiveDot : "bg-slate-300"
-                                }`}
-                              />
+                                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] ${lessonIconClassName}`}
+                              >
+                                <Play className="ml-0.5 h-4 w-4" />
+                              </span>
                               <span className="min-w-0 flex-1 truncate text-sm font-medium">
                                 {`${module.order}.${item.lesson.order} ${item.lesson.title}`}
                               </span>
@@ -688,10 +695,10 @@ export function CourseStructureSidebar({
                             className={`flex items-center gap-3 rounded-xl px-3 py-2.5 ${rowClass}`}
                           >
                             <span
-                              className={`h-2.5 w-2.5 rounded-full ${
-                                isActiveLesson ? accentClasses.itemActiveDot : "bg-slate-300"
-                              }`}
-                            />
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] ${lessonIconClassName}`}
+                            >
+                              <Play className="ml-0.5 h-4 w-4" />
+                            </span>
                             <span className="min-w-0 flex-1 truncate text-sm font-medium">
                               {`${module.order}.${item.lesson.order} ${item.lesson.title}`}
                             </span>
@@ -720,14 +727,15 @@ export function CourseStructureSidebar({
                           afterLessonId: item.test.afterLessonId,
                           fallbackTitle: item.test.title,
                         });
+                        const testIconClassName = isSelectedTest
+                          ? testSidebarIconClassNames.active
+                          : testSidebarIconClassNames.inactive;
                         const testRowContent = (
                           <>
-                            <span className="flex h-7 w-7 shrink-0 items-center justify-center">
-                              <span
-                                className={`h-2.5 w-2.5 rounded-[4px] ${
-                                  isSelectedTest ? "bg-[#8b5cf6]" : "bg-[#c4b5fd]"
-                                }`}
-                              />
+                            <span
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.85rem] ${testIconClassName}`}
+                            >
+                              <BadgeCheck className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 flex-1 truncate text-sm font-medium">
                               {displayTitle}

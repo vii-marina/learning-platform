@@ -84,12 +84,10 @@ export function buildCoursePreviewSidebarItems({
   lessons,
   exercises,
   tests,
-  revealedTestIds,
 }: {
   lessons: Lesson[];
   exercises: CourseExercise[];
   tests: CourseTest[];
-  revealedTestIds: Record<string, boolean>;
 }) {
   const sortedLessons = getSortedLessons(lessons);
   const items: CoursePreviewSidebarItem[] = [];
@@ -108,15 +106,13 @@ export function buildCoursePreviewSidebarItems({
       });
     });
 
-    getLessonTests(sortedLessons, tests, lesson.id)
-      .filter((test) => revealedTestIds[test.id])
-      .forEach((test) => {
-        items.push({
-          type: "test",
-          lesson,
-          test,
-        });
+    getLessonTests(sortedLessons, tests, lesson.id).forEach((test) => {
+      items.push({
+        type: "test",
+        lesson,
+        test,
       });
+    });
   });
 
   return items;

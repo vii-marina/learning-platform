@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, MessageSquareText, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { BadgeCheck,  X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
 import { studentQuestionTypeLabels } from "../lib/courseBuilderPageUtils";
 import type { CourseTest } from "../types/courseBuilderUiTypes";
 import type { CoursePreviewChatContext } from "./CoursePreviewAskTeacherModal";
 import { getCoursePreviewTestTitle } from "../lib/coursePreviewUtils";
+import { CoursePreviewSourceLessonPanel } from "./CoursePreviewSourceLessonPanel";
 
 type CoursePreviewTestModalProps = {
   isOpen: boolean;
@@ -36,14 +37,14 @@ export function CoursePreviewTestModal({
   lesson,
   lessons,
   test,
-  
+  isGenerated,
   onClose,
-  onAskTeacher,
   onComplete,
 }: CoursePreviewTestModalProps) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedOptionIndexes, setSelectedOptionIndexes] = useState<number[]>([]);
   const [result, setResult] = useState<"correct" | "incorrect" | "revealed" | null>(null);
+  const [showSourceLesson, setShowSourceLesson] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !test) {
@@ -53,31 +54,15 @@ export function CoursePreviewTestModal({
     setQuestionIndex(0);
     setSelectedOptionIndexes([]);
     setResult(null);
+    setShowSourceLesson(false);
   }, [isOpen, test]);
 
   const currentQuestion = test?.questions[questionIndex] ?? null;
-  const canClose =
-    questionIndex > 0 || selectedOptionIndexes.length > 0 || result !== null;
   const title =
     module && test
       ? getCoursePreviewTestTitle(module.order, lessons, test)
       : "Practice test";
-  const askTeacherContext = useMemo<CoursePreviewChatContext | null>(() => {
-    if (!module || !test) {
-      return null;
-    }
-
-    const referenceParts = [`Module ${module.order}`, "Test"];
-
-    if (lesson) {
-      referenceParts.splice(1, 0, `Lesson ${module.order}.${lesson.order}`);
-    }
-
-    return {
-      reference: referenceParts.join(" • "),
-      title,
-    };
-  }, [lesson, module, test, title]);
+  
 
   if (!isOpen || !module || !test || !currentQuestion) {
     return null;
@@ -90,7 +75,7 @@ export function CoursePreviewTestModal({
     <div
       className="fixed inset-0 z-[125] bg-slate-950/50 px-4 py-6 backdrop-blur-sm"
       onClick={(event) => {
-        if (event.target === event.currentTarget && canClose) {
+        if (event.target === event.currentTarget) {
           onClose();
         }
       }}
@@ -107,6 +92,11 @@ export function CoursePreviewTestModal({
                 <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
                   {`Question ${questionIndex + 1} of ${test.questions.length}`}
                 </span>
+                {isGenerated ? (
+                  <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
+                    AI Practice
+                  </span>
+                ) : null}
                 {lesson ? (
                   <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
                     {`${module.order}.${lesson.order} ${lesson.title}`}
@@ -124,7 +114,6 @@ export function CoursePreviewTestModal({
               type="button"
               variant="secondary"
               onClick={onClose}
-              disabled={!canClose}
               className="w-15 px-0"
               aria-label="Close test modal"
             >
@@ -134,6 +123,12 @@ export function CoursePreviewTestModal({
 
           <div className="px-5 py-5">
             
+
+            {showSourceLesson && lesson ? (
+              <div className="mb-5">
+                <CoursePreviewSourceLessonPanel module={module} lesson={lesson} tone="test" />
+              </div>
+            ) : null}
 
             <div className="rounded-xl border border-slate-200 bg-[#f8fafc] px-4 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
@@ -210,18 +205,7 @@ export function CoursePreviewTestModal({
             ) : null}
 
             <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => {
-                  if (askTeacherContext) {
-                    onAskTeacher(askTeacherContext);
-                  }
-                }}
-              >
-                <MessageSquareText className="h-4 w-4" />
-                <span>Ask Teacher</span>
-              </Button>
+              
 
               <div className="flex flex-wrap gap-3">
                 {result === null ? (
