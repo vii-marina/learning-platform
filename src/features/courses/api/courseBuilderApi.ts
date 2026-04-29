@@ -62,6 +62,20 @@ type ExercisesResponse = {
   exercises: Exercise[];
 };
 
+type HydratedTestQuestionResponse = TestQuestion & {
+  answers: TestAnswer[];
+};
+
+export type HydratedTestEntityResponse = TestEntity & {
+  questions: HydratedTestQuestionResponse[];
+};
+
+type ModuleContentResponse = {
+  lessons: Lesson[];
+  tests: HydratedTestEntityResponse[];
+  exercises: Exercise[];
+};
+
 export type GeneratedTestQuestionOption = {
   text: string;
   correct: boolean;
@@ -505,6 +519,12 @@ export async function listLessonsByModule(moduleId: string) {
   );
 
   return response.lessons;
+}
+
+export async function listModuleContent(moduleId: string) {
+  return authorizedBackendRequest<ModuleContentResponse>(
+    `/auth/course-builder/modules/${moduleId}/content`
+  );
 }
 
 export async function createLesson(input: CreateLessonInput) {

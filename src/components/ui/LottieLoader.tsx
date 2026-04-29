@@ -14,6 +14,63 @@ type LottieLoaderProps = {
   textClassName?: string;
 };
 
+let loaderCatAnimationData: ArrayBuffer | null = null;
+let loaderCatAnimationDataPromise: Promise<ArrayBuffer> | null = null;
+const LOADER_ANIMATION_CACHE_NAME = "learning-platform-static-v1";
+
+async function getCachedLoaderAnimationResponse() {
+  if (typeof window === "undefined" || !("caches" in window)) {
+    return null;
+  }
+
+  const cache = await window.caches.open(LOADER_ANIMATION_CACHE_NAME);
+  return cache.match(loaderCatAnimation);
+}
+
+async function persistLoaderAnimationResponse(response: Response) {
+  if (typeof window === "undefined" || !("caches" in window)) {
+    return;
+  }
+
+  const cache = await window.caches.open(LOADER_ANIMATION_CACHE_NAME);
+  await cache.put(loaderCatAnimation, response);
+}
+
+async function getLoaderCatAnimationData() {
+  if (loaderCatAnimationData) {
+    return loaderCatAnimationData;
+  }
+
+  if (!loaderCatAnimationDataPromise) {
+    loaderCatAnimationDataPromise = (async () => {
+      const cachedResponse = await getCachedLoaderAnimationResponse();
+
+      if (cachedResponse) {
+        const cachedData = await cachedResponse.arrayBuffer();
+        loaderCatAnimationData = cachedData;
+        return cachedData;
+      }
+
+      const response = await fetch(loaderCatAnimation);
+
+      if (!response.ok) {
+        throw new Error(`Failed to load loader animation: ${response.status}`);
+      }
+
+      await persistLoaderAnimationResponse(response.clone());
+      const data = await response.arrayBuffer();
+      loaderCatAnimationData = data;
+      return data;
+    })()
+      .catch((error) => {
+        loaderCatAnimationDataPromise = null;
+        throw error;
+      });
+  }
+
+  return loaderCatAnimationDataPromise;
+}
+
 export function LottieLoader({
   label = "Loading . . .",
   size = 160,
@@ -21,7 +78,37 @@ export function LottieLoader({
   textClassName = "",
 }: LottieLoaderProps) {
   const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
+  const [animationData, setAnimationData] = useState<ArrayBuffer | null>(
+    () => loaderCatAnimationData
+  );
   const [hasAnimationError, setHasAnimationError] = useState(false);
+
+  useEffect(() => {
+    if (animationData) {
+      return;
+    }
+
+    let isActive = true;
+
+    void getLoaderCatAnimationData()
+      .then((data) => {
+        if (!isActive) {
+          return;
+        }
+
+        setAnimationData(data);
+        setHasAnimationError(false);
+      })
+      .catch(() => {
+        if (isActive) {
+          setHasAnimationError(true);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [animationData]);
 
   useEffect(() => {
     if (!dotLottie) {
@@ -52,7 +139,7 @@ export function LottieLoader({
       role="status"
       aria-live="polite"
     >
-      {hasAnimationError ? (
+      {hasAnimationError || !animationData ? (
         <div
           aria-hidden="true"
           className="rounded-full border-4 border-slate-200 border-t-orange-400 animate-spin"
@@ -60,7 +147,7 @@ export function LottieLoader({
         />
       ) : (
         <DotLottieReact
-          src={loaderCatAnimation}
+          data={animationData}
           autoplay
           loop
           dotLottieRefCallback={setDotLottie}

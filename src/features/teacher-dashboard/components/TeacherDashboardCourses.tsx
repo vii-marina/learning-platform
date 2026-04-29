@@ -4,18 +4,13 @@ import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/Card";
 import { LoadingState } from "../../../components/ui/LoadingState";
 import {
-  listCourses,
-  listExercisesByModule,
-  listLessonsByModule,
+  listModuleContent,
   listModulesByCourse,
-  listTestAnswers,
-  listTestQuestions,
-  listTestsByModule,
   publishCourse,
   softDeleteCourse,
   unpublishCourse,
-  type Course,
   type Exercise,
+  type HydratedTestEntityResponse,
   type Lesson,
   type Module,
 } from "../../courses/api";
@@ -26,6 +21,7 @@ import {
 } from "../../courses/components/course-builder/lib/courseBuilderPageUtils";
 import type { CourseExercise, CourseTest } from "../../courses/components/course-builder/types/courseBuilderUiTypes";
 import { getErrorMessage } from "../../auth/api/backendClient";
+import { listTeacherDashboardCourses } from "../api/teacherDashboardApi";
 import { TeacherContinueEditing } from "./TeacherContinueEditing";
 import { TeacherCourseCard } from "./TeacherCourseCard";
 import { TeacherCourseTabs } from "./TeacherCourseTabs";
@@ -87,20 +83,16 @@ function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
   };
 }
 
-async function loadTeacherCourseSummary(course: Course): Promise<TeacherCourseSummary> {
-  const modules = await listModulesByCourse(course.id);
-  const lessonGroups = await Promise.all(
-    modules.map((module) => listLessonsByModule(module.id))
-  );
-
-  return {
-    ...course,
-    modulesCount: modules.length,
-    lessonsCount: lessonGroups.reduce(
-      (totalLessonCount, lessons) => totalLessonCount + lessons.length,
-      0
+function mapHydratedTestsToCourseTests(tests: HydratedTestEntityResponse[]): CourseTest[] {
+  return tests.map((test) => ({
+    id: test.id,
+    title: test.title,
+    afterLessonId: test.after_lesson_id,
+    order: test.order,
+    questions: test.questions.map((question) =>
+      mapQuestionToCourseTestQuestion(question, question.answers)
     ),
-  };
+  }));
 }
 
 async function loadTeacherCoursePreview(
@@ -109,39 +101,13 @@ async function loadTeacherCoursePreview(
   const modules = await listModulesByCourse(course.id);
   const moduleContent = await Promise.all(
     modules.map(async (module) => {
-      const [lessons, tests, exercises] = await Promise.all([
-        listLessonsByModule(module.id),
-        listTestsByModule(module.id),
-        listExercisesByModule(module.id),
-      ]);
-
-      const resolvedTests = await Promise.all(
-        tests.map(async (test) => {
-          const questions = await listTestQuestions(test.id);
-          const questionPayloads = await Promise.all(
-            questions.map(async (question) => ({
-              question,
-              answers: await listTestAnswers(question.id),
-            }))
-          );
-
-          return {
-            id: test.id,
-            title: test.title,
-            afterLessonId: test.after_lesson_id,
-            order: test.order,
-            questions: questionPayloads.map(({ question, answers }) =>
-              mapQuestionToCourseTestQuestion(question, answers)
-            ),
-          } satisfies CourseTest;
-        })
-      );
+      const content = await listModuleContent(module.id);
 
       return {
         moduleId: module.id,
-        lessons,
-        tests: resolvedTests,
-        exercises: exercises.map(mapExerciseToCourseExercise),
+        lessons: content.lessons,
+        tests: mapHydratedTestsToCourseTests(content.tests),
+        exercises: content.exercises.map(mapExerciseToCourseExercise),
       };
     })
   );
@@ -361,10 +327,7 @@ export function TeacherDashboardCourses({
 
       try {
         setIsLoading(true);
-        const nextCourses = await listCourses(teacherId);
-        const nextCourseSummaries = await Promise.all(
-          nextCourses.map((course) => loadTeacherCourseSummary(course))
-        );
+        const nextCourseSummaries = await listTeacherDashboardCourses();
 
         if (!isMounted) {
           return;

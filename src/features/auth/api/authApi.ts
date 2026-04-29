@@ -1,5 +1,6 @@
-import { authorizedBackendRequest } from "./backendClient";
+import { authorizedBackendRequest, BackendApiError } from "./backendClient";
 import { clearPendingRegistration, getPendingRegistration } from "../lib/pendingRegistration";
+import { supabase } from "../../../lib/supabase";
 import type {
   CurrentUser,
   PublicRegistrationRole,
@@ -18,15 +19,57 @@ type UsersResponse = {
 
 let currentUserCache: CurrentUser | null = null;
 let currentUserPromise: Promise<CurrentUser> | null = null;
+const CURRENT_USER_STORAGE_KEY = "learning-platform.current-user.v1";
+
+function canUseLocalStorage() {
+  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+function persistCurrentUser(user: CurrentUser) {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user));
+}
+
+function clearPersistedCurrentUser() {
+  if (!canUseLocalStorage()) {
+    return;
+  }
+
+  window.localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+}
+
+function loadPersistedCurrentUser() {
+  if (!canUseLocalStorage()) {
+    return null;
+  }
+
+  const rawValue = window.localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawValue) as CurrentUser;
+  } catch {
+    clearPersistedCurrentUser();
+    return null;
+  }
+}
 
 export function clearCurrentUserCache() {
   currentUserCache = null;
   currentUserPromise = null;
+  clearPersistedCurrentUser();
 }
 
 export function primeCurrentUserCache(user: CurrentUser) {
   currentUserCache = user;
   currentUserPromise = Promise.resolve(user);
+  persistCurrentUser(user);
 }
 
 export async function registerProfile(input: {
@@ -43,8 +86,38 @@ export async function registerProfile(input: {
 }
 
 export async function getCurrentUser() {
-  if (currentUserCache) {
+  const { data, error } = await supabase.auth.getSession();
+
+  if (error) {
+    clearCurrentUserCache();
+    throw new BackendApiError(error.message, 401, "SESSION_READ_FAILED");
+  }
+
+  const sessionUserId = data.session?.user?.id ?? null;
+
+  if (!sessionUserId) {
+    clearCurrentUserCache();
+    throw new BackendApiError("No active user session.", 401, "SESSION_MISSING");
+  }
+
+  if (currentUserCache && currentUserCache.id !== sessionUserId) {
+    currentUserCache = null;
+    currentUserPromise = null;
+  }
+
+  if (currentUserCache?.id === sessionUserId) {
     return currentUserCache;
+  }
+
+  const persistedCurrentUser = loadPersistedCurrentUser();
+
+  if (persistedCurrentUser && persistedCurrentUser.id !== sessionUserId) {
+    clearPersistedCurrentUser();
+  }
+
+  if (persistedCurrentUser?.id === sessionUserId) {
+    primeCurrentUserCache(persistedCurrentUser);
+    return persistedCurrentUser;
   }
 
   if (currentUserPromise) {

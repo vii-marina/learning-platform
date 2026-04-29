@@ -2,17 +2,18 @@ import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "r
 import {
   createModule,
   deleteExercise,
+  listModuleContent,
   deleteModule,
   deleteTestEntity,
   listExercisesByModule,
   listLessonsByModule,
   listModulesByCourse,
-  listTestsByModule,
   updateModule,
 } from "../../../api/index";
-import type { Exercise, Lesson, Module, TestEntity } from "../../../api/index";
+import type { Exercise, Lesson, Module } from "../../../api/index";
 import type { CourseExercise, CourseTest } from "../types/courseBuilderUiTypes";
 import { createLocalEntityId } from "../lib/courseBuilderPageUtils";
+import { mapQuestionToCourseTestQuestion } from "../lib/courseBuilderPageUtils";
 
 type ModuleDeletedPayload = {
   moduleId: string;
@@ -25,7 +26,6 @@ type UseCourseBuilderContentDataArgs = {
   currentCourseId: string | null;
   draftCourseSessionId: string;
   setMessage: Dispatch<SetStateAction<string>>;
-  hydrateCourseTest: (testEntity: TestEntity) => Promise<CourseTest>;
   onModuleDeleted?: (payload: ModuleDeletedPayload) => void;
 };
 
@@ -46,7 +46,6 @@ export function useCourseBuilderContentData({
   currentCourseId,
   draftCourseSessionId,
   setMessage,
-  hydrateCourseTest,
   onModuleDeleted,
 }: UseCourseBuilderContentDataArgs) {
   const [modules, setModules] = useState<Module[]>([]);
@@ -108,11 +107,36 @@ export function useCourseBuilderContentData({
     }
   };
 
+  const applyModuleContent = (
+    moduleId: string,
+    content: {
+      lessons: Lesson[];
+      tests: CourseTest[];
+      exercises: CourseExercise[];
+    }
+  ) => {
+    setLessonsByModule((prev) => ({ ...prev, [moduleId]: content.lessons }));
+    setTestsByModule((prev) => ({ ...prev, [moduleId]: content.tests }));
+    setExercisesByModule((prev) => ({ ...prev, [moduleId]: content.exercises }));
+  };
+
   const fetchTests = async (moduleId: string) => {
     try {
-      const entities = await listTestsByModule(moduleId);
-      const tests = await Promise.all(entities.map(hydrateCourseTest));
-      setTestsByModule((prev) => ({ ...prev, [moduleId]: tests }));
+      const content = await listModuleContent(moduleId);
+      const tests = content.tests.map((test) => ({
+        id: test.id,
+        title: test.title,
+        afterLessonId: test.after_lesson_id,
+        order: test.order,
+        questions: test.questions.map((question) =>
+          mapQuestionToCourseTestQuestion(question, question.answers)
+        ),
+      }));
+      applyModuleContent(moduleId, {
+        lessons: content.lessons,
+        tests,
+        exercises: content.exercises.map(mapExerciseToCourseExercise),
+      });
       setMessage("");
       return tests;
     } catch (error) {
@@ -379,16 +403,32 @@ export function useCourseBuilderContentData({
 
     setModuleContentLoadStateByModule((prev) => ({ ...prev, [moduleId]: "loading" }));
 
-    const [lessons, tests, exercises] = await Promise.all([
-      lessonsByModule[moduleId] ? Promise.resolve(lessonsByModule[moduleId]) : fetchLessons(moduleId),
-      testsByModule[moduleId] ? Promise.resolve(testsByModule[moduleId]) : fetchTests(moduleId),
-      exercisesByModule[moduleId]
-        ? Promise.resolve(exercisesByModule[moduleId])
-        : fetchExercises(moduleId),
-    ]);
+    let didLoadAllContent = false;
 
-    const didLoadAllContent =
-      lessons !== null && tests !== null && exercises !== null;
+    try {
+      const content = await listModuleContent(moduleId);
+      applyModuleContent(moduleId, {
+        lessons: content.lessons,
+        tests: content.tests.map((test) => ({
+          id: test.id,
+          title: test.title,
+          afterLessonId: test.after_lesson_id,
+          order: test.order,
+          questions: test.questions.map((question) =>
+            mapQuestionToCourseTestQuestion(question, question.answers)
+          ),
+        })),
+        exercises: content.exercises.map(mapExerciseToCourseExercise),
+      });
+      setMessage("");
+      didLoadAllContent = true;
+    } catch (error) {
+      if (error instanceof Error && error.message.trim()) {
+        setMessage(error.message);
+      } else {
+        setMessage("Unable to load module content.");
+      }
+    }
 
     setModuleContentLoadStateByModule((prev) => ({
       ...prev,

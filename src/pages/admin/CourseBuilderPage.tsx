@@ -19,12 +19,11 @@ import {
   createTestQuestion,
   deleteTestQuestion,
   getCourseById,
-  listExercisesByModule,
   listLessonsByModule,
+  type HydratedTestEntityResponse,
+  listModuleContent,
   listModulesByCourse,
-  listTestAnswers,
   listTestQuestions,
-  listTestsByModule,
   publishCourse,
   upsertLessonPrimaryRichTextBlock,
   updateCourse,
@@ -37,7 +36,6 @@ import {
 } from "../../features/courses/api/courseMediaStorage";
 import type {
   Exercise,
-  TestEntity,
 } from "../../features/courses/api";
 import { CourseBuilderContentStep } from "../../features/courses/components/course-builder/components/CourseBuilderContentStep";
 import { CourseBuilderCourseInfoStep } from "../../features/courses/components/course-builder/components/CourseBuilderCourseInfoStep";
@@ -85,6 +83,18 @@ function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
     createdAt: exercise.created_at,
     updatedAt: exercise.updated_at,
   };
+}
+
+function mapHydratedTestsToCourseTests(tests: HydratedTestEntityResponse[]): CourseTest[] {
+  return tests.map((test) => ({
+    id: test.id,
+    title: test.title,
+    afterLessonId: test.after_lesson_id,
+    order: test.order,
+    questions: test.questions.map((question) =>
+      mapQuestionToCourseTestQuestion(question, question.answers)
+    ),
+  }));
 }
 export const CourseBuilderPage = forwardRef<
   CourseBuilderPageHandle,
@@ -168,7 +178,6 @@ export const CourseBuilderPage = forwardRef<
     currentCourseId,
     draftCourseSessionId,
     setMessage,
-    hydrateCourseTest,
     onModuleDeleted: handleModuleDeletedUiCleanup,
   });
 
@@ -255,26 +264,6 @@ export const CourseBuilderPage = forwardRef<
     return issues;
   }, [isReviewContentLoading, modules.length, totalLessons]);
 
-  async function hydrateCourseTest(testEntity: TestEntity): Promise<CourseTest> {
-    const questions = await listTestQuestions(testEntity.id);
-    const questionsWithAnswers = await Promise.all(
-      questions.map(async (question) => ({
-        question,
-        answers: await listTestAnswers(question.id),
-      }))
-    );
-
-    return {
-      id: testEntity.id,
-      title: testEntity.title,
-      afterLessonId: testEntity.after_lesson_id,
-      order: testEntity.order,
-      questions: questionsWithAnswers.map(({ question, answers }) =>
-        mapQuestionToCourseTestQuestion(question, answers)
-      ),
-    };
-  }
-
   // Persistence helpers.
   const hydratePersistedCourse = async (
     courseId: string,
@@ -287,18 +276,13 @@ export const CourseBuilderPage = forwardRef<
       const persistedModules = await listModulesByCourse(courseId);
       const moduleContent = await Promise.all(
         persistedModules.map(async (module) => {
-          const [lessons, entities, exercises] = await Promise.all([
-            listLessonsByModule(module.id),
-            listTestsByModule(module.id),
-            fetchExercises(module.id),
-          ]);
-          const tests = await Promise.all(entities.map(hydrateCourseTest));
+          const content = await listModuleContent(module.id);
 
           return {
             moduleId: module.id,
-            lessons,
-            tests,
-            exercises: exercises ?? [],
+            lessons: content.lessons,
+            tests: mapHydratedTestsToCourseTests(content.tests),
+            exercises: content.exercises.map(mapExerciseToCourseExercise),
           };
         })
       );
@@ -793,7 +777,12 @@ export const CourseBuilderPage = forwardRef<
     }
 
     const missingModuleIds = modules
-      .filter((module) => lessonsByModule[module.id] === undefined)
+      .filter(
+        (module) =>
+          lessonsByModule[module.id] === undefined ||
+          testsByModule[module.id] === undefined ||
+          exercisesByModule[module.id] === undefined
+      )
       .map((module) => module.id);
 
     if (missingModuleIds.length === 0) {
@@ -805,115 +794,35 @@ export const CourseBuilderPage = forwardRef<
     void Promise.all(
       missingModuleIds.map(async (moduleId) => ({
         moduleId,
-        lessons: await listLessonsByModule(moduleId),
+        content: await listModuleContent(moduleId),
       }))
     )
       .then((results) => {
         if (isCancelled) {
           return;
         }
+
+        const lessonsEntries = results.map(({ moduleId, content }) => [moduleId, content.lessons]);
+        const testsEntries = results.map(({ moduleId, content }) => [
+          moduleId,
+          mapHydratedTestsToCourseTests(content.tests),
+        ]);
+        const exercisesEntries = results.map(({ moduleId, content }) => [
+          moduleId,
+          content.exercises.map(mapExerciseToCourseExercise),
+        ]);
 
         setLessonsByModule((prev) => ({
           ...prev,
-          ...Object.fromEntries(results.map(({ moduleId, lessons }) => [moduleId, lessons])),
+          ...Object.fromEntries(lessonsEntries),
         }));
-        setMessage("");
-      })
-      .catch(() => {
-        if (!isCancelled) {
-          setMessage("Unable to load lessons.");
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeStep, currentCourseId, hasFetchedModules, lessonsByModule, modules]);
-
-  useEffect(() => {
-    if (activeStep !== 3 || !currentCourseId || !hasFetchedModules) {
-      return;
-    }
-
-    const missingModuleIds = modules
-      .filter((module) => testsByModule[module.id] === undefined)
-      .map((module) => module.id);
-
-    if (missingModuleIds.length === 0) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    void Promise.all(
-      missingModuleIds.map(async (moduleId) => ({
-        moduleId,
-        tests: await (async () => {
-          const entities = await listTestsByModule(moduleId);
-          return Promise.all(entities.map(hydrateCourseTest));
-        })(),
-      }))
-    )
-      .then((results) => {
-        if (isCancelled) {
-          return;
-        }
-
         setTestsByModule((prev) => ({
           ...prev,
-          ...Object.fromEntries(results.map(({ moduleId, tests }) => [moduleId, tests])),
+          ...Object.fromEntries(testsEntries),
         }));
-        setMessage("");
-      })
-      .catch((error) => {
-        if (!isCancelled) {
-          if (error instanceof Error && error.message.trim()) {
-            setMessage(error.message);
-          } else {
-            setMessage("Unable to load tests.");
-          }
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeStep, currentCourseId, hasFetchedModules, modules, testsByModule]);
-
-  useEffect(() => {
-    if (activeStep !== 3 || !currentCourseId || !hasFetchedModules) {
-      return;
-    }
-
-    const missingModuleIds = modules
-      .filter((module) => exercisesByModule[module.id] === undefined)
-      .map((module) => module.id);
-
-    if (missingModuleIds.length === 0) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    void Promise.all(
-      missingModuleIds.map(async (moduleId) => ({
-        moduleId,
-        exercises: await listExercisesByModule(moduleId),
-      }))
-    )
-      .then((results) => {
-        if (isCancelled) {
-          return;
-        }
-
         setExercisesByModule((prev) => ({
           ...prev,
-          ...Object.fromEntries(
-            results.map(({ moduleId, exercises }) => [
-              moduleId,
-              exercises.map(mapExerciseToCourseExercise),
-            ])
-          ),
+          ...Object.fromEntries(exercisesEntries),
         }));
         setMessage("");
       })
@@ -922,7 +831,7 @@ export const CourseBuilderPage = forwardRef<
           if (error instanceof Error && error.message.trim()) {
             setMessage(error.message);
           } else {
-            setMessage("Unable to load exercises.");
+            setMessage("Unable to load module content.");
           }
         }
       });
@@ -930,7 +839,15 @@ export const CourseBuilderPage = forwardRef<
     return () => {
       isCancelled = true;
     };
-  }, [activeStep, currentCourseId, exercisesByModule, hasFetchedModules, modules]);
+  }, [
+    activeStep,
+    currentCourseId,
+    exercisesByModule,
+    hasFetchedModules,
+    lessonsByModule,
+    modules,
+    testsByModule,
+  ]);
 
   // Course actions.
   const handleSaveDraft = async () => {
