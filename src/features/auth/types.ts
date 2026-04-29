@@ -36,6 +36,13 @@ export type UpdateAdminUserInput = {
   role?: UserRole;
 };
 
+export type CreateManagedUserInput = {
+  email: string;
+  fullName: string;
+  password: string;
+  role: PublicRegistrationRole;
+};
+
 export type UpdateCurrentUserProfileInput = {
   email?: string;
   fullName?: string;

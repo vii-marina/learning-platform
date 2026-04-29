@@ -1,20 +1,50 @@
 import { AppError } from "../lib/appError";
 import {
   ensureTeacherProfile,
+  ensureStudentProfile,
   getAuthUserById,
   getNormalizedUserById,
   listManagedUsers,
   listProfileUsersByRole,
+  deleteStudentAccount,
+  deleteTeacherAccount,
   removeAdminRecord,
   saveAdminRecord,
   saveProfile,
 } from "./userService";
-import type { NormalizedUser, UserRole } from "../types/auth";
+import { supabaseAdmin } from "../lib/supabase";
+import type { NormalizedUser, PublicRegistrationRole, UserRole } from "../types/auth";
 
 type UpdateUserInput = {
   fullName?: string | null;
   role?: UserRole;
 };
+
+type CreateManagedUserInput = {
+  email: string;
+  fullName: string;
+  password: string;
+  role: PublicRegistrationRole;
+};
+
+type BackendError = {
+  message: string;
+};
+
+function normalizeEmailValue(value: string) {
+  return value.trim().toLowerCase();
+}
+
+function isDuplicateEmailError(error: BackendError) {
+  const message = error.message.toLowerCase();
+
+  return (
+    message.includes("already been registered") ||
+    message.includes("already exists") ||
+    message.includes("already in use") ||
+    message.includes("email exists")
+  );
+}
 
 export async function listUsers(role?: UserRole): Promise<NormalizedUser[]> {
   if (role === "teacher" || role === "student") {
@@ -28,6 +58,87 @@ export async function listUsers(role?: UserRole): Promise<NormalizedUser[]> {
   }
 
   return users.filter((user) => user.role === role);
+}
+
+export async function createManagedUser(input: CreateManagedUserInput): Promise<NormalizedUser> {
+  const normalizedEmail = normalizeEmailValue(input.email);
+  const trimmedFullName = input.fullName.trim();
+  let createdUserId: string | null = null;
+
+  try {
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email: normalizedEmail,
+      password: input.password,
+      email_confirm: true,
+      user_metadata: {
+        full_name: trimmedFullName,
+        role: input.role,
+      },
+    });
+
+    if (error || !data.user) {
+      if (error && isDuplicateEmailError(error)) {
+        throw new AppError(
+          400,
+          "This email is already in use.",
+          "EMAIL_ALREADY_IN_USE",
+          {
+            formErrors: ["Use a different email address and try again."],
+            fieldErrors: {
+              email: ["This email is already in use."],
+            },
+          }
+        );
+      }
+
+      throw new AppError(
+        500,
+        `Unable to create auth user: ${error?.message ?? "Unknown error."}`,
+        "AUTH_USER_CREATE_FAILED"
+      );
+    }
+
+    createdUserId = data.user.id;
+
+    await saveProfile({
+      id: createdUserId,
+      email: normalizedEmail,
+      full_name: trimmedFullName,
+      role: input.role,
+    });
+
+    if (input.role === "teacher") {
+      await ensureTeacherProfile(createdUserId);
+    } else {
+      await ensureStudentProfile(createdUserId);
+    }
+
+    const createdUser = await getNormalizedUserById(createdUserId, normalizedEmail);
+
+    if (!createdUser) {
+      throw new AppError(
+        500,
+        "User was created but could not be reloaded.",
+        "USER_RELOAD_FAILED"
+      );
+    }
+
+    return createdUser;
+  } catch (error) {
+    if (createdUserId) {
+      try {
+        if (input.role === "teacher") {
+          await deleteTeacherAccount(createdUserId);
+        } else {
+          await deleteStudentAccount(createdUserId);
+        }
+      } catch (cleanupError) {
+        console.error(cleanupError);
+      }
+    }
+
+    throw error;
+  }
 }
 
 export async function updateUser(userId: string, input: UpdateUserInput): Promise<NormalizedUser> {

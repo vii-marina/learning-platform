@@ -118,12 +118,12 @@ export function StudentDashboardCourseQuickViewModal({
               </Button>
             </div>
 
-            <div className="mt-8 max-w-3xl">
-              <h2 className="text-3xl font-semibold tracking-tight text-white md:text-[2.5rem]">
+            <div className="mt-8 ">
+              <h2 className="text-ml font-semibold tracking-tight text-white ">
                 {course.title}
               </h2>
               {course.description ? (
-                <p className="mt-4 text-sm leading-7 text-white/80 md:text-base">
+                <p className="mt-4 text-sm leading-7 text-white/80">
                   {course.description}
                 </p>
               ) : null}

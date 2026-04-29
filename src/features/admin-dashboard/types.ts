@@ -37,6 +37,7 @@ export type AdminDashboardModule = Module & {
 export type AdminDashboardCourseSummary = Course & {
   teacher: CurrentUser | null;
   moduleCount: number;
+  lessonCount: number;
 };
 
 export type AdminDashboardCourse = AdminDashboardCourseSummary & {

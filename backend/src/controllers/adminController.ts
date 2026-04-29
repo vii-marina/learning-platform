@@ -1,6 +1,11 @@
 import type { Request, Response } from "express";
-import { listUsers, updateUser } from "../services/adminService";
-import { listUsersQuerySchema, updateUserParamsSchema, updateUserSchema } from "../validators/adminSchemas";
+import { createManagedUser, listUsers, updateUser } from "../services/adminService";
+import {
+  createManagedUserSchema,
+  listUsersQuerySchema,
+  updateUserParamsSchema,
+  updateUserSchema,
+} from "../validators/adminSchemas";
 
 export async function listUsersHandler(req: Request, res: Response) {
   const query = listUsersQuerySchema.parse(req.query);
@@ -12,6 +17,13 @@ export async function listUsersHandler(req: Request, res: Response) {
 export async function listTeachersHandler(_req: Request, res: Response) {
   const users = await listUsers("teacher");
   res.status(200).json({ users });
+}
+
+export async function createManagedUserHandler(req: Request, res: Response) {
+  const input = createManagedUserSchema.parse(req.body);
+  const user = await createManagedUser(input);
+
+  res.status(201).json({ user });
 }
 
 export async function listStudentsHandler(_req: Request, res: Response) {

@@ -37,6 +37,20 @@ function getAccentTone(index: number) {
   return accentTones[index % accentTones.length];
 }
 
+function getCourseAccentTone(
+  accessType: StudentDashboardCourseCatalogItem["access_type"]
+): StudentDashboardAccentTone {
+  if (accessType === "invite") {
+    return "violet";
+  }
+
+  if (accessType === "private") {
+    return "amber";
+  }
+
+  return "emerald";
+}
+
 function formatShortDate(value: string) {
   const date = new Date(value);
 
@@ -94,18 +108,18 @@ function normalizeDescription(value: string | null) {
 export function buildStudentDashboardCatalogCards(
   courses: StudentDashboardCourseCatalogItem[]
 ) {
-  return courses.map((course, index) => ({
+  return courses.map((course) => ({
     id: course.id,
     title: course.title,
     description: normalizeDescription(course.description),
-    teacherName: course.teacher_name,
+    teacherName: course.teacher_name || "Platform instructor",
     thumbnailUrl: getCourseMediaPublicUrl(course.thumbnail_path),
     moduleCount: course.module_count,
     lessonCount: course.lesson_count,
     accessLabel: getAccessLabel(course.access_type),
-    updatedLabel: `Updated ${formatShortDate(course.updated_at)}`,
+    updatedLabel: formatShortDate(course.updated_at),
     releaseLabel: getReleaseLabel(course.created_at),
-    accentTone: getAccentTone(index),
+    accentTone: getCourseAccentTone(course.access_type),
     highlights: [`${course.module_count} modules`, `${course.lesson_count} lessons`],
   }));
 }

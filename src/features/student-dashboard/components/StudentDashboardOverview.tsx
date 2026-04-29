@@ -12,42 +12,21 @@ import {
   buildStudentDashboardTeacherDirectory,
   type StudentDashboardCatalogCard,
 } from "./studentDashboardViewModels";
+import { StudentDashboardCourseCard } from "./StudentDashboardCourseCard";
 
 type StudentDashboardOverviewProps = {
   currentUser: CurrentUser | null;
   courses: StudentDashboardCourseCatalogItem[];
   isLoadingCourses: boolean;
   coursesMessage: string | null;
+  availableCourses: StudentDashboardCourseCatalogItem[];
+  isLoadingAvailableCourses: boolean;
+  availableCoursesMessage: string | null;
   onOpenCourses: () => void;
 };
 
 function getStudentDisplayName(user: CurrentUser | null) {
   return user?.fullName?.trim() || user?.email?.split("@")[0] || "Student";
-}
-
-function CourseThumbnail({
-  course,
-}: {
-  course: StudentDashboardCatalogCard;
-}) {
-  if (course.thumbnailUrl) {
-    return (
-      <div className="overflow-hidden rounded-[1.35rem] bg-slate-100">
-        <img src={course.thumbnailUrl} alt={course.title} className="h-52 w-full object-cover" />
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex h-52 items-center justify-center rounded-[1.35rem] bg-[radial-gradient(circle_at_top_left,_rgba(19,218,236,0.24),_transparent_28%),linear-gradient(135deg,_#1f2937_0%,_#111827_55%,_#0f172a_100%)]">
-      <div className="space-y-2 text-center">
-        <div className="mx-auto flex h-11 w-11 items-center justify-center rounded-xl bg-white/12 text-white">
-          <BookOpen className="h-5 w-5" />
-        </div>
-        <p className="text-sm font-medium text-white/80">Course cover</p>
-      </div>
-    </div>
-  );
 }
 
 function EmptyState({
@@ -70,13 +49,20 @@ export function StudentDashboardOverview({
   courses,
   isLoadingCourses,
   coursesMessage,
+  availableCourses,
+  isLoadingAvailableCourses,
+  availableCoursesMessage,
   onOpenCourses,
 }: StudentDashboardOverviewProps) {
   const [selectedCourse, setSelectedCourse] =
     useState<StudentDashboardCatalogCard | null>(null);
   const catalogCards = buildStudentDashboardCatalogCards(courses);
-  const teacherDirectory = buildStudentDashboardTeacherDirectory(courses);
+  const availableCatalogCards = buildStudentDashboardCatalogCards(availableCourses);
+  const teacherDirectory = buildStudentDashboardTeacherDirectory(
+    courses.length > 0 ? courses : availableCourses
+  );
   const previewCourses = catalogCards.slice(0, 3);
+  const availablePreviewCourses = availableCatalogCards.slice(0, 3);
 
   return (
     <>
@@ -86,9 +72,9 @@ export function StudentDashboardOverview({
             <div className="absolute right-[-2rem] top-8 h-40 w-40 rounded-[2rem] border border-white/10 bg-white/5" />
             <div className="absolute bottom-[-3rem] left-10 h-28 w-28 rounded-full bg-[#13daec]/15 blur-3xl" />
 
-            <div className="relative max-w-3xl">
+            <div className="relative ">
               
-              <h1 className="mt-5 text-3xl font-semibold tracking-tight text-white md:text-[2.75rem]">
+              <h1 className="mt-5 text-2xl font-semibold tracking-tight text-white ">
                 Welcome back, {getStudentDisplayName(currentUser)}
               </h1>
 
@@ -109,72 +95,85 @@ export function StudentDashboardOverview({
                 Courses
               </p>
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                Available now
+                My learning
               </h2>
             </div>
 
-            <Button type="button" size="lg" onClick={onOpenCourses}>
-              View all
-              <ArrowRight className="h-4 w-4" />
-            </Button>
+            {previewCourses.length > 0 ? (
+              <Button type="button" size="lg" onClick={onOpenCourses}>
+                View all
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            ) : null}
           </div>
 
           <div className="mt-6">
             {isLoadingCourses && courses.length === 0 ? (
               <LoadingState variant="section" />
             ) : previewCourses.length === 0 ? (
-              <EmptyState
-                title="No courses yet"
-                description="Published courses will appear here as soon as they are available."
-              />
+              <div className="space-y-5">
+                <Card className="rounded-[1.75rem] border-[#13daec]/25 bg-[linear-gradient(135deg,rgba(19,218,236,0.12),rgba(255,255,255,0.96))] p-6 shadow-none">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-start">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#13daec]/18 text-[#0f172a]">
+                      <BookOpen className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-2">
+                      <h3 className="text-xl font-semibold tracking-tight text-slate-950">
+                        You do not have any assigned courses yet
+                      </h3>
+                      <p className="max-w-3xl text-sm leading-7 text-slate-600">
+                        Browse the available public courses below and start interacting with them.
+                        As soon as you join a course, it will appear in your personal learning
+                        space.
+                      </p>
+                    </div>
+                  </div>
+                </Card>
+
+                {availableCoursesMessage ? (
+                  <Card className="rounded-[1.5rem] border-amber-200 bg-amber-50 p-5 text-amber-900 shadow-none">
+                    <p className="text-sm font-medium">{availableCoursesMessage}</p>
+                  </Card>
+                ) : null}
+
+                {isLoadingAvailableCourses ? (
+                  <LoadingState variant="section" />
+                ) : availablePreviewCourses.length === 0 ? (
+                  <EmptyState
+                    title="No public courses yet"
+                    description="Public courses will appear here when teachers publish them."
+                  />
+                ) : (
+                  <div>
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Public Courses
+                      </p>
+                      <h3 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+                        Start with these courses
+                      </h3>
+                    </div>
+
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                      {availablePreviewCourses.map((course) => (
+                        <StudentDashboardCourseCard
+                          key={course.id}
+                          course={course}
+                          onQuickView={setSelectedCourse}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {previewCourses.map((course) => (
-                  <article
+                  <StudentDashboardCourseCard
                     key={course.id}
-                    className="flex min-h-full flex-col rounded-[1.5rem] border border-slate-200 bg-[#f8fafc] p-4 shadow-[0_18px_36px_rgba(15,23,42,0.04)]"
-                  >
-                    <CourseThumbnail course={course} />
-
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
-                        {course.releaseLabel}
-                      </span>
-                      <span className="text-xs text-slate-400">{course.updatedLabel}</span>
-                    </div>
-
-                    <h3 className="mt-4 text-xl font-semibold tracking-tight text-slate-950">
-                      {course.title}
-                    </h3>
-                    <p className="mt-2 text-sm font-medium text-slate-500">{course.teacherName}</p>
-                    {course.description ? (
-                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-500">
-                        {course.description}
-                      </p>
-                    ) : null}
-
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
-                      {course.highlights.map((highlight) => (
-                        <span
-                          key={highlight}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1"
-                        >
-                          {highlight}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="mt-auto pt-5">
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setSelectedCourse(course)}
-                        className="w-full"
-                      >
-                        Quick view
-                      </Button>
-                    </div>
-                  </article>
+                    course={course}
+                    onQuickView={setSelectedCourse}
+                  />
                 ))}
               </div>
             )}

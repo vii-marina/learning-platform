@@ -1,47 +1,41 @@
 import {
+  Archive,
   BookOpen,
-  Check,
-  Copy,
   FileText,
   FileVideo,
+  LoaderCircle,
+  Trash2,
+  Upload,
 } from "lucide-react";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { Link } from "react-router-dom";
-import type { AdminDashboardCourseSummary } from "../types";
-import { getAdminCourseAuthorName } from "../lib/adminCoursePreview";
+import { Button } from "../../../components/ui/button";
 import {
   getCourseMediaKind,
   getCourseMediaPublicUrl,
 } from "../../courses/api/courseMediaStorage";
-import { useAppToast } from "../../../components/ui/AppToastProvider";
+import { getAdminCourseAuthorName } from "../lib/adminCoursePreview";
+import {
+  formatAdminCourseRelativeTime,
+  getAdminCourseStatusCardClassName,
+  getAdminCourseStatusDotClassName,
+  getAdminCourseStatusLabel,
+  getAdminCourseStatusThumbnailClassName,
+  isArchivedAdminCourse,
+  isPublishedAdminCourse,
+} from "../lib/adminCourseStatus";
+import type { AdminDashboardCourseSummary } from "../types";
+
+type AdminCourseCardAction = "publish" | "unpublish" | "archive" | "delete";
 
 type AdminCourseCardProps = {
   course: AdminDashboardCourseSummary;
+  actionInFlight?: AdminCourseCardAction | null;
+  onDelete: (course: AdminDashboardCourseSummary) => void;
+  onUpdateStatus: (
+    course: AdminDashboardCourseSummary,
+    action: Exclude<AdminCourseCardAction, "delete">
+  ) => void;
 };
-
-type CopyState = "idle" | "copied" | "failed";
-
-async function copyToClipboard(value: string) {
-  if (navigator.clipboard?.writeText) {
-    await navigator.clipboard.writeText(value);
-    return;
-  }
-
-  const textarea = document.createElement("textarea");
-  textarea.value = value;
-  textarea.setAttribute("readonly", "");
-  textarea.style.position = "absolute";
-  textarea.style.left = "-9999px";
-  document.body.appendChild(textarea);
-  textarea.select();
-
-  const didCopy = document.execCommand("copy");
-  document.body.removeChild(textarea);
-
-  if (!didCopy) {
-    throw new Error("Unable to copy to clipboard.");
-  }
-}
 
 function ThumbnailPlaceholder({
   mediaKind,
@@ -64,104 +58,131 @@ function ThumbnailPlaceholder({
   );
 }
 
-export function AdminCourseCard({ course }: AdminCourseCardProps) {
-  const { showSuccessToast } = useAppToast();
+function CourseStatusChip({
+  course,
+}: {
+  course: AdminDashboardCourseSummary;
+}) {
+  return (
+    <span
+      className={`absolute left-2.5 top-2.5 inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold shadow-sm backdrop-blur-sm ${getAdminCourseStatusThumbnailClassName(course)}`}
+    >
+      <span className={`h-2 w-2 rounded-full ${getAdminCourseStatusDotClassName(course)}`} />
+      <span>{getAdminCourseStatusLabel(course)}</span>
+    </span>
+  );
+}
+
+export function AdminCourseCard({
+  course,
+  actionInFlight = null,
+  onDelete,
+  onUpdateStatus,
+}: AdminCourseCardProps) {
   const thumbnailUrl = getCourseMediaPublicUrl(course.thumbnail_path);
   const thumbnailKind = getCourseMediaKind(course.thumbnail_path);
   const authorName = getAdminCourseAuthorName(course);
-  const [copyState, setCopyState] = useState<CopyState>("idle");
-  const resetTimeoutRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (resetTimeoutRef.current !== null) {
-        window.clearTimeout(resetTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  const copyButtonLabel =
-    copyState === "copied" ? "Copied" : copyState === "failed" ? "Copy failed" : "Copy ID";
-
-  const CopyIcon = copyState === "copied" ? Check : Copy;
-
-  function queueCopyStateReset() {
-    if (resetTimeoutRef.current !== null) {
-      window.clearTimeout(resetTimeoutRef.current);
-    }
-
-    resetTimeoutRef.current = window.setTimeout(() => {
-      setCopyState("idle");
-      resetTimeoutRef.current = null;
-    }, 2200);
-  }
-
-  async function handleCopyCourseId(event: MouseEvent<HTMLButtonElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-
-    try {
-      await copyToClipboard(course.id);
-      setCopyState("copied");
-      showSuccessToast("Course ID copied.");
-    } catch {
-      setCopyState("failed");
-    } finally {
-      queueCopyStateReset();
-    }
-  }
+  const isPublished = isPublishedAdminCourse(course);
+  const isArchived = isArchivedAdminCourse(course);
+  const publishAction = isPublished ? "unpublish" : "publish";
+  const isActionBusy = actionInFlight !== null;
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_16px_36px_rgba(15,23,42,0.06)] transition hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_24px_50px_rgba(15,23,42,0.1)]">
+    <article
+      className={`group relative flex min-h-full flex-col rounded-xl border p-3.5 shadow-sm transition hover:shadow-md ${getAdminCourseStatusCardClassName(course)}`}
+    >
       <Link
         to={`/admin/dashboard/courses/${course.id}`}
         state={{ course }}
-        className="flex flex-1 flex-col overflow-hidden"
+        className="flex flex-1 flex-col"
       >
-        <div className="aspect-[16/10] overflow-hidden bg-slate-100">
-          {thumbnailUrl && thumbnailKind === "image" ? (
-            <img
-              src={thumbnailUrl}
-              alt={course.title}
-              className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
-            />
-          ) : (
-            <ThumbnailPlaceholder mediaKind={thumbnailKind} />
-          )}
+        <div className="relative overflow-hidden rounded-lg bg-slate-100">
+          <div className="aspect-[16/9] overflow-hidden">
+            {thumbnailUrl && thumbnailKind === "image" ? (
+              <img
+                src={thumbnailUrl}
+                alt={course.title}
+                className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+              />
+            ) : (
+              <ThumbnailPlaceholder mediaKind={thumbnailKind} />
+            )}
+          </div>
+
+          <CourseStatusChip course={course} />
         </div>
 
-        <div className="flex flex-1 flex-col px-5 py-4">
-          <h3 className="line-clamp-2 text-lg font-black leading-tight tracking-tight text-[#14213d]">
-            {course.title}
-          </h3>
-          <p className="mt-2 line-clamp-1 text-sm font-medium text-slate-500">{authorName}</p>
-
-
-          <div className="mt-auto pt-5">
-            <div className="flex items-center justify-between border-t border-slate-100 pt-4">
-              <span className="text-sm font-medium text-slate-400">Modules</span>
-              <span className="text-sm font-bold text-[#14213d]">{course.moduleCount}</span>
+        <div className="flex flex-1 flex-col pt-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <h3 className="line-clamp-2 text-lg font-semibold leading-snug tracking-tight text-slate-950">
+                {course.title}
+              </h3>
+              <p className="line-clamp-1 text-sm font-medium text-slate-500">
+                {authorName}
+              </p>
             </div>
+
+            <p className="shrink-0 text-xs text-slate-400">
+              {formatAdminCourseRelativeTime(course.updated_at)}
+            </p>
+          </div>
+
+          <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
+            <span>{course.moduleCount} modules</span>
+            <span className="h-1 w-1 rounded-full bg-slate-300" />
+            <span>{course.lessonCount} lessons</span>
           </div>
         </div>
       </Link>
 
-      <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-4">
-        <button
+      <div className="mt-auto space-y-2 pt-4">
+        <Button
           type="button"
-          onClick={handleCopyCourseId}
-          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-[#13daec]/18 ${
-            copyState === "copied"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : copyState === "failed"
-                ? "border-rose-200 bg-rose-50 text-rose-700"
-                : "border-cyan-100 bg-cyan-50 text-cyan-800 hover:border-cyan-200 hover:bg-cyan-100"
-          }`}
+          size="md"
+          variant={isPublished ? "secondary" : "accent"}
+          disabled={isActionBusy}
+          onClick={() => onUpdateStatus(course, publishAction)}
+          className="w-full"
         >
-          <CopyIcon className="h-3.5 w-3.5" />
-          {copyButtonLabel}
-        </button>
+          {actionInFlight === "publish" || actionInFlight === "unpublish" ? (
+            <LoaderCircle className="h-4 w-4 animate-spin" />
+          ) : (
+            <Upload className="h-4 w-4" />
+          )}
+          <span>{isPublished ? "Unpublish" : "Publish"}</span>
+        </Button>
 
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={isActionBusy || isArchived}
+            onClick={() => onUpdateStatus(course, "archive")}
+            className="w-full"
+          >
+            {actionInFlight === "archive" ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Archive className="h-4 w-4" />
+            )}
+            <span>{isArchived ? "Archived" : "Archive"}</span>
+          </Button>
+
+          <Button
+            type="button"
+            disabled={isActionBusy}
+            onClick={() => onDelete(course)}
+            className="w-full border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
+          >
+            {actionInFlight === "delete" ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            <span>Delete</span>
+          </Button>
+        </div>
       </div>
     </article>
   );

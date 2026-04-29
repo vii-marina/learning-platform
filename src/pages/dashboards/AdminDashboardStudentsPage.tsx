@@ -1,11 +1,14 @@
-import { Search } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/Card";
 import { LoadingState } from "../../components/ui/LoadingState";
 import {
+  createAdminManagedUser,
   deleteAdminStudent,
   loadAdminStudentsData,
 } from "../../features/admin-dashboard/api/adminDashboardApi";
+import { AdminCreateUserModal } from "../../features/admin-dashboard/components/AdminCreateUserModal";
 import { AdminDeleteWarningModal } from "../../features/admin-dashboard/components/AdminDeleteWarningModal";
 import { AdminStudentCard } from "../../features/admin-dashboard/components/AdminStudentCard";
 import type { AdminDashboardStudent } from "../../features/admin-dashboard/types";
@@ -24,6 +27,7 @@ export function AdminDashboardStudentsPage() {
   const [studentPendingDelete, setStudentPendingDelete] =
     useState<AdminDashboardStudent | null>(null);
   const [isDeletingStudent, setIsDeletingStudent] = useState(false);
+  const [isCreateStudentOpen, setIsCreateStudentOpen] = useState(false);
   const deferredSearchValue = useDeferredValue(searchValue);
 
   useEffect(() => {
@@ -118,8 +122,19 @@ export function AdminDashboardStudentsPage() {
         <div>
           <h1 className="text-3xl font-black tracking-tight text-[#14213d]">Students</h1>
         </div>
-        <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
-          Total students: {students.length}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
+            Total students: {students.length}
+          </div>
+          <Button
+            type="button"
+            variant="accent"
+            size="lg"
+            onClick={() => setIsCreateStudentOpen(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Student</span>
+          </Button>
         </div>
       </div>
 
@@ -194,6 +209,20 @@ export function AdminDashboardStudentsPage() {
           void handleStudentDeleteConfirm();
         }}
       />
+
+      {isCreateStudentOpen ? (
+        <AdminCreateUserModal
+          role="student"
+          onClose={() => setIsCreateStudentOpen(false)}
+          onSubmit={async (input) => {
+            await createAdminManagedUser(input);
+            const nextStudents = await loadAdminStudentsData();
+            setStudents(nextStudents);
+            setMessageTone("success");
+            setMessage("Student created successfully.");
+          }}
+        />
+      ) : null}
     </div>
   );
 }

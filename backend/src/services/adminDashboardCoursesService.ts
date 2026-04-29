@@ -77,6 +77,12 @@ type TestAnswerRow = {
   created_at: string;
 };
 
+type UpdateCoursePayload = Partial<
+  Pick<CourseRow, "status" | "is_published" | "deleted_at">
+>;
+
+export type AdminCourseAction = "publish" | "unpublish" | "archive";
+
 const profileSelect = "id,email,full_name,role,created_at";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -153,6 +159,22 @@ async function getCourseById(courseId: string) {
 
   if (error) {
     throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
+  }
+
+  return (data as CourseRow | null) ?? null;
+}
+
+async function updateCourseById(courseId: string, payload: UpdateCoursePayload) {
+  const { data, error } = await supabaseAdmin
+    .from("courses")
+    .update(payload)
+    .eq("id", courseId)
+    .is("deleted_at", null)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(500, "COURSE_UPDATE_FAILED", "Unable to update course", error);
   }
 
   return (data as CourseRow | null) ?? null;
@@ -351,15 +373,27 @@ function computeCourseTotals(modules: Array<{ lessons: Array<{ blocks: LessonBlo
   );
 }
 
-export async function listAdminDashboardCourses() {
-  const courses = await listCourses();
+async function hydrateCourseSummaries(courses: CourseRow[]) {
   const courseIds = courses.map((course) => course.id);
   const teacherIds = [...new Set(courses.map((course) => course.teacher_id).filter(isUuidValue))];
   const [teachersById, modules] = await Promise.all([
     listProfilesByIds(teacherIds),
     listModules(courseIds),
   ]);
+  const moduleIds = modules.map((module) => module.id);
+  const lessons = await listLessons(moduleIds);
   const modulesByCourseId = groupBy(modules, (module) => module.course_id);
+  const courseIdByModuleId = new Map(modules.map((module) => [module.id, module.course_id]));
+  const lessonCountByCourseId = lessons.reduce((counts, lesson) => {
+    const courseId = courseIdByModuleId.get(lesson.module_id);
+
+    if (!courseId) {
+      return counts;
+    }
+
+    counts.set(courseId, (counts.get(courseId) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
 
   return courses.map((course) => ({
     ...course,
@@ -368,7 +402,13 @@ export async function listAdminDashboardCourses() {
         ? teachersById.get(course.teacher_id) ?? null
         : null,
     moduleCount: modulesByCourseId.get(course.id)?.length ?? 0,
+    lessonCount: lessonCountByCourseId.get(course.id) ?? 0,
   }));
+}
+
+export async function listAdminDashboardCourses() {
+  const courses = await listCourses();
+  return hydrateCourseSummaries(courses);
 }
 
 async function hydrateCourses(courses: CourseRow[]) {
@@ -428,6 +468,7 @@ async function hydrateCourses(courses: CourseRow[]) {
       ...course,
       teacher,
       moduleCount: courseModules.length,
+      lessonCount: totals.lessons,
       modules: courseModules,
       totalLessons: totals.lessons,
       totalBlocks: totals.blocks,
@@ -447,4 +488,48 @@ export async function getAdminDashboardCourse(courseId: string) {
 
   const [hydratedCourse] = await hydrateCourses([course]);
   return hydratedCourse;
+}
+
+export async function updateAdminDashboardCourse(
+  courseId: string,
+  action: AdminCourseAction
+) {
+  const payload: UpdateCoursePayload =
+    action === "publish"
+      ? {
+          status: "published",
+          is_published: true,
+          deleted_at: null,
+        }
+      : action === "unpublish"
+        ? {
+            status: "draft",
+            is_published: false,
+            deleted_at: null,
+          }
+        : {
+            status: "archived",
+            is_published: false,
+          };
+
+  const updatedCourse = await updateCourseById(courseId, payload);
+
+  if (!updatedCourse) {
+    throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
+  }
+
+  const [hydratedCourse] = await hydrateCourseSummaries([updatedCourse]);
+  return hydratedCourse;
+}
+
+export async function deleteAdminDashboardCourse(courseId: string) {
+  const deletedCourse = await updateCourseById(courseId, {
+    deleted_at: new Date().toISOString(),
+    status: "archived",
+    is_published: false,
+  });
+
+  if (!deletedCourse) {
+    throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
+  }
 }

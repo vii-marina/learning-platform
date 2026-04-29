@@ -15,7 +15,10 @@ import type {
 import { StudentDashboardCourses } from "../../features/student-dashboard/components/StudentDashboardCourses";
 import { StudentDashboardOverview } from "../../features/student-dashboard/components/StudentDashboardOverview";
 import { StudentDashboardProfile } from "../../features/student-dashboard/components/StudentDashboardProfile";
-import { loadStudentDashboardCourses } from "../../features/student-dashboard/api/studentDashboardApi";
+import {
+  loadStudentDashboardCourses,
+  loadStudentDashboardPublicCourses,
+} from "../../features/student-dashboard/api/studentDashboardApi";
 import { StudentDashboardSidebar } from "../../features/student-dashboard/components/StudentDashboardSidebar";
 import { uploadStudentAvatar } from "../../features/student-dashboard/api/studentProfileStorage";
 import {
@@ -63,6 +66,9 @@ export function StudentDashboardPage() {
   const [catalogCourses, setCatalogCourses] = useState<StudentDashboardCourseCatalogItem[]>([]);
   const [isCatalogLoading, setIsCatalogLoading] = useState(false);
   const [catalogMessage, setCatalogMessage] = useState<string | null>(null);
+  const [publicCourses, setPublicCourses] = useState<StudentDashboardCourseCatalogItem[]>([]);
+  const [isPublicCoursesLoading, setIsPublicCoursesLoading] = useState(false);
+  const [publicCoursesMessage, setPublicCoursesMessage] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<StudentDashboardSectionId>("overview");
 
@@ -121,28 +127,43 @@ export function StudentDashboardPage() {
     let isMounted = true;
 
     async function loadCatalog() {
-      try {
-        setIsCatalogLoading(true);
-        const courses = await loadStudentDashboardCourses();
+      setIsCatalogLoading(true);
+      setIsPublicCoursesLoading(true);
 
-        if (!isMounted) {
-          return;
-        }
+      const [catalogResult, publicCoursesResult] = await Promise.allSettled([
+        loadStudentDashboardCourses(),
+        loadStudentDashboardPublicCourses(),
+      ]);
 
-        setCatalogCourses(courses);
-        setCatalogMessage(null);
-      } catch (error) {
-        if (!isMounted) {
-          return;
-        }
-
-        setCatalogCourses([]);
-        setCatalogMessage(getErrorMessage(error, "Unable to load published courses."));
-      } finally {
-        if (isMounted) {
-          setIsCatalogLoading(false);
-        }
+      if (!isMounted) {
+        return;
       }
+
+      if (catalogResult.status === "fulfilled") {
+        setCatalogCourses(catalogResult.value);
+        setCatalogMessage(null);
+      } else {
+        setCatalogCourses([]);
+        setCatalogMessage(
+          getErrorMessage(catalogResult.reason, "Unable to load your courses.")
+        );
+      }
+
+      if (publicCoursesResult.status === "fulfilled") {
+        setPublicCourses(publicCoursesResult.value);
+        setPublicCoursesMessage(null);
+      } else {
+        setPublicCourses([]);
+        setPublicCoursesMessage(
+          getErrorMessage(
+            publicCoursesResult.reason,
+            "Unable to load available public courses."
+          )
+        );
+      }
+
+      setIsCatalogLoading(false);
+      setIsPublicCoursesLoading(false);
     }
 
     void loadCatalog();
@@ -208,6 +229,9 @@ export function StudentDashboardPage() {
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
+            availableCourses={publicCourses}
+            isLoadingAvailableCourses={isPublicCoursesLoading}
+            availableCoursesMessage={publicCoursesMessage}
             onOpenCourses={() => setActiveSection("courses")}
           />
         );
@@ -233,6 +257,9 @@ export function StudentDashboardPage() {
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
+            availableCourses={publicCourses}
+            isLoadingAvailableCourses={isPublicCoursesLoading}
+            availableCoursesMessage={publicCoursesMessage}
             onOpenCourses={() => setActiveSection("courses")}
           />
         );

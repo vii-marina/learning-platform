@@ -11,10 +11,13 @@ import {
   updateAdminDashboardTeacherHandler,
 } from "../controllers/adminDashboardController";
 import {
+  deleteAdminDashboardCourseHandler,
   getAdminDashboardCourseHandler,
   listAdminDashboardCoursesHandler,
+  updateAdminDashboardCourseHandler,
 } from "../controllers/adminDashboardCoursesController";
 import {
+  createManagedUserHandler,
   listStudentsHandler,
   listTeachersHandler,
   listUsersHandler,
@@ -30,10 +33,13 @@ router.use(requireAuth);
 router.get("/dashboard/overview", requireAdmin, getAdminDashboardOverviewHandler);
 router.get("/dashboard/courses", requireAdmin, listAdminDashboardCoursesHandler);
 router.get("/dashboard/courses/:id", requireAdmin, getAdminDashboardCourseHandler);
+router.patch("/dashboard/courses/:id", requireAdmin, updateAdminDashboardCourseHandler);
+router.delete("/dashboard/courses/:id", requireAdmin, deleteAdminDashboardCourseHandler);
 router.get("/dashboard/students", requireAdmin, listAdminDashboardStudentsHandler);
 router.get("/dashboard/students/:id", requireAdmin, getAdminDashboardStudentHandler);
 router.patch("/dashboard/students/:id", requireAdmin, updateAdminDashboardStudentHandler);
 router.delete("/dashboard/students/:id", requireAdmin, deleteAdminDashboardStudentHandler);
+router.post("/users", requireAdmin, createManagedUserHandler);
 router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandler);
 router.get("/dashboard/teachers/:id", requireAdmin, getAdminDashboardTeacherHandler);
 router.patch("/dashboard/teachers/:id", requireAdmin, updateAdminDashboardTeacherHandler);

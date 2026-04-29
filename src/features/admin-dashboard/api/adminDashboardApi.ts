@@ -1,5 +1,6 @@
 import { listAdminUsers } from "../../auth/api/authApi";
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
+import type { CreateManagedUserInput, CurrentUser } from "../../auth/types";
 import type {
   AdminDashboardCourse,
   AdminDashboardCourseSummary,
@@ -39,9 +40,19 @@ type AdminCourseResponse = {
   course: AdminDashboardCourse;
 };
 
+type AdminCourseSummaryResponse = {
+  course: AdminDashboardCourseSummary;
+};
+
 type DeleteAdminEntityResponse = {
   deletedId: string;
 };
+
+type SingleUserResponse = {
+  user: CurrentUser;
+};
+
+type AdminCourseAction = "publish" | "unpublish" | "archive";
 
 type CacheEntry<T> = {
   value?: T;
@@ -167,6 +178,16 @@ export async function loadAdminTeachersData() {
   );
 
   return response.teachers;
+}
+
+export async function createAdminManagedUser(input: CreateManagedUserInput) {
+  const response = await authorizedBackendRequest<SingleUserResponse>("/admin/users", {
+    method: "POST",
+    body: input,
+  });
+
+  deleteDashboardKeys(["overview", "teachers:list", "students:list", "settings"]);
+  return response.user;
 }
 
 export async function loadAdminStudentsData(): Promise<AdminDashboardStudent[]> {
@@ -299,6 +320,37 @@ export async function loadAdminCourseDetailData(courseId: string): Promise<Admin
   );
 
   return response.course;
+}
+
+export async function updateAdminCourseStatus(
+  courseId: string,
+  action: AdminCourseAction
+) {
+  const response = await authorizedBackendRequest<AdminCourseSummaryResponse>(
+    `/admin/dashboard/courses/${courseId}`,
+    {
+      method: "PATCH",
+      body: { action },
+    }
+  );
+
+  deleteDashboardKeys(["overview", "courses:list", "teachers:list", courseDetailKey(courseId)]);
+  deleteDashboardKeysByPrefix(["teacher:"]);
+
+  const updatedCourse = response.course;
+  return updatedCourse;
+}
+
+export async function deleteAdminCourse(courseId: string) {
+  await authorizedBackendRequest<DeleteAdminEntityResponse>(
+    `/admin/dashboard/courses/${courseId}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  deleteDashboardKeys(["overview", "courses:list", "teachers:list", courseDetailKey(courseId)]);
+  deleteDashboardKeysByPrefix(["course:", "teacher:"]);
 }
 
 export async function loadAdminSettingsData(): Promise<AdminDashboardSettingsData> {

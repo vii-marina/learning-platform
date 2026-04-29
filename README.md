@@ -1,73 +1,216 @@
-# React + TypeScript + Vite
+# Кваліфікаційна робота
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## Тема
 
-Currently, two official plugins are available:
+**Проєктування та реалізація навчальної веб-платформи для вивчення основ програмування**
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Опис проєкту
 
-## React Compiler
+Цей проєкт є навчальною веб-платформою, призначеною для вивчення основ програмування у зручній, зрозумілій та структурованій формі.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Платформа реалізована у форматі LMS-системи, де:
 
-## Expanding the ESLint configuration
+- студенти переглядають і проходять доступні курси;
+- викладачі створюють, редагують і публікують навчальний контент;
+- адміністратори керують користувачами, курсами та загальним вмістом платформи.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+Основна ідея продукту полягає в тому, що викладачі формують структурований навчальний матеріал, студенти його опановують, а адміністратори контролюють роботу всієї системи.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Мета роботи
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+Метою кваліфікаційної роботи є проєктування та реалізація сучасної навчальної веб-платформи, яка надає можливість:
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- вивчати основи програмування через послідовно структуровані курси;
+- створювати освітній контент за допомогою зручного інтерфейсу;
+- організовувати взаємодію між студентами, викладачами та адміністраторами;
+- використовувати AI-інструменти для автоматичної генерації тестових завдань та практичних вправ.
+
+## Технологічний стек
+
+### Frontend
+
+- `React 19`
+- `TypeScript`
+- `Vite`
+- `React Router 7`
+- `Tailwind CSS`
+- `Supabase JS client` для авторизації, доступу до бази даних і файлового сховища
+- `TipTap` для редагування текстового вмісту уроків
+- `Lucide React` для іконок
+- `Lottie` для анімацій
+
+### Backend
+
+- `Node.js`
+- `TypeScript`
+- `Express 5`
+- `Zod` для валідації запитів і змінних середовища
+- `Supabase service-role client` для захищених серверних операцій
+- `OpenAI SDK` для генерації тестових питань і вправ з програмування
+
+## Архітектура проєкту
+
+Проєкт має розділену архітектуру:
+
+- фронтенд розташований у директорії `src`;
+- бекенд API розташований у директорії `backend/src`.
+
+Фронтенд взаємодіє:
+
+- із власним бекендом;
+- безпосередньо з `Supabase` для частини операцій.
+
+### Важлива архітектурна особливість
+
+У проєкті використовується змішаний підхід до роботи з даними:
+
+- значна частина CRUD-операцій для курсів виконується напряму з фронтенду через `Supabase`;
+- бекенд переважно відповідає за захищену бізнес-логіку:
+  - синхронізацію авторизації та профілів;
+  - дії, доступні лише адміністратору;
+  - перевірку прав доступу до уроків і вправ;
+  - завантаження списків курсів для студентів;
+  - AI-генерацію навчального контенту.
+
+## Основні ролі користувачів
+
+У системі реалізовано такі ролі:
+
+- `student`
+- `teacher`
+- `admin`
+- `super-admin`
+
+Після входу в систему користувач перенаправляється до відповідної панелі керування залежно від своєї ролі.
+
+## Основні сценарії роботи
+
+### Авторизація
+
+- автентифікація реалізована через `Supabase Auth`;
+- користувач може зареєструватися як студент або викладач;
+- після входу користувач автоматично перенаправляється до відповідного dashboard;
+- ролі `admin` та `super-admin` використовуються для керування платформою.
+
+### Навчальний контент
+
+Основна модель навчального контенту включає:
+
+- `courses`
+- `modules`
+- `lessons`
+- `lesson_blocks`
+- `test_entities`
+- `test_questions`
+- `test_answers`
+- `exercises`
+- `exercise_content`
+
+Ця структура дозволяє будувати ієрархічні курси, які складаються з модулів, уроків, текстових блоків, тестів і практичних вправ.
+
+## Реалізований функціонал
+
+На поточному етапі у проєкті реалізовано:
+
+- головну сторінку платформи;
+- сторінки входу, реєстрації та підтвердження email;
+- студентський dashboard із каталогом курсів та редагуванням профілю;
+- викладацький dashboard із редагуванням профілю та workspace для побудови курсів;
+- адміністративний dashboard із метриками, керуванням викладачами, студентами та курсами;
+- CRUD-операції для курсів;
+- дублювання курсів;
+- публікацію, зняття з публікації та архівацію курсів;
+- керування уроками та блоками уроків;
+- завантаження медіафайлів у `Supabase Storage`;
+- AI-генерацію тестових питань і вправ на основі контенту уроку або модуля.
+
+## Робота з базою даних і сховищем
+
+У проєкті використовується `Supabase`, який виконує роль:
+
+- системи автентифікації;
+- PostgreSQL-бази даних;
+- файлового сховища `Storage`.
+
+Окремо використовуються:
+
+- таблиці профілів користувачів;
+- таблиці курсів, модулів, уроків, тестів і вправ;
+- storage-бакети для зображень курсів, матеріалів уроків та аватарів користувачів.
+
+## AI-функціональність
+
+У системі реалізовано окремий AI-модуль, який дозволяє:
+
+- генерувати тестові питання на основі вмісту уроку або модуля;
+- генерувати практичні вправи з програмування;
+- формувати завдання різних типів, зокрема:
+  - `true/false`
+  - `single choice`
+  - `multiple choice`
+  - `drag and drop code`
+  - `write code`
+
+Для цього використовується `OpenAI SDK` на бекенді.
+
+## Структура проєкту
+
+```text
+learning-platform/
+├── src/                # frontend application
+├── backend/
+│   ├── src/            # backend API
+│   └── scripts/        # helper SQL/Node scripts
+├── public/             # static assets
+├── package.json        # frontend dependencies and scripts
+└── README.md
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Запуск проєкту
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Frontend
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
+
+### Backend
+
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+## Змінні середовища
+
+Для роботи проєкту необхідно налаштувати змінні середовища для фронтенду і бекенду.
+
+Приклади основних змінних:
+
+### Frontend
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+- `VITE_BACKEND_URL`
+
+### Backend
+
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `CORS_ORIGIN`
+- `PORT`
+- `OPENAI_API_KEY`
+
+## Поточні обмеження
+
+- у репозиторії наразі відсутній повноцінний набір автоматизованих тестів;
+- частина логіки доступу до даних реалізована напряму через `Supabase` з фронтенду;
+- проєкт потребує подальшого розвитку в частині тестування, документації та уніфікації доступу до даних.
+
+## Висновок
+
+У межах кваліфікаційної роботи реалізовано навчальну веб-платформу для вивчення основ програмування, яка поєднує сучасний frontend, окремий backend API, рольову модель доступу, інтеграцію з `Supabase` та AI-функціональність для підтримки навчального процесу.
+
+Проєкт демонструє практичне застосування сучасних вебтехнологій для створення освітньої системи з керованим контентом, авторизацією, панелями для різних типів користувачів і розширенням функціоналу за допомогою штучного інтелекту.

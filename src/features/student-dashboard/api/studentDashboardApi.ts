@@ -28,3 +28,11 @@ export async function loadStudentDashboardCourses() {
 
   return response.courses;
 }
+
+export async function loadStudentDashboardPublicCourses() {
+  const response = await authorizedBackendRequest<StudentDashboardCoursesResponse>(
+    "/auth/student/dashboard/public-courses"
+  );
+
+  return response.courses;
+}

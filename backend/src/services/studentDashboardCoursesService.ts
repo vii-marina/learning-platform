@@ -27,6 +27,10 @@ type LessonRow = {
   module_id: string;
 };
 
+type ProfileRecord = {
+  id: string;
+} & Record<string, unknown>;
+
 export type StudentDashboardCourseSummary = {
   id: string;
   title: string;
@@ -70,6 +74,151 @@ function isUuidValue(value: string | null | undefined): value is string {
   return typeof value === "string" && UUID_PATTERN.test(value);
 }
 
+function pickStringValue(
+  records: Array<Record<string, unknown> | null | undefined>,
+  keys: string[]
+) {
+  for (const record of records) {
+    if (!record) {
+      continue;
+    }
+
+    for (const key of keys) {
+      const value = record[key];
+
+      if (typeof value === "string" && value.trim()) {
+        return value.trim();
+      }
+    }
+  }
+
+  return null;
+}
+
+function toArrayValue(value: unknown) {
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value !== "string") {
+    return [] as unknown[];
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed) {
+    return [] as unknown[];
+  }
+
+  if (trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [] as unknown[];
+    }
+  }
+
+  if (trimmed.includes(",")) {
+    return trimmed
+      .split(",")
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+  }
+
+  return [trimmed];
+}
+
+function pickArrayValue(
+  records: Array<Record<string, unknown> | null | undefined>,
+  keys: string[]
+) {
+  for (const record of records) {
+    if (!record) {
+      continue;
+    }
+
+    for (const key of keys) {
+      const values = toArrayValue(record[key]);
+
+      if (values.length > 0) {
+        return values;
+      }
+    }
+  }
+
+  return [] as unknown[];
+}
+
+function getEnrolledCourseMatchers(
+  records: Array<Record<string, unknown> | null | undefined>
+) {
+  const ids = new Set<string>();
+  const labels = new Set<string>();
+  const values = pickArrayValue(records, [
+    "enrolled_course_titles",
+    "enrolledCourseTitles",
+    "enrolled_courses",
+    "enrolledCourses",
+    "active_courses",
+    "activeCourses",
+    "current_courses",
+    "currentCourses",
+    "course_titles",
+    "courseTitles",
+    "course_ids",
+    "courseIds",
+    "enrolled_course_ids",
+    "enrolledCourseIds",
+  ]);
+
+  values.forEach((value) => {
+    if (typeof value === "string") {
+      const normalizedValue = value.trim();
+
+      if (!normalizedValue) {
+        return;
+      }
+
+      if (isUuidValue(normalizedValue)) {
+        ids.add(normalizedValue);
+        return;
+      }
+
+      labels.add(normalizedValue.toLowerCase());
+      return;
+    }
+
+    if (typeof value !== "object" || value === null) {
+      return;
+    }
+
+    const record = value as Record<string, unknown>;
+    const courseId = pickStringValue([record], ["id", "course_id", "courseId"]);
+    const courseTitle = pickStringValue([record], [
+      "title",
+      "name",
+      "label",
+      "course_title",
+      "courseTitle",
+    ]);
+
+    if (courseId) {
+      if (isUuidValue(courseId)) {
+        ids.add(courseId);
+      } else {
+        labels.add(courseId.toLowerCase());
+      }
+    }
+
+    if (courseTitle) {
+      labels.add(courseTitle.toLowerCase());
+    }
+  });
+
+  return { ids, labels };
+}
+
 function ensureStudentAccess(auth: AuthenticatedRequestContext) {
   if (auth.isAdmin || auth.role === "student") {
     return;
@@ -94,7 +243,6 @@ async function listPublishedCourses() {
     .from("courses")
     .select("*")
     .is("deleted_at", null)
-    .eq("access_type", "public")
     .or("status.eq.published,is_published.eq.true")
     .order("updated_at", { ascending: false });
 
@@ -103,6 +251,72 @@ async function listPublishedCourses() {
   }
 
   return (data ?? []) as CourseRow[];
+}
+
+async function listPublishedPublicCourses() {
+  const { data, error } = await supabaseAdmin
+    .from("courses")
+    .select("*")
+    .is("deleted_at", null)
+    .eq("access_type", "public")
+    .or("status.eq.published,is_published.eq.true")
+    .order("updated_at", { ascending: false });
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "PUBLIC_COURSES_LIST_FAILED",
+      "Unable to load public courses",
+      error
+    );
+  }
+
+  return (data ?? []) as CourseRow[];
+}
+
+async function getProfileRecord(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(500, "PROFILE_FETCH_FAILED", "Unable to load student profile", error);
+  }
+
+  return (data as ProfileRecord | null) ?? null;
+}
+
+async function getOptionalStudentProfileRecord(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("student_profiles")
+    .select("*")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    const message = error.message.toLowerCase();
+    const isMissingRelation =
+      error.code === "PGRST205" ||
+      error.code === "42P01" ||
+      (message.includes("student_profiles") &&
+        (message.includes("does not exist") ||
+          message.includes("could not find the table")));
+
+    if (isMissingRelation) {
+      return null;
+    }
+
+    throw toServiceError(
+      500,
+      "STUDENT_PROFILE_FETCH_FAILED",
+      "Unable to load student profile details",
+      error
+    );
+  }
+
+  return (data as ProfileRecord | null) ?? null;
 }
 
 async function listTeacherNamesById(ids: string[]) {
@@ -179,12 +393,11 @@ async function listLessons(moduleIds: string[]) {
   return lessons;
 }
 
-export async function listStudentDashboardCourses(
-  auth: AuthenticatedRequestContext
-): Promise<StudentDashboardCourseSummary[]> {
-  ensureStudentAccess(auth);
+async function buildStudentDashboardCourseSummaries(courses: CourseRow[]) {
+  if (courses.length === 0) {
+    return [] as StudentDashboardCourseSummary[];
+  }
 
-  const courses = await listPublishedCourses();
   const courseIds = courses.map((course) => course.id);
   const teacherIds = [...new Set(courses.map((course) => course.teacher_id).filter(isUuidValue))];
   const [teacherNamesById, modules] = await Promise.all([
@@ -225,4 +438,49 @@ export async function listStudentDashboardCourses(
     created_at: course.created_at,
     updated_at: course.updated_at,
   }));
+}
+
+export async function listStudentDashboardCourses(
+  auth: AuthenticatedRequestContext
+): Promise<StudentDashboardCourseSummary[]> {
+  ensureStudentAccess(auth);
+
+  const [profileRecord, extraProfile] = await Promise.all([
+    getProfileRecord(auth.userId),
+    getOptionalStudentProfileRecord(auth.userId),
+  ]);
+  const { ids: enrolledCourseIds, labels: enrolledCourseLabels } =
+    getEnrolledCourseMatchers([extraProfile, profileRecord]);
+
+  if (enrolledCourseIds.size === 0 && enrolledCourseLabels.size === 0) {
+    return [];
+  }
+
+  const courses = (await listPublishedCourses()).filter((course) => {
+    if (enrolledCourseIds.has(course.id)) {
+      return true;
+    }
+
+    const normalizedTitle = course.title.trim().toLowerCase();
+    const normalizedSlug = course.slug.trim().toLowerCase();
+
+    return (
+      enrolledCourseLabels.has(normalizedTitle) || enrolledCourseLabels.has(normalizedSlug)
+    );
+  });
+
+  if (courses.length === 0) {
+    return [];
+  }
+
+  return buildStudentDashboardCourseSummaries(courses);
+}
+
+export async function listStudentDashboardPublicCourses(
+  auth: AuthenticatedRequestContext
+): Promise<StudentDashboardCourseSummary[]> {
+  ensureStudentAccess(auth);
+
+  const courses = await listPublishedPublicCourses();
+  return buildStudentDashboardCourseSummaries(courses);
 }
