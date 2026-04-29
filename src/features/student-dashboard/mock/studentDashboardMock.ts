@@ -30,6 +30,15 @@ export type StudentDashboardMessage = {
   unread?: boolean;
 };
 
+export type StudentDashboardTeacherSpotlight = {
+  id: string;
+  name: string;
+  headline: string;
+  experienceLabel: string;
+  communityLabel: string;
+  courseTitles: string[];
+};
+
 export const studentDashboardCourseUpdate: StudentDashboardCourseUpdate = {
   title: "Applied AI for Everyday Workflows",
   description:
@@ -151,5 +160,43 @@ export const studentDashboardMessages: StudentDashboardMessage[] = [
     preview:
       "Continue with the next module in Computer Science Fundamentals to stay on track this week.",
     sentAt: "Yesterday, 11:10",
+  },
+];
+
+export const studentDashboardTeacherSpotlights: StudentDashboardTeacherSpotlight[] = [
+  {
+    id: "teacher-1",
+    name: "Dr. Sarah Johnson",
+    headline: "Builds structured STEM paths with practical checkpoints and clear pacing.",
+    experienceLabel: "12 years teaching",
+    communityLabel: "184 students follow this teacher",
+    courseTitles: ["Advanced Mathematics", "Applied Problem Solving"],
+  },
+  {
+    id: "teacher-2",
+    name: "Prof. Michael Chen",
+    headline: "Explains programming concepts through short lessons and guided exercises.",
+    experienceLabel: "9 years in software education",
+    communityLabel: "143 students follow this teacher",
+    courseTitles: [
+      "Computer Science Fundamentals",
+      "Systems Thinking for Developers",
+    ],
+  },
+  {
+    id: "teacher-3",
+    name: "Dr. Nora Fields",
+    headline: "Focuses on writing clarity, academic structure, and polished submissions.",
+    experienceLabel: "11 years in academic coaching",
+    communityLabel: "126 students follow this teacher",
+    courseTitles: ["Academic Writing Essentials", "Research Planning Basics"],
+  },
+  {
+    id: "teacher-4",
+    name: "Prof. Daniel Morris",
+    headline: "Turns statistics into step-by-step decisions students can use immediately.",
+    experienceLabel: "8 years teaching analytics",
+    communityLabel: "98 students follow this teacher",
+    courseTitles: ["Introduction to Statistics", "Decision Making with Data"],
   },
 ];

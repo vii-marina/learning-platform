@@ -204,6 +204,7 @@ export function StudentDashboardPage() {
       case "overview":
         return (
           <StudentDashboardOverview
+            currentUser={currentUser}
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
@@ -228,6 +229,7 @@ export function StudentDashboardPage() {
       default:
         return (
           <StudentDashboardOverview
+            currentUser={currentUser}
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
