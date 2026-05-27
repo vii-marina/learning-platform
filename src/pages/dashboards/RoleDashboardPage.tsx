@@ -74,7 +74,7 @@ export function RoleDashboardPage({ role, greeting }: RoleDashboardPageProps) {
   if (message) {
     return (
       <DashboardShell
-        title="Dashboard unavailable"
+        title="Інформаційна панель недоступна"
         description={message}
       />
     );

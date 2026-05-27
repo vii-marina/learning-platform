@@ -8,8 +8,8 @@ type SpoilerTextProps = {
 
 export function SpoilerText({
   text,
-  label = "Hint",
-  revealLabel = "Tap to reveal",
+  label = "Підказка",
+  revealLabel = "Натисніть, щоб показати",
 }: SpoilerTextProps) {
   const [isRevealed, setIsRevealed] = useState(false);
 
@@ -32,7 +32,7 @@ export function SpoilerText({
         {text}
       </span>
       {!isRevealed ? (
-        <span className="spoiler-reveal__meta relative z-[1] mt-2 block text-xs font-semibold tracking-[0.14em] text-[#5f7892]">
+        <span className="spoiler-reveal__meta relative z-[1] mt-2 block text-xs font-semibold text-[#5f7892]">
           {revealLabel}
         </span>
       ) : null}

@@ -253,12 +253,12 @@ export const CourseBuilderPage = forwardRef<
     const issues: string[] = [];
 
     if (modules.length === 0) {
-      issues.push("Add at least one module before publishing the course.");
+      issues.push("Додайте принаймні один модуль перед публікацією курсу.");
       return issues;
     }
 
     if (!isReviewContentLoading && totalLessons === 0) {
-      issues.push("Add at least one lesson so at least one module contains lesson content.");
+      issues.push("Додайте принаймні один урок, щоб принаймні один модуль містив зміст уроку.");
     }
 
     return issues;
@@ -317,7 +317,7 @@ export const CourseBuilderPage = forwardRef<
         return;
       }
 
-      setMessage("Unable to reload the saved course.");
+      setMessage("Не вдалося перезавантажити збережений курс.");
     }
   };
 
@@ -416,7 +416,7 @@ export const CourseBuilderPage = forwardRef<
     setIsPersistingCourse(true);
 
     try {
-      const normalizedDraftTitle = courseTitle.trim() || "Untitled course";
+      const normalizedDraftTitle = courseTitle.trim() || "Курс без назви";
       const normalizedDescription = courseDescription.trim() || null;
 
       if (currentCourseId) {
@@ -432,7 +432,7 @@ export const CourseBuilderPage = forwardRef<
 
         setSavedCourseSnapshot(currentCourseSnapshot);
         setMessage("");
-        showSuccessToast(action === "publish" ? "Course published." : "Draft saved.");
+        showSuccessToast(action === "publish" ? "Курс опубліковано." : "Чернетка збережена.");
         return currentCourseId;
       }
 
@@ -454,7 +454,7 @@ export const CourseBuilderPage = forwardRef<
       await hydratePersistedCourse(createdCourse.id);
       setSavedCourseSnapshot(currentCourseSnapshot);
       setMessage("");
-      showSuccessToast(action === "publish" ? "Course published." : "Draft saved.");
+      showSuccessToast(action === "publish" ? "Курс опубліковано." : "Чернетка збережена.");
       return createdCourse.id;
     } catch (error) {
       if (error instanceof Error && error.message.trim()) {
@@ -463,7 +463,7 @@ export const CourseBuilderPage = forwardRef<
       }
 
       setMessage(
-        action === "publish" ? "Unable to publish course." : "Unable to save draft."
+        action === "publish" ? "Не вдалося опублікувати курс." : "Не вдалося зберегти чернетку."
       );
       return null;
     } finally {
@@ -474,7 +474,7 @@ export const CourseBuilderPage = forwardRef<
   const getCurrentTeacherId = async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) {
-      throw new Error("Unable to resolve current teacher.");
+      throw new Error("Не вдалося знайти поточного викладача.");
     }
     return data.user.id;
   };
@@ -687,7 +687,7 @@ export const CourseBuilderPage = forwardRef<
         if (error instanceof Error && error.message.trim()) {
           setMessage(error.message);
         } else {
-          setMessage("Unable to load the selected course.");
+          setMessage("Не вдалося завантажити вибраний курс.");
         }
       } finally {
         if (!isCancelled) {
@@ -831,7 +831,7 @@ export const CourseBuilderPage = forwardRef<
           if (error instanceof Error && error.message.trim()) {
             setMessage(error.message);
           } else {
-            setMessage("Unable to load module content.");
+            setMessage("Не вдалося завантажити вміст модуля.");
           }
         }
       });
@@ -912,7 +912,7 @@ export const CourseBuilderPage = forwardRef<
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
       } else {
-        setMessage("Unable to upload course media.");
+        setMessage("Не вдалося завантажити медіа курсів.");
       }
 
       return false;
@@ -923,7 +923,7 @@ export const CourseBuilderPage = forwardRef<
 
   const handleCourseMediaSelect = (file: File) => {
     if (!isAllowedCourseThumbnailFile(file)) {
-      setMessage("Course thumbnail must be a PNG, JPG, or JPEG image.");
+      setMessage("Головне фото курсу повинно бути зображенням у форматі PNG, JPG або JPEG.");
       return;
     }
 
@@ -969,8 +969,8 @@ export const CourseBuilderPage = forwardRef<
       } catch (error) {
         storageCleanupMessage =
           error instanceof Error && error.message.trim()
-            ? `${error.message} Course thumbnail reference was still removed.`
-            : "Course thumbnail reference was removed, but the old file could not be deleted.";
+            ? `${error.message} Головне фото курсу було видалено, але старий файл не вдалося видалити.`
+            : "Головне фото курсу було видалено, але старий файл не вдалося видалити.";
       }
 
       setCourseThumbnailPath(null);
@@ -994,7 +994,7 @@ export const CourseBuilderPage = forwardRef<
       if (error instanceof Error && error.message.trim()) {
         setMessage(error.message);
       } else {
-        setMessage("Unable to remove course media.");
+        setMessage("Не вдалося видалити медіа курсу.");
       }
     } finally {
       setIsUploadingCourseMedia(false);
@@ -1012,7 +1012,7 @@ export const CourseBuilderPage = forwardRef<
     const activeModule = modules.find((module) => module.id === moduleId);
 
     if (!activeModule) {
-      throw new Error("Unable to resolve the selected module.");
+      throw new Error("Не вдалося знайти вибраний модуль.");
     }
 
     const selectedLesson = afterLessonId
@@ -1020,7 +1020,7 @@ export const CourseBuilderPage = forwardRef<
       : null;
 
     if (afterLessonId && !selectedLesson) {
-      throw new Error("Unable to resolve the selected lesson.");
+      throw new Error("Не вдалося знайти вибраний урок.");
     }
 
     if (currentCourseId) {
@@ -1033,7 +1033,7 @@ export const CourseBuilderPage = forwardRef<
     const persistedCourseId = await persistCourseAtFinalStep("draft");
 
     if (!persistedCourseId) {
-      throw new Error("Unable to save the draft before generating AI content.");
+      throw new Error("Не вдалося зберегти чернетку перед створенням AI контенту.");
     }
 
     const persistedModules = await listModulesByCourse(persistedCourseId);
@@ -1041,7 +1041,7 @@ export const CourseBuilderPage = forwardRef<
       persistedModules.find((module) => module.order === activeModule.order) ?? null;
 
     if (!persistedModule) {
-      throw new Error("Unable to resolve the saved module.");
+      throw new Error("Не вдалося знайти збережений модуль.");
     }
 
     if (!selectedLesson) {
@@ -1056,7 +1056,7 @@ export const CourseBuilderPage = forwardRef<
       persistedLessons.find((lesson) => lesson.order === selectedLesson.order) ?? null;
 
     if (!persistedLesson) {
-      throw new Error("Unable to resolve the saved lesson.");
+      throw new Error("Не вдалося знайти збережений урок.");
     }
 
     return {
@@ -1069,7 +1069,7 @@ export const CourseBuilderPage = forwardRef<
     const activeModule = modules.find((module) => module.id === moduleId);
 
     if (!activeModule) {
-      throw new Error("Unable to resolve the selected module.");
+      throw new Error("Не вдалося знайти вибраний модуль.");
     }
 
     if (currentCourseId) {
@@ -1079,7 +1079,7 @@ export const CourseBuilderPage = forwardRef<
     const persistedCourseId = await persistCourseAtFinalStep("draft");
 
     if (!persistedCourseId) {
-      throw new Error("Unable to save the draft before creating an exercise.");
+      throw new Error("Не вдалося зберегти чернетку перед створенням вправи.");
     }
 
     const persistedModules = await listModulesByCourse(persistedCourseId);
@@ -1087,7 +1087,7 @@ export const CourseBuilderPage = forwardRef<
       persistedModules.find((module) => module.order === activeModule.order) ?? null;
 
     if (!persistedModule) {
-      throw new Error("Unable to resolve the saved module.");
+      throw new Error("Не вдалося знайти збережений модуль.");
     }
 
     return persistedModule.id;
@@ -1096,7 +1096,7 @@ export const CourseBuilderPage = forwardRef<
   // View model and final actions.
   const handlePublishCourse = async () => {
     if (publishBlockingIssues.length > 0) {
-      setMessage("Resolve the blocking issues before publishing the course.");
+      setMessage("Виправте блокуючі проблеми перед публікацією курсу.");
       return;
     }
 
@@ -1107,17 +1107,17 @@ export const CourseBuilderPage = forwardRef<
   const currentStepTitle =
     activeStep === 1
       ? initialCourseId || currentCourseId
-        ? "Edit Course"
-        : "Create Your Course"
+        ? "Редагування курсу"
+        : "Створіть свій курс"
       : activeStep === 2
-        ? "Course Content"
-        : "Review & Publish";
+        ? "Зміст курсу"
+        : "Огляд та публікація";
   const currentStepDescription =
     activeStep === 1
       ? ""
       : activeStep === 2
         ? ""
-        : "Run a final pass on the structure and publish when everything is ready.";
+        : "Виконайте фінальну перевірку структури та публікуйте, коли все буде готово.";
   const canRunHeaderAction = canSaveDraft;
   const builderContentKey = currentCourseId ?? draftCourseSessionId;
   const handleBackToCourses = () => {
@@ -1139,7 +1139,7 @@ export const CourseBuilderPage = forwardRef<
         activeStep={activeStep}
         currentCourseName={currentCourseName}
         canRunPrimaryAction={canRunHeaderAction}
-        primaryActionLabel={isPersistingCourse ? "Saving..." : "Save Draft"}
+        primaryActionLabel={isPersistingCourse ? "Збереження..." : "Зберегти чернетку"}
         canNavigateToStep={(step) => step === 1 || isBasicsComplete}
         onBackToCourses={handleBackToCourses}
         onStepChange={setActiveStep}
@@ -1269,7 +1269,7 @@ export const CourseBuilderPage = forwardRef<
 
         {activeStep === 3 ? (
           <CourseBuilderReviewStep
-            title="Final Preview"
+            title="Фінальний перегляд"
             publishBlockingIssues={publishBlockingIssues}
             courseId={currentCourseId}
             currentCourseName={currentCourseName}
@@ -1297,8 +1297,8 @@ export const CourseBuilderPage = forwardRef<
 
       <LessonCreateModal
         isOpen={lessonEditorModuleId !== null}
-        heading={editingLessonId ? "Edit Lesson" : "Create Lesson"}
-        saveLabel={editingLessonId ? "Save Changes" : "Save Lesson"}
+        heading={editingLessonId ? "Редагувати урок" : "Створити урок"}
+        saveLabel={editingLessonId ? "Зберегти зміни" : "Зберегти урок"}
         courseTitle={currentCourseName}
         modules={modules}
         lessonsByModule={lessonsByModule}
@@ -1379,8 +1379,8 @@ export const CourseBuilderPage = forwardRef<
         }
         isOpen={exerciseEditorModuleId !== null}
         initialMode={exerciseCreateInitialMode}
-        heading={editingExerciseId ? "Edit Exercise" : "Create Exercise"}
-        saveLabel={editingExerciseId ? "Save Changes" : "Save Exercise"}
+        heading={editingExerciseId ? "Редагувати вправу" : "Створити вправу"}
+        saveLabel={editingExerciseId ? "Зберегти зміни" : "Зберегти вправу"}
         courseTitle={currentCourseName}
         modules={modules}
         lessonsByModule={lessonsByModule}

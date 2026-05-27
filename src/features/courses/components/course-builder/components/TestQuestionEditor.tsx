@@ -138,7 +138,7 @@ export function TestQuestionEditor({
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-3">
               <span className={questionIndexClassName}>{index + 1}</span>
-              <label className="text-sm font-semibold text-[#14213d]">Type</label>
+              <label className="text-sm font-semibold text-[#14213d]">Тип</label>
             </div>
             <button
               type="button"
@@ -174,7 +174,7 @@ export function TestQuestionEditor({
         </div>
 
         <div>
-          <label className="text-sm font-semibold text-[#14213d]">Text</label>
+          <label className="text-sm font-semibold text-[#14213d]">Текст</label>
           <textarea
             ref={questionTextareaRef}
             rows={1}
@@ -183,14 +183,14 @@ export function TestQuestionEditor({
               resizeQuestionTextarea(event.target);
               onChange(question.id, { ...question, questionText: event.target.value });
             }}
-            placeholder="Enter your question here..."
+            placeholder="Введіть запитання тут..."
             className={`${surfaceFieldClassName} resize-none`}
           />
         </div>
 
         {isTrueFalse ? (
           <div>
-            <label className="text-sm font-semibold text-[#14213d]">Correct Answer</label>
+            <label className="text-sm font-semibold text-[#14213d]">Правильна відповідь</label>
             <div className="mt-2 grid gap-3 sm:grid-cols-2">
               <button
                 type="button"
@@ -228,7 +228,7 @@ export function TestQuestionEditor({
           </div>
         ) : (
           <div>
-            <label className="text-sm font-semibold text-[#14213d]">Answer Options</label>
+            <label className="text-sm font-semibold text-[#14213d]">Варіанти відповіді</label>
             <div className="mt-2 space-y-3">
               {question.options.map((option, optionIndex) => (
                 <div key={`${question.id}-option-${optionIndex}`} className="flex items-center gap-3">

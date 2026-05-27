@@ -47,7 +47,7 @@ export function AdminDashboardLayout() {
           return;
         }
 
-        setMessage(getErrorMessage(error, "Unable to load admin dashboard."));
+        setMessage(getErrorMessage(error, "Не вдалося завантажити адмінський дашборд."));
       } finally {
         if (isMounted) {
           setIsLoading(false);

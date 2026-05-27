@@ -217,7 +217,7 @@ export function GeneratedExerciseEditorCard({
                           ),
                         }}
                         className="min-w-0 bg-transparent font-mono text-sm font-semibold text-orange-700 outline-none placeholder:text-orange-300 disabled:cursor-not-allowed"
-                        placeholder="Option"
+                        placeholder="Варіант"
                       />
                       <button
                         type="button"
@@ -246,7 +246,7 @@ export function GeneratedExerciseEditorCard({
                   type="button"
                   onClick={onShuffleOptions}
                   disabled={isDisabled || (draft.content.blanks ?? []).length === 0}
-                  aria-label="Shuffle answer options"
+                  aria-label="Перемішати варіанти відповіді"
                   className="inline-flex min-h-9 w-9 items-center justify-center rounded-full border border-orange-300 bg-white text-orange-600 transition hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Shuffle className="h-4 w-4" />
@@ -287,12 +287,12 @@ export function GeneratedExerciseEditorCard({
                         value={draft.content.expected_answer}
                         onChange={(event) => onWriteCodeExpectedAnswerChange(event.target.value)}
                         disabled={isDisabled}
-                        aria-label="Expected answer"
+                        aria-label="Очікувана відповідь"
                         style={{
                           width: getInlineBlankWidth(draft.content.expected_answer, 6),
                         }}
                         className="mx-1 inline-flex min-w-[4.5rem] rounded-lg border border-orange-300 bg-orange-200/15 px-2.5 py-1 font-mono text-sm font-semibold text-orange-100 outline-none transition focus:border-orange-200 focus:bg-orange-300/20 disabled:cursor-not-allowed"
-                        placeholder="Answer"
+                        placeholder="Відповідь"
                       />
                     ) : (
                       <span

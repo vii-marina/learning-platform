@@ -151,7 +151,7 @@ export function AdminPage() {
           return;
         }
 
-        setErrorMessage(getErrorMessage(error, "Unable to load admin data."));
+        setErrorMessage(getErrorMessage(error, "Не вдалося завантажити дані адміністратора."));
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -212,7 +212,7 @@ export function AdminPage() {
         return;
       }
 
-      setErrorMessage(getErrorMessage(error, "Unable to update the selected user."));
+      setErrorMessage(getErrorMessage(error, "Не вдалося оновити вибраного користувача."));
     } finally {
       setIsSaving(false);
     }
@@ -234,10 +234,10 @@ export function AdminPage() {
           <Card className="p-8">
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
               <div>
-                <h1 className="text-2xl font-semibold text-slate-900">Admin Panel</h1>
+                <h1 className="text-2xl font-semibold text-slate-900">Панель Адміністратора</h1>
                 <p className="mt-3 max-w-3xl text-sm text-slate-600">
-                  Manage LMS users, review teachers and students, and keep role access aligned
-                  with backend permissions.
+                  Керуйте користувачами LMS, перевіряйте викладачів та учнів, 
+                  а також узгоджуйте доступ ролей із дозволами серверної частини.
                 </p>
               </div>
               {currentUser ? (
@@ -257,15 +257,15 @@ export function AdminPage() {
 
           <div className="grid gap-4 md:grid-cols-3">
             <Card className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Managed users</p>
+              <p className="text-xs text-slate-500">Managed users</p>
               <p className="mt-3 text-3xl font-semibold text-slate-900">{users.length}</p>
             </Card>
             <Card className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Teachers</p>
+              <p className="text-xs text-slate-500">Teachers</p>
               <p className="mt-3 text-3xl font-semibold text-slate-900">{teachers.length}</p>
             </Card>
             <Card className="p-6">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Students</p>
+              <p className="text-xs text-slate-500">Students</p>
               <p className="mt-3 text-3xl font-semibold text-slate-900">{students.length}</p>
             </Card>
           </div>
@@ -275,8 +275,8 @@ export function AdminPage() {
               <h2 className="text-lg font-semibold text-slate-900">All users</h2>
               <p className="mt-1 text-sm text-slate-600">
                 {currentUser?.isSuperAdmin
-                  ? "Super-admins can update names and roles directly from this view."
-                  : "Admins can review the full user list in read-only mode."}
+                  ? "Суперадміністратори можуть оновлювати імена та ролі безпосередньо з цього режиму перегляду."
+                  : "Адміністратори можуть переглядати повний список користувачів у режимі лише для читання."}
               </p>
             </div>
             {isLoading ? (
@@ -285,18 +285,18 @@ export function AdminPage() {
               </div>
             ) : users.length === 0 ? (
               <div className="px-6 py-10 text-sm text-slate-500">
-                No managed users were found yet.
+                Керованих користувачів поки що не знайдено.
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-left text-sm">
-                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                  <thead className="bg-slate-50 text-xs text-slate-500">
                     <tr>
-                      <th className="px-6 py-4 font-medium">Name</th>
+                      <th className="px-6 py-4 font-medium">Ім'я</th>
                       <th className="px-6 py-4 font-medium">Email</th>
-                      <th className="px-6 py-4 font-medium">Role</th>
-                      <th className="px-6 py-4 font-medium">Access</th>
-                      <th className="px-6 py-4 font-medium">Actions</th>
+                      <th className="px-6 py-4 font-medium">Роль</th>
+                      <th className="px-6 py-4 font-medium">Доступ</th>
+                      <th className="px-6 py-4 font-medium">Дії</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -316,10 +316,10 @@ export function AdminPage() {
                         </td>
                         <td className="px-6 py-4 text-slate-600">
                           {user.isSuperAdmin
-                            ? "Full access"
+                            ? "Повний доступ"
                             : user.isAdmin
-                              ? "Admin access"
-                              : "Standard access"}
+                              ? "Адміністративний доступ"
+                              : "Стандартний доступ"}
                         </td>
                         <td className="px-6 py-4">
                           {currentUser?.isSuperAdmin ? (
@@ -328,10 +328,10 @@ export function AdminPage() {
                               variant="secondary"
                               onClick={() => handleEditStart(user)}
                             >
-                              Edit
+                              Редагувати
                             </Button>
                           ) : (
-                            <span className="text-xs text-slate-500">Read only</span>
+                            <span className="text-xs text-slate-500">Тільки для читання</span>
                           )}
                         </td>
                       </tr>
@@ -344,10 +344,10 @@ export function AdminPage() {
 
           {currentUser?.isSuperAdmin && editingUserId ? (
             <Card className="p-6">
-              <h2 className="text-lg font-semibold text-slate-900">Edit user</h2>
+              <h2 className="text-lg font-semibold text-slate-900">Редагувати користувача</h2>
               <form className="mt-5 grid gap-4 md:grid-cols-[1.5fr_1fr_auto]" onSubmit={handleSave}>
                 <label className="text-sm text-slate-600">
-                  Full name
+                  Повне ім'я
                   <Input
                     className="mt-1"
                     value={draftFullName}
@@ -356,7 +356,7 @@ export function AdminPage() {
                   />
                 </label>
                 <label className="text-sm text-slate-600">
-                  Role
+                  Роль
                   <select
                     className="mt-1 w-full rounded border border-slate-300 px-3 py-2 text-sm"
                     value={draftRole}
@@ -375,7 +375,7 @@ export function AdminPage() {
                     className="disabled:cursor-not-allowed disabled:opacity-70"
                     disabled={isSaving}
                   >
-                    {isSaving ? "Saving..." : "Save changes"}
+                    {isSaving ? "Зберігається..." : "Зберегти зміни"}
                   </Button>
                   <Button
                     type="button"

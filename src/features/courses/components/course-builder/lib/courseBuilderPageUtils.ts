@@ -28,9 +28,9 @@ export type TestEditorDraft = {
 export type CreateContentMode = "manual" | "ai";
 
 export const courseBuilderSteps = [
-  { id: 1 as const, label: "Course Info", helper: "Title, description & media" },
-  { id: 2 as const, label: "Course content", helper: "Modules, lessons & tests" },
-  { id: 3 as const, label: "Final Preview", helper: "Review & launch" },
+  { id: 1 as const, label: "Інформація про курс", helper: "Назва, опис і медіа" },
+  { id: 2 as const, label: "Контент курсу", helper: "Модулі, уроки й тести" },
+  { id: 3 as const, label: "Фінальний перегляд", helper: "Перевірка й запуск" },
 ];
 
 export type LessonEditorDraft = {
@@ -45,7 +45,7 @@ export const EMPTY_LESSON_EDITOR_DRAFT: LessonEditorDraft = {
   videoUrl: "",
 };
 
-const TRUE_FALSE_OPTIONS = ["True", "False"] as const;
+const TRUE_FALSE_OPTIONS = ["Правда", "Неправда"] as const;
 
 const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -58,7 +58,7 @@ export const createEmptyTestQuestion = (): CourseTestQuestion => ({
   id: createId(),
   type: "single_choice",
   questionText: "",
-  options: ["Option 1", "Option 2"],
+  options: ["Варіант 1", "Варіант 2"],
   correctOptionIndexes: [],
   hint: null,
 });
@@ -72,7 +72,7 @@ export const createEmptyExerciseDraft = (): ExerciseEditorDraft =>
   ({
     afterLessonId: null,
     type: "drag_drop_code",
-    title: "Fill Missing Code",
+    title: "Заповнити пропуски в коді",
     description: "",
     content: {
       type: "drag_drop_code",
@@ -142,7 +142,7 @@ export const mapGeneratedQuestionToCourseTestQuestion = (
   const options =
     normalizedOptions.length >= 2
       ? normalizedOptions.map((option) => option.text)
-      : ["Option 1", "Option 2"];
+      : ["Варіант 1", "Варіант 2"];
   const correctOptionIndexes = normalizedOptions.reduce<number[]>(
     (indexes, option, index) => {
       if (option.correct) {
@@ -250,7 +250,7 @@ const hasMeaningfulQuestionDraft = (question: CourseTestQuestion) => {
       return false;
     }
 
-    return trimmedOption !== `Option ${index + 1}`;
+    return trimmedOption !== `Варіант ${index + 1}`;
   });
 };
 
@@ -376,7 +376,7 @@ export const getGeneratedCourseTestTitle = ({
     }
 
     if (linkedLesson) {
-      return `Lesson ${moduleOrder}.${linkedLesson.order}`;
+      return `Урок ${moduleOrder}.${linkedLesson.order}`;
     }
   }
 
@@ -384,7 +384,7 @@ export const getGeneratedCourseTestTitle = ({
     return fallbackTitle.trim();
   }
 
-  return `Module ${moduleOrder}`;
+  return `Модуль ${moduleOrder}`;
 };
 
 export type OrderedModuleItem =
@@ -420,9 +420,9 @@ export const buildOrderedModuleItems = (
 };
 
 export const studentQuestionTypeLabels: Record<TestQuestionType, string> = {
-  true_false: "True / False",
-  single_choice: "One correct answer",
-  multiple_choice: "Multiple correct answers",
+  true_false: "Правда / Неправда",
+  single_choice: "Одна правильна відповідь",
+  multiple_choice: "Кілька правильних відповідей",
 };
 
 export type ReviewPreviewMode = "instructor" | "student";

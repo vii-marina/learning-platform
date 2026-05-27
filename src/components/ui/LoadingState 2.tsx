@@ -27,23 +27,23 @@ const loadingVariantConfig: Record<LoadingStateVariant, LoadingVariantConfig> = 
     className:
       "flex min-h-[22rem] w-full items-center justify-center rounded-[1.75rem] border-cyan-100 bg-white/90 p-8 shadow-[0_20px_40px_rgba(15,23,42,0.06)] md:min-h-[26rem] md:p-10",
     loaderClassName: "gap-4",
-    textClassName: "text-sm font-semibold   text-slate-500",
+    textClassName: "text-sm font-semibold text-slate-500",
   },
   section: {
     size: 160,
     surface: "card",
     className:
-      "flex min-h-[18rem] w-full items-center justify-center  bg-white/90 p-8 shadow-[0_20px_40px_rgba(15,23,42,0.06)] md:min-h-[20rem]",
+      "flex min-h-[18rem] w-full items-center justify-center bg-white/90 p-8 shadow-[0_20px_40px_rgba(15,23,42,0.06)] md:min-h-[20rem]",
     loaderClassName: "gap-4",
-    textClassName: "text-sm font-semibold   text-slate-500",
+    textClassName: "text-sm font-semibold text-slate-500",
   },
   card: {
     size: 144,
     surface: "card",
     className:
-      "flex min-h-[14rem] w-full items-center justify-center  bg-slate-50/70 p-6 shadow-none",
+      "flex min-h-[14rem] w-full items-center justify-center bg-slate-50/70 p-6 shadow-none",
     loaderClassName: "gap-3.5",
-    textClassName: "text-sm font-semibold  text-slate-500",
+    textClassName: "text-sm font-semibold text-slate-500",
   },
   inline: {
     size: 104,
@@ -66,7 +66,7 @@ function joinClassNames(...values: Array<string | undefined>) {
 }
 
 export function LoadingState({
-  label = "Завантаження . . .",
+  label = "Loading . . .",
   variant = "section",
   size,
   className = "",

@@ -9,7 +9,7 @@ import { clearCurrentUserCache } from "../api/authApi";
 type LogoutButtonProps = {
   containerClassName?: string;
   buttonClassName?: string;
-  buttonVariant?: "primary" | "secondary";
+  buttonVariant?: "primary" | "secondary" | "ghost";
   contentClassName?: string;
   content?: ReactNode;
 };
@@ -52,7 +52,7 @@ export function LogoutButton({
         className={buttonClassName}
       >
         <span className={contentClassName}>
-          {isSubmitting ? "Logging out..." : content ?? "Logout"}
+          {isSubmitting ? "Вихід..." : content ?? "Вийти"}
         </span>
       </Button>
       {message ? <p className="text-sm text-rose-600">{message}</p> : null}

@@ -19,16 +19,16 @@ export function CourseForm({
   return (
     <div className="flex flex-col gap-3">
       <Input
-        placeholder="Course title"
+        placeholder="Назва курсу"
         value={title}
         onChange={(event) => onTitleChange(event.target.value)}
       />
       <Input
-        placeholder="Course description"
+        placeholder="Опис курсу"
         value={description}
         onChange={(event) => onDescriptionChange(event.target.value)}
       />
-      <Button onClick={onCreate}>Add course</Button>
+      <Button onClick={onCreate}>Додати курс</Button>
     </div>
   );
 }

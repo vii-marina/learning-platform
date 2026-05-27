@@ -40,8 +40,8 @@ type LessonCreateModalProps = {
 
 export function LessonCreateModal({
   isOpen,
-  heading = "Create Lesson",
-  saveLabel = "Save Lesson",
+  heading = "Створити урок",
+  saveLabel = "Зберегти урок",
   courseTitle,
   modules,
   lessonsByModule,
@@ -135,7 +135,7 @@ export function LessonCreateModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close lesson modal"
+              aria-label="Закрити модальне вікно уроку"
               className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
             >
               <X className="h-5 w-5" />
@@ -156,12 +156,12 @@ export function LessonCreateModal({
                 <>
                   <div>
                     <label className="text-sm font-semibold text-[#14213d]">
-                      Lesson Title
+                      Назва уроку
                     </label>
                     <Input
                       value={title}
                       onChange={(event) => onTitleChange(event.target.value)}
-                      placeholder="New Lesson"
+                      placeholder="Новий урок"
                       className="mt-3 h-14 rounded-xl border border-slate-200 bg-[#f9fbfd] px-5 text-base font-semibold text-[#14213d] focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100"
                       disabled={isLoadingLesson || isSaving}
                       autoFocus
@@ -170,7 +170,7 @@ export function LessonCreateModal({
 
                   <div>
                     <label className="text-sm font-semibold text-[#14213d]">
-                      Video Lesson Link (Optional)
+                      Посилання на відеоурок (необов'язково)
                     </label>
                     <Input
                       value={videoUrl}
@@ -180,19 +180,19 @@ export function LessonCreateModal({
                       disabled={isLoadingLesson || isSaving}
                     />
                     <p className="mt-2 text-sm text-slate-500">
-                      Supported: YouTube, Vimeo, Loom, or MP4 direct link.
+                      Підтримується: YouTube, Vimeo, Loom або MP4.
                     </p>
                   </div>
 
                   <div>
                     <label className="text-sm font-semibold text-[#14213d]">
-                      Lesson Content
+                      Контент уроку
                     </label>
                     <div className="mt-3">
                       <RichTextEditor
                         value={content}
                         onChange={onContentChange}
-                        placeholder="Start typing your lesson content here..."
+                        placeholder="Почніть вводити контент уроку..."
                         disabled={isLoadingLesson || isSaving}
                         onImageUpload={onImageUpload}
                       />
@@ -217,7 +217,7 @@ export function LessonCreateModal({
                 disabled={!title.trim() || isSaving || isLoadingLesson}
                 className="h-11 rounded-xl bg-[#0f172a] px-6 text-sm font-bold text-white hover:bg-[#111f39]"
               >
-                {isSaving ? "Saving..." : saveLabel}
+                {isSaving ? "Збереження..." : saveLabel}
               </Button>
             </div>
           </div>

@@ -1,4 +1,4 @@
-import { Plus, Search } from "lucide-react";
+import { BookOpen, CheckCircle2, Plus, Search, Users } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useState } from "react";
 import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/Card";
@@ -50,7 +50,7 @@ export function AdminDashboardStudentsPage() {
         }
 
         setMessageTone("error");
-        setMessage(getErrorMessage(error, "Unable to load students."));
+        setMessage(getErrorMessage(error, "Не вдалося завантажити студентів."));
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -80,6 +80,7 @@ export function AdminDashboardStudentsPage() {
           getStudentDisplayName(student),
           student.email,
           student.educationPlace ?? "",
+          ...student.enrolledCourseDetails.map((course) => course.title),
         ]
           .join(" ")
           .toLowerCase();
@@ -90,6 +91,24 @@ export function AdminDashboardStudentsPage() {
         getStudentDisplayName(left).localeCompare(getStudentDisplayName(right))
       );
   }, [deferredSearchValue, students]);
+  const totalEnrollments = useMemo(
+    () =>
+      students.reduce(
+        (sum, student) => sum + student.enrolledCourseDetails.length,
+        0
+      ),
+    [students]
+  );
+  const completedEnrollments = useMemo(
+    () =>
+      students.reduce(
+        (sum, student) =>
+          sum +
+          student.enrolledCourseDetails.filter((course) => course.finishedAt).length,
+        0
+      ),
+    [students]
+  );
 
   async function handleStudentDeleteConfirm() {
     if (!studentPendingDelete || isDeletingStudent) {
@@ -105,11 +124,11 @@ export function AdminDashboardStudentsPage() {
         currentStudents.filter((student) => student.id !== studentToDelete.id)
       );
       setMessageTone("success");
-      setMessage("Student deleted successfully.");
+      setMessage("Студента успішно видалено.");
       setStudentPendingDelete(null);
     } catch (error) {
       setMessageTone("error");
-      setMessage(getErrorMessage(error, "Unable to delete student."));
+      setMessage(getErrorMessage(error, "Не вдалося видалити студента."));
       setStudentPendingDelete(null);
     } finally {
       setIsDeletingStudent(false);
@@ -118,25 +137,50 @@ export function AdminDashboardStudentsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-4 px-1 py-1">
-        <div>
-          <h1 className="text-3xl font-black tracking-tight text-[#14213d]">Students</h1>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
-            Total students: {students.length}
+      <section className="overflow-hidden rounded-[1.75rem] border border-cyan-100 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+        <div className="bg-[linear-gradient(135deg,#effcff_0%,#ffffff_54%,#f4f2ff_100%)] px-6 py-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h1 className="mt-1 text-3xl font-black tracking-tight text-[#14213d]">
+                Студенти
+              </h1>
+            </div>
+            <Button
+              type="button"
+              variant="accent"
+              size="lg"
+              onClick={() => setIsCreateStudentOpen(true)}
+            >
+              <Plus className="h-4 w-4" />
+              <span>Додати студента</span>
+            </Button>
           </div>
-          <Button
-            type="button"
-            variant="accent"
-            size="lg"
-            onClick={() => setIsCreateStudentOpen(true)}
-          >
-            <Plus className="h-4 w-4" />
-            <span>Add Student</span>
-          </Button>
         </div>
-      </div>
+
+        <div className="grid gap-3 px-6 py-5 md:grid-cols-3">
+          <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <Users className="h-4 w-4 text-[#08bfd4]" />
+              <span>Усього студентів</span>
+            </div>
+            <p className="mt-2 text-2xl font-black text-[#14213d]">{students.length}</p>
+          </div>
+          <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <BookOpen className="h-4 w-4 text-violet-500" />
+              <span>Записів на курси</span>
+            </div>
+            <p className="mt-2 text-2xl font-black text-[#14213d]">{totalEnrollments}</p>
+          </div>
+          <div className="rounded-[1.15rem] border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              <span>Завершених записів</span>
+            </div>
+            <p className="mt-2 text-2xl font-black text-[#14213d]">{completedEnrollments}</p>
+          </div>
+        </div>
+      </section>
 
       {message ? (
         <Card
@@ -156,7 +200,7 @@ export function AdminDashboardStudentsPage() {
           type="search"
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
-          placeholder="Search students by name, email, or education place..."
+          placeholder="Пошук студентів за імʼям, email або місцем навчання..."
           className="h-12 w-full rounded-[1.15rem] border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-[#14213d] outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/12"
         />
       </div>
@@ -165,7 +209,7 @@ export function AdminDashboardStudentsPage() {
         <LoadingState variant="section" />
       ) : filteredStudents.length === 0 ? (
         <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          No students match your search.
+          За вашим пошуком студентів не знайдено.
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -183,22 +227,25 @@ export function AdminDashboardStudentsPage() {
 
       <AdminDeleteWarningModal
         isOpen={studentPendingDelete !== null}
-        entityLabel="Student"
+        entityLabel="студента"
         entityName={studentPendingDelete ? getStudentDisplayName(studentPendingDelete) : ""}
         entityEmail={studentPendingDelete?.email ?? ""}
         impactItems={
           studentPendingDelete
             ? [
-                "Student profile information may be removed.",
-                `${studentPendingDelete.enrolledCourses.length} enrolled course records may be lost.`,
-                `${studentPendingDelete.completedCourses.length} completed course records may be lost.`,
+                "Інформацію профілю студента може бути видалено.",
+                `${studentPendingDelete.enrolledCourseDetails.length} записів про зарахування на курси можуть бути втрачені.`,
+                `${
+                  studentPendingDelete.enrolledCourseDetails.filter((course) => course.finishedAt)
+                    .length
+                } записів про завершені курси можуть бути втрачені.`,
                 studentPendingDelete.educationPlace?.trim()
-                  ? `Education place record "${studentPendingDelete.educationPlace}" may be removed.`
-                  : "Education place data may be removed if it exists.",
+                  ? `Запис про місце навчання "${studentPendingDelete.educationPlace}" може бути видалено.`
+                  : "Дані про місце навчання можуть бути видалені, якщо вони існують.",
               ]
             : []
         }
-        confirmLabel="Delete Student"
+        confirmLabel="Видалити студента"
         isSubmitting={isDeletingStudent}
         onClose={() => {
           if (!isDeletingStudent) {
@@ -219,7 +266,7 @@ export function AdminDashboardStudentsPage() {
             const nextStudents = await loadAdminStudentsData();
             setStudents(nextStudents);
             setMessageTone("success");
-            setMessage("Student created successfully.");
+            setMessage("Студента успішно створено.");
           }}
         />
       ) : null}

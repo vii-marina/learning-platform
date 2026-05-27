@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, UserRound } from "lucide-react";
+import { ArrowLeft, BookOpen, UserRound, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useParams } from "react-router-dom";
 import { Card } from "../../components/ui/Card";
@@ -188,7 +188,7 @@ export function AdminCoursePreviewPage() {
           className="inline-flex items-center gap-2 text-sm font-semibold text-[#14213d] transition hover:text-[#08bfd4]"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Courses</span>
+          <span>Повернутись назад</span>
         </Link>
         
       </div>
@@ -214,6 +214,10 @@ export function AdminCoursePreviewPage() {
             <div className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-600">
               <BookOpen className="h-4 w-4 text-slate-400" />
               <span>{resolvedCourseSummary.moduleCount} modules</span>
+            </div>
+            <div className="inline-flex items-center gap-2 rounded-full bg-cyan-50 px-3 py-1 text-sm font-bold text-cyan-800">
+              <Users className="h-4 w-4 text-cyan-600" />
+              <span>{resolvedCourseSummary.enrolledStudentCount} студентів</span>
             </div>
           </div>
 

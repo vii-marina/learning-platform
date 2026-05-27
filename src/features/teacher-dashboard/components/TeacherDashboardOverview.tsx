@@ -11,7 +11,7 @@ export function TeacherDashboardOverview({
         <div className="space-y-2">
 
           <h1 className="text-3xl font-semibold tracking-tight text-slate-950">
-            Build and maintain your courses
+            Створюйте та оновлюйте свої курси
           </h1>
         
         </div>
@@ -23,7 +23,7 @@ export function TeacherDashboardOverview({
             className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white transition hover:bg-slate-800"
           >
             <Plus className="h-4 w-4" />
-            <span>New Course</span>
+            <span>Новий курс</span>
           </button>
         </div>
       </div>

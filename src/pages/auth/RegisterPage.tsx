@@ -43,14 +43,14 @@ export function RegisterPage() {
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!trimmedFullName) {
-      setMessage("Please enter your full name.");
+      setMessage("Введіть повне імʼя.");
       setMessageType("error");
       return;
     }
 
     if (password.length < 6) {
       setPasswordError(
-        "Your password is too short. Please use at least 6 characters."
+        "Пароль занадто короткий. Використайте щонайменше 6 символів."
       );
       setMessage("");
       return;
@@ -82,12 +82,12 @@ export function RegisterPage() {
           messageText.includes("already") || messageText.includes("registered");
 
         if (isAlreadyRegistered) {
-          setMessage("This email is already registered. Please sign in.");
+          setMessage("Цей email уже зареєстрований. Увійдіть в акаунт.");
           setMessageType("error");
           return;
         }
 
-        setMessage(getErrorMessage(error, "Unable to create your account."));
+        setMessage(getErrorMessage(error, "Не вдалося створити акаунт."));
         setMessageType("error");
         return;
       }
@@ -95,13 +95,13 @@ export function RegisterPage() {
       const identities = data.user?.identities ?? [];
 
       if (!data.user) {
-        setMessage("Unable to create your account right now. Please try again.");
+        setMessage("Зараз не вдалося створити акаунт. Спробуйте ще раз.");
         setMessageType("error");
         return;
       }
 
       if (data.user && identities.length === 0) {
-        setMessage("This email is already registered. Please sign in.");
+        setMessage("Цей email уже зареєстрований. Увійдіть в акаунт.");
         setMessageType("error");
         return;
       }
@@ -125,12 +125,12 @@ export function RegisterPage() {
 
       setPassword("");
       setMessage(
-        "Account created. Confirm your email if required, then sign in to finish profile setup."
+        "Акаунт створено. Підтвердьте email, якщо це потрібно, а потім увійдіть для завершення налаштування профілю."
       );
       setMessageType("info");
     } catch (error) {
       setMessage(
-        getErrorMessage(error, "Account created, but profile setup could not be completed.")
+        getErrorMessage(error, "Акаунт створено, але не вдалося завершити налаштування профілю.")
       );
       setMessageType("error");
     } finally {
@@ -168,15 +168,15 @@ export function RegisterPage() {
 
   const roleOptionClass = (optionRole: PublicRegistrationRole) =>
     role === optionRole
-      ? "border-[#13daec] bg-[#13daec]/10 text-[#0f172a] shadow-[0_10px_24px_rgba(19,218,236,0.14)]"
-      : "border-slate-200 bg-white text-[#0f172a] hover:border-[#13daec]/50 hover:bg-[#13daec]/5";
+      ? "border-[#5549f1] bg-[#5549f1]/10 text-[#0f172a] shadow-[0_10px_24px_rgba(85,73,241,0.14)]"
+      : "border-slate-200 bg-white text-[#0f172a] hover:border-[#5549f1]/50 hover:bg-[#5549f1]/5";
 
   const feedbackClassName =
     messageType === "error"
       ? "border-rose-200 bg-rose-50 text-rose-700"
       : messageType === "success"
         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-        : "border-[#13daec]/30 bg-[#13daec]/10 text-slate-600";
+        : "border-[#5549f1]/30 bg-[#5549f1]/10 text-slate-600";
 
   return (
     <div
@@ -186,22 +186,22 @@ export function RegisterPage() {
       <header className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-10">
           <Link to="/" className="flex items-center gap-3 text-[#0f172a]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#13daec] text-white shadow-[0_10px_22px_rgba(19,218,236,0.25)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5549f1] text-white shadow-[0_10px_22px_rgba(85,73,241,0.25)]">
               <School className="h-4 w-4" />
             </span>
             <span className="text-xl font-extrabold tracking-tight md:text-2xl">
-              Learning Platform
+              Навчальна платформа
             </span>
           </Link>
           <div className="flex items-center gap-4">
             <span className="hidden text-sm text-slate-500 md:inline">
-              Already have an account?
+              Уже маєте акаунт?
             </span>
             <Link
               to="/login"
-              className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-[#13daec] px-5 text-sm font-bold text-[#08bfd4] transition hover:bg-[#13daec] hover:text-white"
+              className="inline-flex h-10 items-center justify-center rounded-xl border-2 border-[#5549f1] px-5 text-sm font-bold text-[#5549f1] transition hover:bg-[#5549f1] hover:text-white"
             >
-              Log In
+              Увійти
             </Link>
           </div>
         </div>
@@ -212,16 +212,16 @@ export function RegisterPage() {
           <div className="mx-auto max-w-[22.5rem]">
             <div className="mb-6 text-center">
               <h1 className="whitespace-nowrap text-[1.7rem] font-extrabold tracking-tight text-[#14213d] sm:text-[1.9rem] md:text-[2.1rem]">
-                Create your account
+                Створіть акаунт
               </h1>
               <p className="mx-auto mt-2.5 max-w-sm text-sm leading-6 text-slate-500">
-                Join our global community of curious learners and expert educators.
+                Долучайтеся до спільноти студентів і викладачів.
               </p>
             </div>
 
             <form className="space-y-4" onSubmit={handleSubmit}>
               <div>
-                <p className="mb-3 text-xs font-semibold text-[#14213d]">I am a...</p>
+                <p className="mb-3 text-xs font-semibold text-[#14213d]">Я...</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   <button
                     type="button"
@@ -230,9 +230,9 @@ export function RegisterPage() {
                     aria-pressed={role === "student"}
                   >
                     <User
-                      className={`mb-1.5 h-6 w-6 ${role === "student" ? "text-[#13daec]" : "text-slate-400"}`}
+                      className={`mb-1.5 h-6 w-6 ${role === "student" ? "text-[#5549f1]" : "text-slate-400"}`}
                     />
-                    <span className="text-base font-medium leading-none">Student</span>
+                    <span className="text-base font-medium leading-none">Студент</span>
                   </button>
                   <button
                     type="button"
@@ -241,9 +241,9 @@ export function RegisterPage() {
                     aria-pressed={role === "teacher"}
                   >
                     <GraduationCap
-                      className={`mb-1.5 h-6 w-6 ${role === "teacher" ? "text-[#13daec]" : "text-slate-400"}`}
+                      className={`mb-1.5 h-6 w-6 ${role === "teacher" ? "text-[#5549f1]" : "text-slate-400"}`}
                     />
-                    <span className="text-base font-medium leading-none">Teacher</span>
+                    <span className="text-base font-medium leading-none">Викладач</span>
                   </button>
                 </div>
               </div>
@@ -253,15 +253,15 @@ export function RegisterPage() {
                   htmlFor="register-full-name"
                   className="mb-1.5 block text-xs font-semibold text-[#14213d]"
                 >
-                  Full Name
+                  Повне імʼя
                 </label>
                 <div className="relative">
                   <SquareUserRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <input
                     id="register-full-name"
                     type="text"
-                    placeholder="John Doe"
-                    className="h-12 w-full rounded-xl border border-transparent bg-[#f4f7fb] pl-11 pr-4 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    placeholder="Імʼя та прізвище"
+                    className="h-12 w-full rounded-xl border border-transparent bg-[#f4f7fb] pl-11 pr-4 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#5549f1] focus:ring-4 focus:ring-[#5549f1]/15"
                     value={fullName}
                     onChange={handleFullNameChange}
                   />
@@ -273,7 +273,7 @@ export function RegisterPage() {
                   htmlFor="register-email"
                   className="mb-1.5 block text-xs font-semibold text-[#14213d]"
                 >
-                  Email Address
+                  Email
                 </label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -281,7 +281,7 @@ export function RegisterPage() {
                     id="register-email"
                     type="email"
                     placeholder="john@example.com"
-                    className="h-12 w-full rounded-xl border border-transparent bg-[#f4f7fb] pl-11 pr-4 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    className="h-12 w-full rounded-xl border border-transparent bg-[#f4f7fb] pl-11 pr-4 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#5549f1] focus:ring-4 focus:ring-[#5549f1]/15"
                     value={email}
                     onChange={handleEmailChange}
                   />
@@ -293,7 +293,7 @@ export function RegisterPage() {
                   htmlFor="register-password"
                   className="mb-1.5 block text-xs font-semibold text-[#14213d]"
                 >
-                  Password
+                  Пароль
                 </label>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -301,7 +301,7 @@ export function RegisterPage() {
                     id="register-password"
                     type={showPassword ? "text" : "password"}
                     placeholder="••••••••"
-                    className="h-12 w-full rounded-xl border border-transparent bg-[#f4f7fb] pl-11 pr-11 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    className="h-12 w-full rounded-xl border border-transparent bg-[#f4f7fb] pl-11 pr-11 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#5549f1] focus:ring-4 focus:ring-[#5549f1]/15"
                     value={password}
                     onChange={handlePasswordChange}
                   />
@@ -309,7 +309,7 @@ export function RegisterPage() {
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-600"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Приховати пароль" : "Показати пароль"}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -319,7 +319,7 @@ export function RegisterPage() {
                   </button>
                 </div>
                 <p className="mt-2 text-xs text-slate-400">
-                  Minimum 6 characters.
+                  Мінімум 6 символів.
                 </p>
                 {passwordError ? (
                   <p className="mt-2 text-xs text-rose-600">{passwordError}</p>
@@ -337,10 +337,10 @@ export function RegisterPage() {
               <div className="pt-1">
                 <button
                   type="submit"
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-[#13daec] px-6 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(19,218,236,0.28)] transition hover:bg-[#10c6d7] disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-[#5549f1] px-6 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(85,73,241,0.28)] transition hover:bg-[#473ed4] disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Creating account..." : "Create Account"}
+                  {isSubmitting ? "Створення акаунта..." : "Створити акаунт"}
                 </button>
               </div>
             </form>

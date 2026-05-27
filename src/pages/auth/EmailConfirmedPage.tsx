@@ -15,18 +15,17 @@ export function EmailConfirmedPage() {
             <CheckCircle2 className="h-8 w-8" />
           </div>
           <h1 className="mt-6 text-[1.9rem] font-extrabold tracking-tight text-[#14213d] md:text-[2.1rem]">
-            Thank you!
+            Дякуємо!
           </h1>
           <p className="mt-3 text-base leading-7 text-slate-600">
-            Your email has been successfully confirmed. Please click the login
-            button.
+            Ваш email успішно підтверджено. Натисніть кнопку входу.
           </p>
           <div className="mt-8 flex justify-center">
             <Link
               to="/login"
-              className="inline-flex h-12 items-center justify-center rounded-xl bg-[#13daec] px-8 text-base font-extrabold text-[#0f172a] shadow-[0_12px_24px_rgba(19,218,236,0.28)] transition hover:bg-[#10c6d7]"
+              className="inline-flex h-12 items-center justify-center rounded-xl bg-[#5549f1] px-8 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(85,73,241,0.28)] transition hover:bg-[#473ed4]"
             >
-              Log In
+              Увійти
             </Link>
           </div>
         </div>

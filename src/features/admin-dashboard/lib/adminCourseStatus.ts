@@ -1,6 +1,6 @@
 import type { AdminDashboardCourseSummary } from "../types";
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("uk", {
   numeric: "auto",
 });
 
@@ -82,7 +82,7 @@ export function formatAdminCourseRelativeTime(updatedAt: string) {
   const relativeTimeParts = getRelativeTimeParts(updatedAt);
 
   if (!relativeTimeParts) {
-    return "recently";
+    return "нещодавно";
   }
 
   return relativeTimeFormatter.format(relativeTimeParts.value, relativeTimeParts.unit);
@@ -90,10 +90,10 @@ export function formatAdminCourseRelativeTime(updatedAt: string) {
 
 export function getAdminCourseStatusLabel(course: AdminDashboardCourseSummary) {
   if (isArchivedAdminCourse(course)) {
-    return "Archived";
+    return "Архів";
   }
 
-  return isPublishedAdminCourse(course) ? "Published" : "Draft";
+  return isPublishedAdminCourse(course) ? "Опубліковано" : "Чернетка";
 }
 
 export function getAdminCourseStatusCardClassName(course: AdminDashboardCourseSummary) {

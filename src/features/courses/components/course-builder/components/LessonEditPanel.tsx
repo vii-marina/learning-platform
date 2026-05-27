@@ -34,7 +34,7 @@ export function LessonEditPanel({
         onChange={(event) => onContentTypeChange(event.target.value)}
       />
       <div className="flex gap-2">
-        <Button onClick={onSave}>Save</Button>
+        <Button onClick={onSave}>Зберегти</Button>
         <Button variant="secondary" onClick={onCancel}>
           Cancel
         </Button>

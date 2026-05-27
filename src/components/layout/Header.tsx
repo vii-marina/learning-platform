@@ -17,10 +17,10 @@ export function Header({ showAuthLinks = false, alignLeft = false }: HeaderProps
         {showAuthLinks ? (
           <nav className="flex gap-4 text-sm">
             <a href="/login" className="text-slate-600">
-              Login
+              Увійти
             </a>
             <a href="/register" className="text-slate-600">
-              Create Account
+              Створити акаунт
             </a>
           </nav>
         ) : null}

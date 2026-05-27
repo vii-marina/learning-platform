@@ -528,7 +528,7 @@ export function CourseStructureSidebar({
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-[#14213d]">
-                      {`Module ${module.order}: ${module.title}`}
+                      {`Модуль ${module.order}: ${module.title}`}
                     </p>
                   </div>
                   {showTestSourcePreview ? (
@@ -943,7 +943,7 @@ export function CourseStructureSidebar({
                               isCleanAccent ? "bg-transparent" : "bg-slate-50"
                             }`}
                           >
-                            You can always add lessons, tests, or exercises to this module later.
+                            Ви завжди можете додати уроки, тести чи вправи до цього модуля пізніше.
                           </div>
                         ) : null}
                       </>
@@ -999,7 +999,7 @@ export function CourseStructureSidebar({
                       ? previewTestTitle
                       : previewLesson
                       ? `${activeModule.order}.${previewLesson.order} ${previewLesson.title}`
-                      : `Module ${activeModule.order}: ${activeModule.title}`}
+                      : `Модуль ${activeModule.order}: ${activeModule.title}`}
                   </h6>
                 </div>
               </div>
@@ -1090,7 +1090,7 @@ export function CourseStructureSidebar({
 
                                 {question.hint?.trim() ? (
                                   <div className="mt-4 rounded-xl border border-[#ede9fe] bg-white px-4 py-3 text-sm leading-6 text-slate-600">
-                                    <span className="font-semibold text-slate-700">Hint:</span>{" "}
+                                    <span className="font-semibold text-slate-700">Підказка:</span>{" "}
                                     {question.hint.trim()}
                                   </div>
                                 ) : null}
@@ -1155,7 +1155,7 @@ export function CourseStructureSidebar({
       {variant === "modal" && isResizable ? (
         <button
           type="button"
-          aria-label="Resize course structure sidebar"
+          aria-label="Змінити розмір сайдбару структури курсу"
           onPointerDown={handleResizePointerDown}
           className={`absolute inset-y-0 right-0 z-20 w-[1px] cursor-col-resize border-r transition ${accentClasses.resizeRing}`}
         />

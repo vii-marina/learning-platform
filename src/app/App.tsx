@@ -15,6 +15,7 @@ import {
   LandingPage,
   LoginPage,
   RegisterPage,
+  StudentCoursePage,
   StudentDashboardPage,
   TeacherDashboardPage,
 } from "../pages";
@@ -40,6 +41,7 @@ function App() {
         </Route>
         <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
         <Route path="/student/dashboard" element={<StudentDashboardPage />} />
+        <Route path="/student/courses/:courseId" element={<StudentCoursePage />} />
         <Route path="/course-builder" element={<CourseBuilderWorkspacePage />} />
         <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
       </Routes>

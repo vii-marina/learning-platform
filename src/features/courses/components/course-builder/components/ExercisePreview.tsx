@@ -60,7 +60,7 @@ export function ExercisePreview({
 
   const sectionSpacing = compact ? "space-y-3" : "space-y-4";
   const previewBodyMinHeight = compact ? "min-h-[12rem]" : "min-h-[16rem]";
-  const previewTitle = content.question.trim() || "Type the task for the student...";
+  const previewTitle = content.question.trim() || "Введіть завдання для студента...";
   const answerKeyClassName = compact
     ? "rounded-2xl border border-sky-100 bg-white p-4 shadow-[0_8px_24px_rgba(15,23,42,0.06)]"
     : "rounded-[1.5rem] border border-sky-100 bg-white p-5 shadow-[0_10px_28px_rgba(15,23,42,0.08)]";
@@ -197,7 +197,7 @@ export function ExercisePreview({
                       dragDropResult === "correct" ? "text-emerald-300" : "text-rose-300"
                     }`}
                   >
-                    {dragDropResult === "correct" ? "Correct answer." : "Incorrect answer."}
+                    {dragDropResult === "correct" ? "Правильна відповідь." : "Неправильна відповідь."}
                   </span>
                 ) : null}
               </div>
@@ -261,11 +261,11 @@ export function ExercisePreview({
                       value={writeCodeValue}
                       onChange={(event) => setWriteCodeValue(event.target.value)}
                       className="w-full bg-transparent text-sm font-medium outline-none"
-                      placeholder={`Answer ${++slotIndex}`}
+                      placeholder={`Відповідь ${++slotIndex}`}
                     />
                   ) : (
                     <span className="text-sm font-medium text-slate-400">
-                      {`Answer ${++slotIndex}`}
+                      {`Відповідь ${++slotIndex}`}
                     </span>
                   )}
                 </span>

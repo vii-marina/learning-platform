@@ -34,7 +34,7 @@ export function CourseBuilderLeaveWarningModal({
               </div>
               <div>
                 <h2 className="text-2xl font-black tracking-tight text-[#14213d]">
-                  Unsaved changes
+                  Незбережені зміни
                 </h2>
               </div>
             </div>
@@ -44,15 +44,14 @@ export function CourseBuilderLeaveWarningModal({
               onClick={onClose}
               disabled={isSavingDraft}
               className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-60"
-              aria-label="Close leave warning"
+              aria-label="Закрити попередження про вихід"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            You have unsaved course changes. Save your draft before leaving so you do not
-            lose your progress.
+            У вас є незбережені зміни у вашій чернетці курсу. Ви можете зберегти їх, щоб повернутися до них пізніше, або покинути без збереження, втративши ці зміни.
           </p>
 
           {errorMessage ? (
@@ -68,7 +67,7 @@ export function CourseBuilderLeaveWarningModal({
               disabled={isSavingDraft}
               className="inline-flex h-11 items-center justify-center rounded-[1rem] border border-rose-200 bg-white px-5 text-sm font-semibold text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Leave without saving
+              Покинути без збереження
             </button>
             <button
               type="button"
@@ -77,7 +76,7 @@ export function CourseBuilderLeaveWarningModal({
               className="inline-flex h-11 items-center justify-center gap-2 rounded-[1rem] border border-cyan-200 bg-[#13daec] px-5 text-sm font-semibold text-[#0f172a] transition hover:bg-[#10c6d7] disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Save className="h-4 w-4" />
-              <span>{isSavingDraft ? "Saving draft..." : "Save draft"}</span>
+              <span>{isSavingDraft ? "Збереження чернетки..." : "Зберегти чернетку"}</span>
             </button>
           </div>
         </div>

@@ -21,17 +21,17 @@ export const WRITE_CODE_SLOT_FRAGMENT_PATTERN = /^(___|{{blank_\d+}}|{{answer}})
 export const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
 export const AUTHOR_BLANK_TOKEN = "___";
 export const DEFAULT_EXERCISE_TITLES: Record<ExerciseType, string> = {
-  drag_drop_code: "Fill Missing Code",
-  write_code: "Write Code",
+  drag_drop_code: "Заповнити пропуски в коді",
+  write_code: "Написати код",
 };
 export const EXERCISE_COUNT_MIN = 1;
 export const AI_DIFFICULTY_OPTIONS: Array<{
   value: ExerciseDifficulty;
   label: string;
 }> = [
-  { value: "easy", label: "Easy" },
-  { value: "medium", label: "Medium" },
-  { value: "hard", label: "Hard" },
+  { value: "easy", label: "Легка" },
+  { value: "medium", label: "Середня" },
+  { value: "hard", label: "Складна" },
 ];
 
 const DIFFICULTY_COLOR_STYLES: Record<
@@ -508,37 +508,37 @@ export function hasMeaningfulExerciseDraft(draft: ExerciseEditorDraft) {
 
 export function getExerciseValidationMessage(draft: ExerciseEditorDraft) {
   if (!draft.content.question.trim()) {
-    return "Enter the task for the student.";
+    return "Введіть завдання для студента.";
   }
 
   if (draft.type === "drag_drop_code") {
     if (!draft.content.code_template.trim()) {
-      return "Add the code for the exercise.";
+      return "Додайте код для вправи.";
     }
 
     const blankCount = countBlankPlaceholders(draft.content.code_template);
 
     if (blankCount === 0) {
-      return "Add at least one blank to the code.";
+      return "Додайте в код хоча б один пропуск.";
     }
 
     if ((draft.content.blanks ?? []).length !== blankCount) {
-      return "Each blank in the code needs its own options block.";
+      return "Кожному пропуску в коді потрібен власний блок варіантів.";
     }
 
     if ((draft.content.blanks ?? []).some((blank) => !blank.correct.trim())) {
-      return "Each blank needs a correct option.";
+      return "Кожен пропуск має мати правильний варіант.";
     }
 
     return "";
   }
 
   if (!draft.content.initial_code.trim()) {
-    return "Add the initial code.";
+    return "Додайте початковий код.";
   }
 
   if (!draft.content.expected_answer.trim()) {
-    return "Add the expected answer.";
+    return "Додайте очікувану відповідь.";
   }
 
   return "";

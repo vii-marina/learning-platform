@@ -49,11 +49,11 @@ function readFileAsDataUrl(file: File) {
         return;
       }
 
-      reject(new Error("Unable to read the selected image."));
+      reject(new Error("Не вдалося прочитати вибране зображення."));
     };
 
     reader.onerror = () => {
-      reject(new Error("Unable to read the selected image."));
+      reject(new Error("Не вдалося прочитати вибране зображення."));
     };
 
     reader.readAsDataURL(file);
@@ -67,7 +67,7 @@ async function loadImageFromFile(file: File): Promise<ImageState> {
 
   await new Promise<void>((resolve, reject) => {
     image.onload = () => resolve();
-    image.onerror = () => reject(new Error("The selected image could not be opened."));
+    image.onerror = () => reject(new Error("Не вдалося відкрити вибране зображення."));
     image.src = dataUrl;
   });
 
@@ -173,7 +173,7 @@ export function CourseThumbnailCropModal({
         setPreviewError(
           error instanceof Error && error.message.trim()
             ? error.message
-            : "The selected image could not be loaded."
+            : "Не вдалося завантажити вибране зображення."
         );
       });
 
@@ -342,7 +342,7 @@ export function CourseThumbnailCropModal({
             type="button"
             onClick={onClose}
             disabled={isBusy}
-            aria-label="Close thumbnail crop modal"
+            aria-label="Закрити модальне вікно обрізання обкладинки"
             className="absolute right-5 top-5 rounded-2xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X className="h-4 w-4" />
@@ -373,7 +373,7 @@ export function CourseThumbnailCropModal({
                 <div className="absolute inset-0 flex items-center justify-center bg-white/65">
                   <div className="space-y-2 text-center">
                     <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-200 border-t-[#13daec]" />
-                    <p className="text-sm font-medium text-slate-600">Loading image preview...</p>
+                    <p className="text-sm font-medium text-slate-600">Завантаження перегляду зображення...</p>
                   </div>
                 </div>
               ) : null}
@@ -385,7 +385,7 @@ export function CourseThumbnailCropModal({
                       Thumbnail preview unavailable
                     </p>
                     <p className="text-sm leading-6 text-slate-500">
-                      {previewError || "The selected image could not be loaded."}
+                      {previewError || "Не вдалося завантажити вибране зображення."}
                     </p>
                   </div>
                 </div>
@@ -406,7 +406,7 @@ export function CourseThumbnailCropModal({
 
           <div className="flex h-full flex-col rounded-[1.5rem] border border-slate-200 bg-slate-50/80 p-5">
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-950">Zoom</p>
+              <p className="text-sm font-semibold text-slate-950">Масштаб</p>
               <input
                 type="range"
                 min="1"
@@ -421,10 +421,10 @@ export function CourseThumbnailCropModal({
               />
               <p className="text-xs leading-5 text-slate-500">
                 {isReady
-                  ? `Current zoom: ${currentZoomLabel}`
+                  ? `Поточний масштаб: ${currentZoomLabel}`
                   : previewStatus === "error"
-                    ? "Choose a JPG, PNG, WebP, GIF, or SVG image."
-                    : "Waiting for image preview..."}
+                    ? "Оберіть зображення JPG, PNG, WebP, GIF або SVG."
+                    : "Очікування перегляду зображення..."}
               </p>
             </div>
 
@@ -439,7 +439,7 @@ export function CourseThumbnailCropModal({
                 }}
                 className="w-full rounded-2xl shadow-[0_12px_28px_rgba(19,218,236,0.22)]"
               >
-                {isBusy ? "Saving thumbnail..." : "Done"}
+                {isBusy ? "Збереження обкладинки..." : "Готово"}
               </Button>
               <Button
                 type="button"

@@ -127,7 +127,7 @@ export function AdminTeacherDetailsPage() {
           className="inline-flex items-center gap-2 text-sm font-semibold text-[#14213d] transition hover:text-[#08bfd4]"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Teachers</span>
+          <span>Повернутись назад</span>
         </Link>
       </div>
 

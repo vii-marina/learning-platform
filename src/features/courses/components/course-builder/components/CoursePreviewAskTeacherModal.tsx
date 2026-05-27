@@ -68,7 +68,7 @@ export function CoursePreviewAskTeacherModal({
               variant="secondary"
               onClick={onClose}
               className="w-15 px-0"
-              aria-label="Close ask teacher modal"
+              aria-label="Закрити модальне вікно запитання викладачу"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -85,7 +85,7 @@ export function CoursePreviewAskTeacherModal({
             <textarea
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
-              placeholder="Describe where you are stuck or what feels unclear."
+              placeholder="Опишіть, де виникла складність або що незрозуміло."
               className="min-h-[8rem] w-full rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-700 outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/10"
             />
 

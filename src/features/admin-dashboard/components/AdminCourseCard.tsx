@@ -6,6 +6,7 @@ import {
   LoaderCircle,
   Trash2,
   Upload,
+  Users,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "../../../components/ui/button";
@@ -51,7 +52,7 @@ function ThumbnailPlaceholder({
           <Icon className="h-6 w-6" />
         </div>
         <p className="text-sm font-medium text-white/80">
-          {mediaKind === "video" ? "Video thumbnail" : "Course preview"}
+          {mediaKind === "video" ? "Відеообкладинка" : "Перегляд курсу"}
         </p>
       </div>
     </div>
@@ -129,9 +130,27 @@ export function AdminCourseCard({
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-            <span>{course.moduleCount} modules</span>
+            <span>{course.moduleCount} модулів</span>
             <span className="h-1 w-1 rounded-full bg-slate-300" />
-            <span>{course.lessonCount} lessons</span>
+            <span>{course.lessonCount} уроків</span>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <Users className="h-4 w-4 text-[#08bfd4]" />
+                <span>Студенти</span>
+              </div>
+              <p className="mt-1 text-lg font-black text-[#14213d]">
+                {course.enrolledStudentCount}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+              <p className="text-xs font-semibold text-slate-500">Завершили</p>
+              <p className="mt-1 text-lg font-black text-[#14213d]">
+                {course.completedStudentCount}
+              </p>
+            </div>
           </div>
         </div>
       </Link>
@@ -150,7 +169,7 @@ export function AdminCourseCard({
           ) : (
             <Upload className="h-4 w-4" />
           )}
-          <span>{isPublished ? "Unpublish" : "Publish"}</span>
+          <span>{isPublished ? "Зняти з публікації" : "Опублікувати"}</span>
         </Button>
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -166,7 +185,7 @@ export function AdminCourseCard({
             ) : (
               <Archive className="h-4 w-4" />
             )}
-            <span>{isArchived ? "Archived" : "Archive"}</span>
+            <span>{isArchived ? "В архіві" : "Архівувати"}</span>
           </Button>
 
           <Button
@@ -180,7 +199,7 @@ export function AdminCourseCard({
             ) : (
               <Trash2 className="h-4 w-4" />
             )}
-            <span>Delete</span>
+            <span>Видалити</span>
           </Button>
         </div>
       </div>

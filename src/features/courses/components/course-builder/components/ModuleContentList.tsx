@@ -40,9 +40,9 @@ type ModuleContentListProps = {
 };
 
 const questionTypeLabels: Record<TestQuestionType, string> = {
-  true_false: "True/False",
-  single_choice: "Multiple Choice (Single)",
-  multiple_choice: "Multiple Choice (Multiple)",
+  true_false: "Правда/Неправда",
+  single_choice: "Один варіант",
+  multiple_choice: "Кілька варіантів",
 };
 
 function buildOrderedModuleContentItems(
@@ -98,7 +98,7 @@ function buildOrderedModuleContentItems(
 function getNestedTestTitle(test: CourseTest, lessons: Lesson[], moduleOrder: number) {
   const linkedLesson = lessons.find((lesson) => lesson.id === test.afterLessonId);
   if (linkedLesson) {
-    const linkedLessonTitle = linkedLesson.title.trim() || `Lesson ${moduleOrder}.${linkedLesson.order}`;
+    const linkedLessonTitle = linkedLesson.title.trim() || `Урок ${moduleOrder}.${linkedLesson.order}`;
     return `${linkedLessonTitle}`;
   }
 
@@ -134,7 +134,7 @@ export function ModuleContentList({
   if (orderedItems.length === 0) {
     return (
       <div className="rounded-[1.25rem] bg-[#f8fafc] px-5 py-4 text-base font-medium leading-7 text-slate-500">
-        You can always add lessons, tests, or exercises to this module later.
+        Ви завжди можете додати уроки, тести чи вправи до цього модуля пізніше.
       </div>
     );
   }
@@ -213,7 +213,7 @@ export function ModuleContentList({
                         dangerouslySetInnerHTML={{ __html: item.lesson.content ?? "" }}
                       />
                     ) : (
-                      <p className="text-sm leading-6 text-slate-600">No lesson content yet.</p>
+                      <p className="text-sm leading-6 text-slate-600">Контент уроку поки відсутній.</p>
                     )}
 
                     {embedUrl ? <div className="clear-both" /> : null}

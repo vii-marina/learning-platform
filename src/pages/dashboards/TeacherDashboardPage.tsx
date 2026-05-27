@@ -30,6 +30,7 @@ import { TeacherDashboardCourses } from "../../features/teacher-dashboard/compon
 import { TeacherDashboardOverview } from "../../features/teacher-dashboard/components/TeacherDashboardOverview";
 import { TeacherDashboardProfile } from "../../features/teacher-dashboard/components/TeacherDashboardProfile";
 import { TeacherDashboardSidebar } from "../../features/teacher-dashboard/components/TeacherDashboardSidebar";
+import { TeacherDashboardStudents } from "../../features/teacher-dashboard/components/TeacherDashboardStudents";
 import type { TeacherDashboardSectionId } from "../../features/teacher-dashboard/types";
 
 type PendingBuilderExitAction =
@@ -46,22 +47,7 @@ type PendingBuilderExitAction =
       type: "logout";
     };
 
-function TeacherDashboardPlaceholder({
-  title,
-}: {
-  title: string;
-}) {
-  return (
-    <Card className="rounded-[2rem] bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.06)] ring-1 ring-slate-200/70 md:p-10">
-      <div className="space-y-3">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-950">{title}</h1>
-        <p className="max-w-2xl text-sm leading-6 text-slate-500">
-          This section is still minimal. The course workflow is the primary dashboard surface.
-        </p>
-      </div>
-    </Card>
-  );
-}
+
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
@@ -123,7 +109,7 @@ export function TeacherDashboardPage() {
 
         setPageMessage({
           type: "error",
-          text: getErrorMessage(error, "Unable to load your dashboard."),
+          text: getErrorMessage(error, "Не вдалося завантажити дашборд."),
         });
       } finally {
         if (isMounted) {
@@ -162,11 +148,11 @@ export function TeacherDashboardPage() {
         avatarPath,
       });
       setCurrentUser(updatedUser);
-      showSuccessToast("Profile saved.");
+      showSuccessToast("Профіль збережено.");
     } catch (error) {
       setProfileMessage({
         type: "error",
-        text: getErrorMessage(error, "Unable to save your information."),
+        text: getErrorMessage(error, "Не вдалося зберегти ваші дані."),
         details: error instanceof BackendApiError ? error.details : undefined,
       });
     } finally {
@@ -262,8 +248,8 @@ export function TeacherDashboardPage() {
     if (!didSaveDraft) {
       setLeaveBuilderError(
         builderHandle.canSaveDraft
-          ? "Draft could not be saved. Review the course form and try again."
-          : "Complete the required course info before saving a draft."
+          ? "Не вдалося зберегти чернетку. Перевірте форму курсу й спробуйте ще раз."
+          : "Заповніть обовʼязкову інформацію про курс перед збереженням чернетки."
       );
       return;
     }
@@ -332,12 +318,8 @@ export function TeacherDashboardPage() {
           />
         );
       case "students":
-        return <TeacherDashboardPlaceholder title="My students" />;
+        return <TeacherDashboardStudents teacherId={currentUser?.id ?? null} />;
       
-      case "messages":
-        return <TeacherDashboardPlaceholder title="Messages" />;
-      case "settings":
-        return <TeacherDashboardPlaceholder title="Settings" />;
       default:
         return (
           <TeacherDashboardOverview

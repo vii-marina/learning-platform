@@ -42,8 +42,8 @@ export function CourseBuilderHeader({
             className="shrink-0"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">My Courses</span>
-            <span className="sm:hidden">Courses</span>
+            <span className="hidden sm:inline">Мої курси</span>
+            <span className="sm:hidden">Курси</span>
           </Button>
 
           
@@ -111,7 +111,7 @@ export function CourseBuilderHeader({
         </nav>
 
         <div className="flex items-center gap-3">
-          <div className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400 lg:block xl:hidden">
+          <div className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-400 lg:block xl:hidden">
             {steps.find((step) => step.id === activeStep)?.label}
           </div>
           <Button

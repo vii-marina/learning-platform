@@ -15,20 +15,20 @@ type ModuleExercisesSectionProps = {
 
 function getPlacementLabel(lessons: Lesson[], exercise: CourseExercise) {
   if (!exercise.afterLessonId) {
-    return "Module level";
+    return "На рівні модуля";
   }
 
   const linkedLesson = lessons.find((lesson) => lesson.id === exercise.afterLessonId);
 
   if (!linkedLesson) {
-    return "After linked lesson";
+    return "Після повʼязаного уроку";
   }
 
-  return `After ${linkedLesson.order}. ${linkedLesson.title}`;
+  return `Після ${linkedLesson.order}. ${linkedLesson.title}`;
 }
 
 function getExerciseTypeLabel(exercise: CourseExercise) {
-  return exercise.type === "drag_drop_code" ? "Fill Missing Code" : "Write Code";
+  return exercise.type === "drag_drop_code" ? "Заповнити пропуски в коді" : "Написати код";
 }
 
 export function ModuleExercisesSection({

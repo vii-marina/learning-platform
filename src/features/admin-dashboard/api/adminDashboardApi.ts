@@ -262,6 +262,30 @@ export async function saveAdminStudentProfile(
   return updatedStudent;
 }
 
+export async function clearAdminStudentCourseEnrollment(
+  studentId: string,
+  courseId: string
+) {
+  const response = await authorizedBackendRequest<AdminStudentResponse>(
+    `/admin/dashboard/students/${studentId}/courses/${courseId}`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  deleteDashboardKeys([
+    "overview",
+    "students:list",
+    "courses:list",
+    studentDetailKey(studentId),
+  ]);
+  deleteDashboardKeysByPrefix(["course:"]);
+
+  const updatedStudent = response.student;
+  primeAdminStudentDetailCache(updatedStudent);
+  return updatedStudent;
+}
+
 export async function deleteAdminTeacher(teacherId: string) {
   await authorizedBackendRequest<DeleteAdminEntityResponse>(
     `/admin/dashboard/teachers/${teacherId}`,

@@ -31,7 +31,7 @@ export function DashboardPage() {
           return;
         }
 
-        setMessage(getErrorMessage(error, "Unable to open your dashboard."));
+        setMessage(getErrorMessage(error, "Не вдалося відкрити вашу інформаційну панель."));
       }
     }
 
@@ -44,8 +44,8 @@ export function DashboardPage() {
 
   return (
     <DashboardShell
-      title={message ? "Dashboard unavailable" : "Redirecting"}
-      description={message || "Opening the correct dashboard for your role."}
+      title={message ? "Інформаційна панель недоступна" : "Перенаправлення"}
+      description={message || "Відкриття правильної інформаційної панелі для вашої ролі."}
     />
   );
 }

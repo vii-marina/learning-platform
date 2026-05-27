@@ -31,7 +31,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
         <div className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3 py-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <BookOpen className="h-4 w-4 text-[#08bfd4]" />
-            <span>Courses</span>
+            <span>Курси</span>
           </div>
           <p className="mt-2 text-xl font-black tracking-tight text-[#14213d]">
             {teacher.courseCount}
@@ -40,7 +40,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
         <div className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3 py-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-            <span>Published</span>
+            <span>Опубл.</span>
           </div>
           <p className="mt-2 text-xl font-black tracking-tight text-[#14213d]">
             {teacher.publishedCourseCount}
@@ -49,7 +49,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
         <div className="rounded-[1.1rem] border border-slate-200 bg-slate-50 px-3 py-3">
           <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
             <FileText className="h-4 w-4 text-amber-500" />
-            <span>Drafts</span>
+            <span>Чернетки</span>
           </div>
           <p className="mt-2 text-xl font-black tracking-tight text-[#14213d]">
             {teacher.draftCourseCount}
@@ -72,7 +72,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
           className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[1rem] border border-slate-200 bg-white text-sm font-semibold text-[#14213d] transition hover:border-[#13daec] hover:bg-[#13daec]/6"
         >
           <Pencil className="h-4 w-4" />
-          <span>Edit</span>
+          <span>Редагувати</span>
         </Link>
         <button
           type="button"
@@ -80,7 +80,7 @@ export function AdminTeacherCard({ teacher, onDeleteClick }: AdminTeacherCardPro
           className="flex h-11 flex-1 items-center justify-center gap-2 rounded-[1rem] border border-rose-200 bg-white text-sm font-semibold text-rose-600 transition hover:bg-rose-50"
         >
           <Trash2 className="h-4 w-4" />
-          <span>Delete</span>
+          <span>Видалити</span>
         </button>
       </div>
     </article>

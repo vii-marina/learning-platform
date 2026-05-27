@@ -19,14 +19,14 @@ type SidebarItem = {
 };
 
 const primaryItems: SidebarItem[] = [
-  { label: "Dashboard", icon: LayoutGrid, to: "/admin/dashboard", end: true },
-  { label: "Teachers", icon: GraduationCap, to: "/admin/dashboard/teachers" },
-  { label: "Students", icon: Users, to: "/admin/dashboard/students" },
-  { label: "Courses", icon: BookOpen, to: "/admin/dashboard/courses" },
+  { label: "Дашборд", icon: LayoutGrid, to: "/admin/dashboard", end: true },
+  { label: "Викладачі", icon: GraduationCap, to: "/admin/dashboard/teachers" },
+  { label: "Студенти", icon: Users, to: "/admin/dashboard/students" },
+  { label: "Курси", icon: BookOpen, to: "/admin/dashboard/courses" },
 ];
 
 const secondaryItems: SidebarItem[] = [
-  { label: "Platform settings", icon: Settings, to: "/admin/dashboard/settings" },
+  { label: "Налаштування платформи", icon: Settings, to: "/admin/dashboard/settings" },
 ];
 
 function SidebarLink({ item }: { item: SidebarItem }) {
@@ -59,11 +59,11 @@ export function AdminDashboardSidebar() {
       <div className="flex h-full flex-col">
         <div className="flex items-center gap-4">
           <div>
-            <p className="text-[1.45rem] font-black tracking-tight text-[#14213d]">
-              Learning Platform
+            <p className="text-ml font-black tracking-tight text-[#14213d]">
+              Навчальна платформа
             </p>
-            <p className="text-ml font-semibold  text-slate-9500">
-              Admin Panel
+            <p className="text-ml font-semibold  text-slate-500">
+              Адмін-панель
             </p>
           </div>
         </div>
@@ -81,7 +81,7 @@ export function AdminDashboardSidebar() {
               className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#13daec] px-4 text-sm font-extrabold text-[#14213d] shadow-[0_16px_32px_rgba(19,218,236,0.24)] transition hover:bg-[#10c6d7]"
             >
               <Plus className="h-4 w-4" />
-              <span>New Course</span>
+              <span>Новий курс</span>
             </Link>
 
             {secondaryItems.map((item) => (
@@ -96,7 +96,7 @@ export function AdminDashboardSidebar() {
               content={
                 <>
                   <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
+                  <span>Вийти</span>
                 </>
               }
             />

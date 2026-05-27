@@ -38,6 +38,8 @@ export type AdminDashboardCourseSummary = Course & {
   teacher: CurrentUser | null;
   moduleCount: number;
   lessonCount: number;
+  enrolledStudentCount: number;
+  completedStudentCount: number;
 };
 
 export type AdminDashboardCourse = AdminDashboardCourseSummary & {
@@ -84,6 +86,21 @@ export type AdminDashboardStudent = CurrentUser & {
   age: number | null;
   enrolledCourses: string[];
   completedCourses: string[];
+  enrolledCourseDetails: AdminStudentCourseEnrollment[];
+};
+
+export type AdminStudentCourseEnrollment = {
+  progressId: string;
+  courseId: string;
+  title: string;
+  status: Course["status"];
+  thumbnailPath: string | null;
+  isPublished: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  completedLessonsCount: number;
+  totalLessonsCount: number;
+  progressPercent: number;
 };
 
 export type AdminTeacherProfileInput = UpdateCurrentUserProfileInput;

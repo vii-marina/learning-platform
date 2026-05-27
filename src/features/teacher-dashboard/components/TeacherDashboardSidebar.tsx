@@ -2,8 +2,6 @@ import {
   BookOpen,
   LayoutGrid,
   LogOut,
-  MessageSquare,
-  Settings,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -19,11 +17,9 @@ type SidebarItem = {
 };
 
 const sidebarItems: SidebarItem[] = [
-  { id: "overview", label: "Overview", icon: LayoutGrid },
-  { id: "courses", label: "My Courses", icon: BookOpen },
-  { id: "students", label: "My Students", icon: Users },
-  { id: "messages", label: "Messages", icon: MessageSquare },
-  { id: "settings", label: "Settings", icon: Settings },
+  { id: "overview", label: "Огляд", icon: LayoutGrid },
+  { id: "courses", label: "Мої курси", icon: BookOpen },
+  { id: "students", label: "Мої студенти", icon: Users }
 ];
 
 type TeacherDashboardSidebarProps = {
@@ -38,11 +34,11 @@ type TeacherDashboardSidebarProps = {
 };
 
 function getProfileDisplayName(user: CurrentUser | null) {
-  return user?.fullName?.trim() || "Teacher profile";
+  return user?.fullName?.trim() || "Профіль викладача";
 }
 
 function getAvatarName(user: CurrentUser | null) {
-  return user?.fullName?.trim() || user?.email || "Teacher";
+  return user?.fullName?.trim() || user?.email || "Викладач";
 }
 
 function SidebarLabel({
@@ -132,7 +128,7 @@ export function TeacherDashboardSidebar({
           
           <div className={compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}>
             <p className="text-ml font-semibold  text-slate-950 ">
-              Teacher Workspace
+              Кабінет викладача
             </p>
           </div>
         </div>
@@ -155,7 +151,7 @@ export function TeacherDashboardSidebar({
         <div className="space-y-3 pt-6">
           <button
             type="button"
-            title={compactOnDesktop ? "My Profile" : undefined}
+            title={compactOnDesktop ? "Мій профіль" : undefined}
             onClick={onOpenProfile}
             aria-current={activeSection === "profile" ? "page" : undefined}
             className={`flex w-full items-center gap-3 rounded-[0.5rem] border bg-[#13daec]/10 px-3 py-3 text-left transition hover:bg-slate-100 ${
@@ -200,7 +196,7 @@ export function TeacherDashboardSidebar({
             >
               <LogOut className="h-4 w-4" />
               <SidebarLabel compactOnDesktop={compactOnDesktop}>
-                {isLoggingOut ? "Logging out..." : "Logout"}
+                {isLoggingOut ? "Вихід..." : "Вийти"}
               </SidebarLabel>
             </button>
             {logoutMessage ? (

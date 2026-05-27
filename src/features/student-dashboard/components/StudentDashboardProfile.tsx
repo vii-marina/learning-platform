@@ -220,7 +220,7 @@ function FieldLabel({
           required ? "text-[#0891a4]" : "text-slate-400"
         }`}
       >
-        {required ? "Required" : "Optional"}
+        {required ? "Обовʼязково" : "Необовʼязково"}
       </span>
     </div>
   );
@@ -370,12 +370,12 @@ export function StudentDashboardProfile({
 
   const missingRequiredFields = [
     ...(emailStatus === "valid" ? [] : ["Email"]),
-    ...(fullNameStatus === "valid" ? [] : ["Full name"]),
+    ...(fullNameStatus === "valid" ? [] : ["Повне імʼя"]),
   ];
 
   const invalidFields = [
     ...(emailStatus === "invalid" ? ["Email"] : []),
-    ...(birthDateStatus === "invalid" ? ["Birth date"] : []),
+    ...(birthDateStatus === "invalid" ? ["Дата народження"] : []),
     ...(linkedinStatus === "invalid" ? ["LinkedIn URL"] : []),
     ...(githubStatus === "invalid" ? ["GitHub URL"] : []),
   ];
@@ -422,10 +422,10 @@ export function StudentDashboardProfile({
       <div className="space-y-2">
         
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-          Profile Settings
+          Налаштування профілю
         </h1>
         <p className="text-sm text-slate-500">
-          Update your student profile, background, and public links.
+          Оновіть профіль студента, освіту та публічні посилання.
         </p>
       </div>
 
@@ -443,13 +443,13 @@ export function StudentDashboardProfile({
                 {formState.fullName.trim() || getStudentDisplayName(student)}
               </h2>
               <p className="text-sm font-medium text-[#0891a4]">
-                {formState.educationPlace.trim() || "Student profile"}
+                {formState.educationPlace.trim() || "Профіль студента"}
               </p>
             </div>
 
             <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#13daec]/30 bg-[#13daec]/10 px-4 text-sm font-medium text-[#0f172a] transition hover:border-[#13daec]/50 hover:bg-[#13daec]/14">
               <Camera className="h-4 w-4" />
-              <span>Upload Photo</span>
+              <span>Завантажити фото</span>
               <input
                 type="file"
                 accept="image/*"
@@ -463,7 +463,7 @@ export function StudentDashboardProfile({
                   }
 
                   if (!isImageFile(nextFile)) {
-                    setAvatarError("Please choose an image file.");
+                    setAvatarError("Оберіть файл зображення.");
                     event.target.value = "";
                     return;
                   }
@@ -476,7 +476,7 @@ export function StudentDashboardProfile({
             </label>
 
             <p className="text-xs text-slate-400">
-              JPG, GIF or PNG.
+              JPG, GIF або PNG.
             </p>
 
             {avatarFile ? (
@@ -497,7 +497,7 @@ export function StudentDashboardProfile({
               </div>
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-                  Personal Information
+                  Особиста інформація
                 </h2>
               </div>
             </div>
@@ -508,35 +508,35 @@ export function StudentDashboardProfile({
                 required
                 value={formState.email}
                 onChange={(value) => updateField("email", value)}
-                placeholder="Enter email address"
+                placeholder="Введіть email"
                 type="email"
                 status={emailStatus}
               />
 
               <TextField
-                label="Full name"
+                label="Повне імʼя"
                 required
                 value={formState.fullName}
                 onChange={(value) => updateField("fullName", value)}
-                placeholder="Enter full name"
+                placeholder="Введіть повне імʼя"
                 status={fullNameStatus}
               />
 
               <TextField
-                label="Education place"
+                label="Місце навчання"
                 required={false}
                 value={formState.educationPlace}
                 onChange={(value) => updateField("educationPlace", value)}
-                placeholder="University, school, or course"
+                placeholder="Університет, школа або курс"
                 status={educationPlaceStatus}
               />
 
               <TextField
-                label="Birth date"
+                label="Дата народження"
                 required={false}
                 value={formState.birthDate}
                 onChange={(value) => updateField("birthDate", value)}
-                placeholder="Select birth date"
+                placeholder="Оберіть дату народження"
                 type="date"
                 status={birthDateStatus}
               />
@@ -550,21 +550,21 @@ export function StudentDashboardProfile({
               </div>
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-                  Professional Information
+                  Додаткова інформація
                 </h2>
                 <p className="text-sm text-slate-500">
-                  Education context, biography, and social links.
+                  Навчальний контекст, біографія та соціальні посилання.
                 </p>
               </div>
             </div>
 
             <div className="mt-5 space-y-4">
               <TextAreaField
-                label="Biography"
+                label="Біографія"
                 required={false}
                 value={formState.bio}
                 onChange={(value) => updateField("bio", value)}
-                placeholder="Write a short introduction or add more details if needed."
+                placeholder="Напишіть коротке представлення або додайте потрібні деталі."
                 status={bioStatus}
               />
 
@@ -596,7 +596,7 @@ export function StudentDashboardProfile({
             <div className="min-h-10 flex-1">
               {avatarError ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("error")}`}>
-                  Please choose a valid image file before saving.
+                  Перед збереженням оберіть коректний файл зображення.
                 </div>
               ) : saveMessage?.type === "error" ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm ${getNoticeClassName("error")}`}>
@@ -613,11 +613,11 @@ export function StudentDashboardProfile({
                 </div>
               ) : hasValidationErrors ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("warning")}`}>
-                  Fix the invalid fields before saving: {joinLabels(invalidFields)}.
+                  Виправте некоректні поля перед збереженням: {joinLabels(invalidFields)}.
                 </div>
               ) : !hasRequiredFields ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("info")}`}>
-                  Complete the required fields before saving: {joinLabels(missingRequiredFields)}.
+                  Заповніть обовʼязкові поля перед збереженням: {joinLabels(missingRequiredFields)}.
                 </div>
               ) : null}
             </div>
@@ -630,7 +630,7 @@ export function StudentDashboardProfile({
                 disabled={isSaving || !hasChanges}
               >
                 <RotateCcw className="h-4 w-4" />
-                <span>Discard changes</span>
+                <span>Скасувати зміни</span>
               </Button>
 
               <Button
@@ -638,7 +638,7 @@ export function StudentDashboardProfile({
                 onClick={() => void onSave(normalizedInput, avatarFile)}
                 disabled={isSaving || !hasRequiredFields || hasValidationErrors || !hasChanges}
               >
-                {isSaving ? "Saving..." : "Save Profile"}
+                {isSaving ? "Збереження..." : "Зберегти профіль"}
               </Button>
             </div>
           </div>

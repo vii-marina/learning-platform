@@ -1,4 +1,4 @@
-import { BadgeCheck, Eye, TriangleAlert } from "lucide-react";
+import { BadgeCheck, TriangleAlert } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
 import type { CourseExercise, CourseTest } from "../types/courseBuilderUiTypes";
@@ -44,16 +44,7 @@ export function CourseBuilderReviewStep({
           {title}
         </h1>
 
-        <Button
-          type="button"
-          variant="secondary"
-          size="lg"
-          onClick={() => undefined}
-          className="md:self-start"
-        >
-          <Eye className="h-4 w-4" />
-          <span>View as Student</span>
-        </Button>
+        
       </div>
 
       <div className="mt-8">

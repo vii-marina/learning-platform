@@ -19,6 +19,35 @@ type StudentExtraProfileRow = {
 type CourseRow = {
   id: string;
   title: string | null;
+  status: "draft" | "published" | "archived";
+  thumbnail_path: string | null;
+  is_published: boolean;
+  deleted_at: string | null;
+};
+
+type CourseProgressRow = {
+  id: string;
+  user_id: string;
+  course_id: string;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type ModuleRow = {
+  id: string;
+  course_id: string;
+};
+
+type LessonRow = {
+  id: string;
+  module_id: string;
+};
+
+type LessonProgressRow = {
+  user_id: string;
+  lesson_id: string;
 };
 
 type BackendError = {
@@ -37,6 +66,21 @@ export type AdminDashboardStudent = NormalizedUser & {
   age: number | null;
   enrolledCourses: string[];
   completedCourses: string[];
+  enrolledCourseDetails: AdminStudentCourseEnrollment[];
+};
+
+export type AdminStudentCourseEnrollment = {
+  progressId: string;
+  courseId: string;
+  title: string;
+  status: "draft" | "published" | "archived";
+  thumbnailPath: string | null;
+  isPublished: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  completedLessonsCount: number;
+  totalLessonsCount: number;
+  progressPercent: number;
 };
 
 type AdminDashboardStudentProfileInput = {
@@ -290,10 +334,11 @@ function normalizeCourseList(values: unknown[], courseTitlesById: Map<string, st
 function buildStudentRecord(
   profile: StudentProfileRow,
   extraProfile: StudentExtraProfileRow | null,
-  courseTitlesById: Map<string, string>
+  courseTitlesById: Map<string, string>,
+  enrollmentDetails: AdminStudentCourseEnrollment[] = []
 ): AdminDashboardStudent {
   const records = [extraProfile, profile];
-  const enrolledCourses = normalizeCourseList(
+  const enrolledCoursesFromProfile = normalizeCourseList(
     pickArrayValue(records, [
       "enrolled_course_titles",
       "enrolledCourseTitles",
@@ -312,7 +357,7 @@ function buildStudentRecord(
     ]),
     courseTitlesById
   );
-  const completedCourses = normalizeCourseList(
+  const completedCoursesFromProfile = normalizeCourseList(
     pickArrayValue(records, [
       "completed_course_titles",
       "completedCourseTitles",
@@ -329,6 +374,16 @@ function buildStudentRecord(
     ]),
     courseTitlesById
   );
+  const enrolledCourses =
+    enrollmentDetails.length > 0
+      ? enrollmentDetails.map((course) => course.title)
+      : enrolledCoursesFromProfile;
+  const completedCourses =
+    enrollmentDetails.length > 0
+      ? enrollmentDetails
+          .filter((course) => course.finishedAt !== null)
+          .map((course) => course.title)
+      : completedCoursesFromProfile;
 
   return {
     id: profile.id,
@@ -362,6 +417,7 @@ function buildStudentRecord(
     age: pickStudentAge(records),
     enrolledCourses,
     completedCourses,
+    enrolledCourseDetails: enrollmentDetails,
   };
 }
 
@@ -432,7 +488,7 @@ async function getOptionalStudentProfile(studentId: string) {
 async function listCourseTitlesById() {
   const { data, error } = await supabaseAdmin
     .from("courses")
-    .select("id,title")
+    .select("id,title,status,thumbnail_path,is_published,deleted_at")
     .is("deleted_at", null);
 
   if (error) {
@@ -445,20 +501,259 @@ async function listCourseTitlesById() {
   );
 }
 
+function groupBy<TItem>(items: TItem[], getKey: (item: TItem) => string | null) {
+  const map = new Map<string, TItem[]>();
+
+  for (const item of items) {
+    const key = getKey(item);
+
+    if (!key) {
+      continue;
+    }
+
+    const bucket = map.get(key) ?? [];
+    bucket.push(item);
+    map.set(key, bucket);
+  }
+
+  return map;
+}
+
+function chunkValues<TValue>(values: TValue[], size = 50) {
+  const chunks: TValue[][] = [];
+
+  for (let index = 0; index < values.length; index += size) {
+    chunks.push(values.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+async function listCourseProgressByStudentIds(studentIds: string[]) {
+  if (studentIds.length === 0) {
+    return [] as CourseProgressRow[];
+  }
+
+  const rows: CourseProgressRow[] = [];
+
+  for (const chunk of chunkValues(studentIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("course_progress")
+      .select("*")
+      .in("user_id", chunk)
+      .order("updated_at", { ascending: false });
+
+    if (error) {
+      throw toServiceError(
+        500,
+        "COURSE_PROGRESS_LIST_FAILED",
+        "Unable to load student course progress",
+        error
+      );
+    }
+
+    rows.push(...((data ?? []) as CourseProgressRow[]));
+  }
+
+  return rows;
+}
+
+async function listCoursesByIds(courseIds: string[]) {
+  if (courseIds.length === 0) {
+    return new Map<string, CourseRow>();
+  }
+
+  const courses: CourseRow[] = [];
+
+  for (const chunk of chunkValues(courseIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("courses")
+      .select("id,title,status,thumbnail_path,is_published,deleted_at")
+      .in("id", chunk);
+
+    if (error) {
+      throw toServiceError(500, "COURSES_LIST_FAILED", "Unable to load courses", error);
+    }
+
+    courses.push(...((data ?? []) as CourseRow[]));
+  }
+
+  return new Map(courses.map((course) => [course.id, course]));
+}
+
+async function listModulesByCourseIds(courseIds: string[]) {
+  if (courseIds.length === 0) {
+    return [] as ModuleRow[];
+  }
+
+  const modules: ModuleRow[] = [];
+
+  for (const chunk of chunkValues(courseIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("modules")
+      .select("id,course_id")
+      .in("course_id", chunk);
+
+    if (error) {
+      throw toServiceError(500, "MODULES_LIST_FAILED", "Unable to load course modules", error);
+    }
+
+    modules.push(...((data ?? []) as ModuleRow[]));
+  }
+
+  return modules;
+}
+
+async function listLessonsByModuleIds(moduleIds: string[]) {
+  if (moduleIds.length === 0) {
+    return [] as LessonRow[];
+  }
+
+  const lessons: LessonRow[] = [];
+
+  for (const chunk of chunkValues(moduleIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("lessons")
+      .select("id,module_id")
+      .in("module_id", chunk);
+
+    if (error) {
+      throw toServiceError(500, "LESSONS_LIST_FAILED", "Unable to load course lessons", error);
+    }
+
+    lessons.push(...((data ?? []) as LessonRow[]));
+  }
+
+  return lessons;
+}
+
+async function listCompletedLessonProgress(studentIds: string[], lessonIds: string[]) {
+  if (studentIds.length === 0 || lessonIds.length === 0) {
+    return [] as LessonProgressRow[];
+  }
+
+  const rows: LessonProgressRow[] = [];
+
+  for (const studentChunk of chunkValues(studentIds, 25)) {
+    for (const lessonChunk of chunkValues(lessonIds, 50)) {
+      const { data, error } = await supabaseAdmin
+        .from("lesson_progress")
+        .select("user_id,lesson_id")
+        .in("user_id", studentChunk)
+        .in("lesson_id", lessonChunk)
+        .eq("is_completed", true);
+
+      if (error) {
+        throw toServiceError(
+          500,
+          "LESSON_PROGRESS_LIST_FAILED",
+          "Unable to load completed lesson progress",
+          error
+        );
+      }
+
+      rows.push(...((data ?? []) as LessonProgressRow[]));
+    }
+  }
+
+  return rows;
+}
+
+async function buildEnrollmentDetailsByStudentId(studentIds: string[]) {
+  const progressRows = await listCourseProgressByStudentIds(studentIds);
+  const courseIds = [...new Set(progressRows.map((row) => row.course_id))];
+  const coursesById = await listCoursesByIds(courseIds);
+  const modules = await listModulesByCourseIds(courseIds);
+  const lessons = await listLessonsByModuleIds(modules.map((module) => module.id));
+  const courseIdByModuleId = new Map(modules.map((module) => [module.id, module.course_id]));
+  const lessonCourseEntries = lessons
+    .map((lesson) => {
+      const courseId = courseIdByModuleId.get(lesson.module_id);
+      return courseId ? { lessonId: lesson.id, courseId } : null;
+    })
+    .filter((entry): entry is { lessonId: string; courseId: string } => entry !== null);
+  const totalLessonsByCourseId = lessonCourseEntries.reduce((counts, entry) => {
+    counts.set(entry.courseId, (counts.get(entry.courseId) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const courseIdByLessonId = new Map(
+    lessonCourseEntries.map((entry) => [entry.lessonId, entry.courseId])
+  );
+  const completedLessonRows = await listCompletedLessonProgress(
+    studentIds,
+    lessonCourseEntries.map((entry) => entry.lessonId)
+  );
+  const completedLessonsByStudentCourse = completedLessonRows.reduce((counts, row) => {
+    const courseId = courseIdByLessonId.get(row.lesson_id);
+
+    if (!courseId) {
+      return counts;
+    }
+
+    const key = `${row.user_id}:${courseId}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+  const progressByStudentId = groupBy(progressRows, (row) => row.user_id);
+
+  return new Map(
+    studentIds.map((studentId) => {
+      const enrollments = (progressByStudentId.get(studentId) ?? [])
+        .map((progress): AdminStudentCourseEnrollment | null => {
+          const course = coursesById.get(progress.course_id);
+
+          if (!course || course.deleted_at) {
+            return null;
+          }
+
+          const totalLessonsCount = totalLessonsByCourseId.get(course.id) ?? 0;
+          const completedLessonsCount =
+            completedLessonsByStudentCourse.get(`${studentId}:${course.id}`) ?? 0;
+          const progressPercent =
+            totalLessonsCount > 0
+              ? Math.round((completedLessonsCount / totalLessonsCount) * 100)
+              : progress.finished_at
+                ? 100
+                : 0;
+
+          return {
+            progressId: progress.id,
+            courseId: course.id,
+            title: course.title?.trim() || "Untitled course",
+            status: course.status,
+            thumbnailPath: course.thumbnail_path,
+            isPublished: course.is_published,
+            startedAt: progress.started_at,
+            finishedAt: progress.finished_at,
+            completedLessonsCount,
+            totalLessonsCount,
+            progressPercent,
+          };
+        })
+        .filter((enrollment): enrollment is AdminStudentCourseEnrollment => enrollment !== null);
+
+      return [studentId, enrollments];
+    })
+  );
+}
+
 export async function listAdminDashboardStudents(): Promise<AdminDashboardStudent[]> {
   const [students, courseTitlesById] = await Promise.all([
     listStudentProfiles(),
     listCourseTitlesById(),
   ]);
-  const studentProfilesById = await listOptionalStudentProfiles(
-    students.map((student) => student.id)
-  );
+  const studentIds = students.map((student) => student.id);
+  const [studentProfilesById, enrollmentDetailsByStudentId] = await Promise.all([
+    listOptionalStudentProfiles(studentIds),
+    buildEnrollmentDetailsByStudentId(studentIds),
+  ]);
 
   return students.map((student) =>
     buildStudentRecord(
       student,
       studentProfilesById.get(student.id) ?? null,
-      courseTitlesById
+      courseTitlesById,
+      enrollmentDetailsByStudentId.get(student.id) ?? []
     )
   );
 }
@@ -479,12 +774,18 @@ export async function getAdminDashboardStudent(studentId: string): Promise<Admin
     throw new AppError(404, "Student not found.", "STUDENT_NOT_FOUND");
   }
 
-  const [studentProfile, courseTitlesById] = await Promise.all([
+  const [studentProfile, courseTitlesById, enrollmentDetailsByStudentId] = await Promise.all([
     getOptionalStudentProfile(studentId),
     listCourseTitlesById(),
+    buildEnrollmentDetailsByStudentId([studentId]),
   ]);
 
-  return buildStudentRecord(data as StudentProfileRow, studentProfile, courseTitlesById);
+  return buildStudentRecord(
+    data as StudentProfileRow,
+    studentProfile,
+    courseTitlesById,
+    enrollmentDetailsByStudentId.get(studentId) ?? []
+  );
 }
 
 export async function saveAdminDashboardStudentProfile(
@@ -505,4 +806,51 @@ export async function saveAdminDashboardStudentProfile(
 export async function deleteAdminDashboardStudent(studentId: string): Promise<void> {
   await getAdminDashboardStudent(studentId);
   await deleteStudentAccount(studentId);
+}
+
+export async function clearAdminDashboardStudentCourse(
+  studentId: string,
+  courseId: string
+): Promise<AdminDashboardStudent> {
+  await getAdminDashboardStudent(studentId);
+
+  const modules = await listModulesByCourseIds([courseId]);
+  const lessons = await listLessonsByModuleIds(modules.map((module) => module.id));
+  const lessonIds = lessons.map((lesson) => lesson.id);
+
+  if (lessonIds.length > 0) {
+    for (const lessonChunk of chunkValues(lessonIds)) {
+      const { error } = await supabaseAdmin
+        .from("lesson_progress")
+        .delete()
+        .eq("user_id", studentId)
+        .in("lesson_id", lessonChunk);
+
+      if (error) {
+        throw toServiceError(
+          500,
+          "LESSON_PROGRESS_DELETE_FAILED",
+          "Unable to clear lesson progress",
+          error
+        );
+      }
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from("course_progress")
+    .delete()
+    .eq("user_id", studentId)
+    .eq("course_id", courseId);
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "COURSE_PROGRESS_DELETE_FAILED",
+      "Unable to clear course enrollment",
+      error
+    );
+  }
+
+  return getAdminDashboardStudent(studentId);
 }

@@ -13,12 +13,14 @@ type StudentDashboardCoursesProps = {
   courses: StudentDashboardCourseCatalogItem[];
   isLoadingCourses: boolean;
   coursesMessage: string | null;
+  onContinueCourse: (courseId: string) => void;
 };
 
 export function StudentDashboardCourses({
   courses,
   isLoadingCourses,
   coursesMessage,
+  onContinueCourse,
 }: StudentDashboardCoursesProps) {
   const [selectedCourse, setSelectedCourse] =
     useState<StudentDashboardCatalogCard | null>(null);
@@ -37,9 +39,9 @@ export function StudentDashboardCourses({
           <LoadingState variant="section" />
         ) : catalogCards.length === 0 ? (
           <section className="rounded-[2rem] border border-dashed border-slate-200 bg-white px-6 py-12 text-center shadow-[0_24px_50px_rgba(15,23,42,0.04)]">
-            <h2 className="text-xl font-semibold text-slate-950">No courses in My Courses yet</h2>
+            <h2 className="text-xl font-semibold text-slate-950">У розділі “Мої курси” поки немає курсів</h2>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Courses will appear here after the student subscribes to them or gets enrolled.
+              Курси зʼявляться тут після запису студента або додавання до курсу.
             </p>
           </section>
         ) : (
@@ -48,7 +50,11 @@ export function StudentDashboardCourses({
               <StudentDashboardCourseCard
                 key={course.id}
                 course={course}
+                actionLabel="Продовжити"
+                actionVariant="primary"
+                showProgress
                 onQuickView={setSelectedCourse}
+                onAction={() => onContinueCourse(course.id)}
               />
             ))}
           </section>
@@ -58,6 +64,7 @@ export function StudentDashboardCourses({
       <StudentDashboardCourseQuickViewModal
         course={selectedCourse}
         onClose={() => setSelectedCourse(null)}
+        onContinueCourse={onContinueCourse}
       />
     </>
   );

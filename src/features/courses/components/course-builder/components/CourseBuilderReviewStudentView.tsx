@@ -118,12 +118,12 @@ export function CourseBuilderReviewStudentView({
 
       <div className="grid gap-0 xl:grid-cols-[320px_minmax(0,1fr)]">
         <aside className="border-r border-slate-200 bg-[#f8fafc] p-5 md:p-6">
-          <h3 className="text-xl font-bold text-[#14213d]">Course Content</h3>
+          <h3 className="text-xl font-bold text-[#14213d]">Зміст курсу</h3>
 
           <div className="mt-5 space-y-3">
             {modules.length === 0 ? (
               <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white px-4 py-5 text-sm text-slate-500">
-                Add modules and lessons to see the final preview.
+                Додайте модулі та уроки, щоб побачити остаточний попередній перегляд.
               </div>
             ) : (
               modules.map((module) => {
@@ -163,7 +163,7 @@ export function CourseBuilderReviewStudentView({
                       <div className="border-t border-slate-100 px-3 py-3">
                         {orderedItems.length === 0 ? (
                           <div className="rounded-xl bg-[#f8fafc] px-3 py-3 text-sm text-slate-500">
-                            This module does not contain lessons or tests yet.
+                            Цей модуль поки що не містить уроків чи тестів.
                           </div>
                         ) : (
                           <div className="space-y-1">
@@ -295,13 +295,13 @@ export function CourseBuilderReviewStudentView({
 
               <div className="mt-6 flex flex-wrap gap-2">
                 <span className="rounded-full bg-[#13daec]/12 px-3 py-1 text-xs font-semibold text-[#08bfd4]">
-                  {`Module ${reviewPreviewData.module.order}`}
+                  {`Модуль ${reviewPreviewData.module.order}`}
                 </span>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {`Lesson ${currentLessonPosition}`}
+                  {`Урок ${currentLessonPosition}`}
                 </span>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {currentLessonEmbedUrl ? "Video lesson" : "Text lesson"}
+                  {currentLessonEmbedUrl ? "Відеоурок" : "Текстовий урок"}
                 </span>
               </div>
 
@@ -318,27 +318,27 @@ export function CourseBuilderReviewStudentView({
                 />
               ) : (
                 <p className="mt-5 max-w-3xl text-base leading-8 text-slate-600">
-                  This lesson does not have written content yet.
+                  Цей урок поки що не містить написаного контенту.
                 </p>
               )}
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
                 <div className="rounded-[1.25rem] border border-slate-200 bg-[#f9fbfd] p-4">
-                  <p className="text-sm font-semibold text-slate-400">Lesson Format</p>
+                  <p className="text-sm font-semibold text-slate-400">Формат уроку</p>
                   <p className="mt-2 text-base font-semibold text-[#14213d]">
-                    {currentLessonEmbedUrl ? "Video + rich text" : "Rich text lesson"}
+                    {currentLessonEmbedUrl ? "Відео + текст" : "Текстовий урок"}
                   </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-slate-200 bg-[#f9fbfd] p-4">
-                  <p className="text-sm font-semibold text-slate-400">Module Flow</p>
+                  <p className="text-sm font-semibold text-slate-400">Флоу модуля</p>
                   <p className="mt-2 text-base font-semibold text-[#14213d]">
-                    {`${reviewPreviewData.lessons.length} lessons in this module`}
+                    {`${reviewPreviewData.lessons.length} уроків у цьому модулі`}
                   </p>
                 </div>
                 <div className="rounded-[1.25rem] border border-slate-200 bg-[#f9fbfd] p-4">
-                  <p className="text-sm font-semibold text-slate-400">Assessment</p>
+                  <p className="text-sm font-semibold text-slate-400">Оцінювання</p>
                   <p className="mt-2 text-base font-semibold text-[#14213d]">
-                    {`${reviewPreviewData.tests.length} tests linked here`}
+                    {`${reviewPreviewData.tests.length} тестів пов'язаних тут`}
                   </p>
                 </div>
               </div>
@@ -347,32 +347,32 @@ export function CourseBuilderReviewStudentView({
             <div>
               <div className="rounded-[1.5rem] border border-slate-200 bg-[linear-gradient(135deg,_rgba(19,218,236,0.14),_rgba(15,23,42,0.02))] p-6">
                           <span className="inline-flex rounded-full bg-[#13daec]/12 px-3 py-1 text-xs font-semibold text-[#08bfd4]">
-                            Interactive Test
+                            Інтерактивний тест
                           </span>
                           <h3 className="mt-4 text-[2rem] font-extrabold tracking-tight text-[#14213d]">
                             {selectedTestTitle}
                           </h3>
                 <p className="mt-3 max-w-3xl text-base leading-7 text-slate-600">
                   {currentTestLinkedLesson
-                    ? `This test appears after "${currentTestLinkedLesson.title}" inside Module ${reviewPreviewData.module.order}.`
-                    : `This test appears at the module level in Module ${reviewPreviewData.module.order}.`}
+                    ? `Цей тест з'являється після "${currentTestLinkedLesson.title}" у модулі ${reviewPreviewData.module.order}.`
+                    : `Цей тест з'являється на рівні модуля в модулі ${reviewPreviewData.module.order}.`}
                 </p>
 
                 <div className="mt-6 grid gap-3 sm:grid-cols-3">
                   <div className="rounded-[1.25rem] border border-white/70 bg-white/80 p-4">
-                    <p className="text-sm font-semibold text-slate-400">Questions</p>
+                    <p className="text-sm font-semibold text-slate-400">Запитання</p>
                     <p className="mt-2 text-2xl font-bold text-[#14213d]">
                       {reviewPreviewData.test.questions.length}
                     </p>
                   </div>
                   <div className="rounded-[1.25rem] border border-white/70 bg-white/80 p-4">
-                    <p className="text-sm font-semibold text-slate-400">Placement</p>
+                    <p className="text-sm font-semibold text-slate-400">Розміщення</p>
                     <p className="mt-2 text-base font-semibold text-[#14213d]">
                       {currentTestLinkedLesson ? "After lesson" : "Module level"}
                     </p>
                   </div>
                   <div className="rounded-[1.25rem] border border-white/70 bg-white/80 p-4">
-                    <p className="text-sm font-semibold text-slate-400">Question Type</p>
+                    <p className="text-sm font-semibold text-slate-400">Тип запитання</p>
                     <p className="mt-2 text-base font-semibold text-[#14213d]">
                       {studentQuestionTypeLabels[
                         reviewPreviewData.test.questions[0]?.type ?? "single_choice"

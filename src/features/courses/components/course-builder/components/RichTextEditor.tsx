@@ -31,7 +31,7 @@ type RichTextEditorProps = {
 export function RichTextEditor({
   value,
   onChange,
-  placeholder = "Write content...",
+  placeholder = "Напишіть контент...",
   disabled = false,
   onImageUpload,
 }: RichTextEditorProps) {
@@ -150,7 +150,7 @@ export function RichTextEditor({
         : "";
 
     const nextHref = window.prompt(
-      "Paste the resource URL. Leave empty to remove the link.",
+      "Вставте URL ресурсу. Залиште порожнім, щоб видалити посилання.",
       currentHref || "https://"
     );
 
@@ -183,12 +183,12 @@ export function RichTextEditor({
     }
 
     if (!file.type.startsWith("image/")) {
-      setEditorMessage("Please choose an image file.");
+      setEditorMessage("Оберіть файл зображення.");
       return;
     }
 
     if (!onImageUpload) {
-      setEditorMessage("Image upload is not available right now.");
+      setEditorMessage("Завантаження зображень зараз недоступне.");
       return;
     }
 
@@ -209,7 +209,7 @@ export function RichTextEditor({
       if (error instanceof Error && error.message.trim()) {
         setEditorMessage(error.message);
       } else {
-        setEditorMessage("Unable to upload image.");
+        setEditorMessage("Не вдалося завантажити зображення.");
       }
     } finally {
       setIsUploadingImage(false);
@@ -228,32 +228,32 @@ export function RichTextEditor({
 
       <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-[#f9fbfd] px-3 py-3">
         {toolbarButton(
-          "Bold",
+          "Жирний",
           () => editor.chain().focus().toggleBold().run(),
           editor.isActive("bold"),
           disabled
         )}
         {toolbarButton(
-          "Italic",
+          "Курсив",
           () => editor.chain().focus().toggleItalic().run(),
           editor.isActive("italic"),
           disabled
         )}
         {toolbarButton(
-          "Code",
+          "Код",
           () => editor.chain().focus().toggleCode().run(),
           editor.isActive("code"),
           disabled || editor.isActive("codeBlock")
         )}
         {toolbarIconButton(
-          "Underline",
+          "Підкреслення",
           () => editor.chain().focus().toggleUnderline().run(),
           <Underline className="h-4 w-4" />,
           editor.isActive("underline"),
           disabled
         )}
         {toolbarIconButton(
-          "Code block",
+          "Блок коду",
           () => editor.chain().focus().toggleCodeBlock().run(),
           <Code2 className="h-4 w-4" />,
           editor.isActive("codeBlock"),
@@ -273,14 +273,14 @@ export function RichTextEditor({
         )}
         <div className="h-6 w-px bg-slate-200" />
         {toolbarIconButton(
-          "Bullet list",
+          "Маркований список",
           () => editor.chain().focus().toggleBulletList().run(),
           <List className="h-4 w-4" />,
           editor.isActive("bulletList"),
           disabled
         )}
         {toolbarIconButton(
-          "Numbered list",
+          "Нумерований список",
           () => editor.chain().focus().toggleOrderedList().run(),
           <ListOrdered className="h-4 w-4" />,
           editor.isActive("orderedList"),
@@ -288,32 +288,32 @@ export function RichTextEditor({
         )}
         <div className="h-6 w-px bg-slate-200" />
         {toolbarIconButton(
-          hasLink ? "Edit link" : "Add link",
+          hasLink ? "Редагувати посилання" : "Додати посилання",
           handleToggleLink,
           <Link2 className="h-4 w-4" />,
           hasLink,
           disabled
         )}
         {toolbarButton(
-          "Red",
+          "Червоний",
           () => editor.chain().focus().setTextColor("#dc2626").run(),
           activeTextColor === "#dc2626",
           disabled
         )}
         {toolbarButton(
-          "Blue",
+          "Синій",
           () => editor.chain().focus().setTextColor("#2563eb").run(),
           activeTextColor === "#2563eb",
           disabled
         )}
         {toolbarButton(
-          "Default",
+          "За замовчуванням",
           () => editor.chain().focus().unsetTextColor().run(),
           !activeTextColor,
           disabled
         )}
         {toolbarIconButton(
-          isUploadingImage ? "Uploading image..." : "Add image",
+          isUploadingImage ? "Завантаження зображення..." : "Додати зображення",
           () => imageInputRef.current?.click(),
           <ImagePlus className="h-4 w-4" />,
           false,
@@ -321,21 +321,21 @@ export function RichTextEditor({
         )}
         <div className="ml-auto flex items-center gap-2">
           {toolbarIconButton(
-            isExpanded ? "Collapse editor" : "Expand editor",
+            isExpanded ? "Згорнути редактор" : "Розгорнути редактор",
             () => setIsExpanded((currentValue) => !currentValue),
             isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />,
             isExpanded,
             disabled
           )}
           {toolbarIconButton(
-            "Undo",
+            "Скасувати",
             () => editor.chain().focus().undo().run(),
             <Undo2 className="h-4 w-4" />,
             false,
             disabled || !canUndo
           )}
           {toolbarIconButton(
-            "Redo",
+            "Повторити",
             () => editor.chain().focus().redo().run(),
             <Redo2 className="h-4 w-4" />,
             false,

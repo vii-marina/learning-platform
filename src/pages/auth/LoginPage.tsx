@@ -26,7 +26,7 @@ export function LoginPage() {
 
     if (password.length < 6) {
       setPasswordError(
-        "Your password is too short. Please use at least 6 characters."
+        "Пароль занадто короткий. Використайте щонайменше 6 символів."
       );
       setMessage("");
       return;
@@ -47,7 +47,7 @@ export function LoginPage() {
           .toLowerCase()
           .includes("invalid login credentials");
 
-        setMessage(isInvalidCredentials ? "Invalid email or password." : error.message);
+        setMessage(isInvalidCredentials ? "Неправильний email або пароль." : error.message);
         return;
       }
 
@@ -60,12 +60,12 @@ export function LoginPage() {
     } catch (error) {
       if (error instanceof BackendApiError && error.code === "PROFILE_NOT_FOUND") {
         setMessage(
-          "Your account is authenticated, but the app profile is missing. Contact support if this persists."
+          "Акаунт авторизовано, але профіль у застосунку відсутній. Якщо проблема повторюється, зверніться до підтримки."
         );
         return;
       }
 
-      setMessage(getErrorMessage(error, "Unable to complete sign-in."));
+      setMessage(getErrorMessage(error, "Не вдалося завершити вхід."));
     } finally {
       setIsSubmitting(false);
     }
@@ -93,25 +93,25 @@ export function LoginPage() {
       <header className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-10">
           <Link to="/" className="flex items-center gap-3 text-[#0f172a]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#13daec] text-white shadow-[0_10px_22px_rgba(19,218,236,0.25)]">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5549f1] text-white shadow-[0_10px_22px_rgba(85,73,241,0.25)]">
               <School className="h-4 w-4" />
             </span>
             <span className="text-xl font-extrabold tracking-tight md:text-2xl">
-              Learning Platform
+              Навчальна платформа
             </span>
           </Link>
           <nav className="flex items-center gap-5">
             <Link
               to="/"
-              className="text-sm font-semibold text-[#0f172a] transition hover:text-[#08bfd4]"
+              className="text-sm font-semibold text-[#0f172a] transition hover:text-[#5549f1]"
             >
-              Browse Courses
+              Переглянути курси
             </Link>
             <Link
               to="/register"
-              className="text-sm font-semibold text-[#08bfd4] transition hover:text-[#13daec]"
+              className="text-sm font-semibold text-[#5549f1] transition hover:text-[#473ed4]"
             >
-              Join Now
+              Долучитися
             </Link>
           </nav>
         </div>
@@ -122,10 +122,10 @@ export function LoginPage() {
           <div className="mx-auto max-w-[22.5rem]">
             <div className="mb-6 text-center">
               <h1 className="text-[1.7rem] font-extrabold tracking-tight text-[#14213d] sm:text-[1.9rem] md:text-[2.1rem]">
-                Welcome back
+                Вітаємо знову
               </h1>
               <p className="mx-auto mt-2.5 max-w-sm text-sm leading-6 text-slate-500">
-                Log in to continue your learning journey
+                Увійдіть, щоб продовжити навчання
               </p>
             </div>
 
@@ -135,7 +135,7 @@ export function LoginPage() {
                   htmlFor="login-email"
                   className="mb-1.5 block text-xs font-semibold text-[#14213d]"
                 >
-                  Email Address
+                  Email
                 </label>
                 <div className="relative">
                   <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
@@ -143,7 +143,7 @@ export function LoginPage() {
                     id="login-email"
                     type="email"
                     placeholder="name@example.com"
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-[#f4f7fb] pl-11 pr-4 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-[#f4f7fb] pl-11 pr-4 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#5549f1] focus:ring-4 focus:ring-[#5549f1]/15"
                     value={email}
                     onChange={handleEmailChange}
                   />
@@ -156,14 +156,14 @@ export function LoginPage() {
                     htmlFor="login-password"
                     className="block text-xs font-semibold text-[#14213d]"
                   >
-                    Password
+                    Пароль
                   </label>
                   <a
                     href="#"
                     onClick={(event) => event.preventDefault()}
-                    className="text-xs font-semibold text-[#08bfd4] transition hover:underline"
+                    className="text-xs font-semibold text-[#5549f1] transition hover:underline"
                   >
-                    Forgot Password?
+                    Забули пароль?
                   </a>
                 </div>
                 <div className="relative">
@@ -171,8 +171,8 @@ export function LoginPage() {
                   <input
                     id="login-password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
-                    className="h-12 w-full rounded-xl border border-slate-200 bg-[#f4f7fb] pl-11 pr-11 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
+                    placeholder="Введіть пароль"
+                    className="h-12 w-full rounded-xl border border-slate-200 bg-[#f4f7fb] pl-11 pr-11 text-base text-[#0f172a] outline-none transition placeholder:text-slate-400 focus:border-[#5549f1] focus:ring-4 focus:ring-[#5549f1]/15"
                     value={password}
                     onChange={handlePasswordChange}
                   />
@@ -180,7 +180,7 @@ export function LoginPage() {
                     type="button"
                     onClick={() => setShowPassword((prev) => !prev)}
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1.5 text-slate-400 transition hover:bg-slate-200/70 hover:text-slate-600"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    aria-label={showPassword ? "Приховати пароль" : "Показати пароль"}
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -203,21 +203,21 @@ export function LoginPage() {
               <div className="pt-1">
                 <button
                   type="submit"
-                  className="flex h-12 w-full items-center justify-center rounded-xl bg-[#13daec] px-6 text-base font-extrabold text-[#0f172a] shadow-[0_12px_24px_rgba(19,218,236,0.28)] transition hover:bg-[#10c6d7] disabled:cursor-not-allowed disabled:opacity-70"
+                  className="flex h-12 w-full items-center justify-center rounded-xl bg-[#5549f1] px-6 text-base font-extrabold text-white shadow-[0_12px_24px_rgba(85,73,241,0.28)] transition hover:bg-[#473ed4] disabled:cursor-not-allowed disabled:opacity-70"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Signing in..." : "Sign In"}
+                  {isSubmitting ? "Вхід..." : "Увійти"}
                 </button>
               </div>
             </form>
 
             <p className="mt-8 text-center text-sm text-slate-500">
-              Don&apos;t have an account?{" "}
+              Немає акаунта?{" "}
               <Link
                 to="/register"
-                className="font-bold text-[#08bfd4] transition hover:underline"
+                className="font-bold text-[#5549f1] transition hover:underline"
               >
-                Create an account
+                Створити акаунт
               </Link>
             </p>
           </div>

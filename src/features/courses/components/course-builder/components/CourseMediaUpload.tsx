@@ -67,8 +67,8 @@ export function CourseMediaUpload({
               type="button"
               disabled={isActionDisabled}
               onClick={openFilePicker}
-              aria-label={isUploading ? "Uploading course media" : "Replace course media"}
-              title={isUploading ? "Uploading..." : "Replace media"}
+              aria-label={isUploading ? "Завантаження медіа курсу" : "Замінити медіа курсу"}
+              title={isUploading ? "Завантаження..." : "Замінити медіа"}
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Upload className="h-4 w-4" />
@@ -77,8 +77,8 @@ export function CourseMediaUpload({
               type="button"
               disabled={isActionDisabled}
               onClick={onRemove}
-              aria-label="Delete course media"
-              title="Delete media"
+              aria-label="Видалити медіа курсу"
+              title="Видалити медіа"
               className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-rose-500 shadow-sm transition hover:bg-rose-50 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
@@ -89,7 +89,7 @@ export function CourseMediaUpload({
             {mediaKind === "image" ? (
               <img
                 src={mediaUrl}
-                alt="Course media preview"
+                alt="Перегляд медіа курсу"
                 className="aspect-video w-full object-cover"
               />
             ) : (
@@ -118,7 +118,7 @@ export function CourseMediaUpload({
               </div>
               <div className="space-y-1.5">
                 <p className="text-base font-semibold text-slate-950">
-                  {isUploading ? "Uploading file..." : "Drop your image here, or browse"}
+                  {isUploading ? "Завантаження файлу..." : "Перетягніть зображення сюди або оберіть файл"}
                 </p>
                 <p className="mx-auto max-w-[15rem] text-xs leading-5 text-slate-500">
                   Images are cropped to 16:9 before upload. PNG, JPG, and JPEG only.

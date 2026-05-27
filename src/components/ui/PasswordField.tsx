@@ -17,7 +17,7 @@ export function PasswordField({ label, value, onChange, error }: PasswordFieldPr
       <div className="relative mt-1">
         <Input
           type={showPassword ? "text" : "password"}
-          placeholder="Create a password"
+          placeholder="Створіть пароль"
           className="pr-10"
           value={value}
           onChange={(event) => onChange(event.target.value)}
@@ -26,7 +26,7 @@ export function PasswordField({ label, value, onChange, error }: PasswordFieldPr
           type="button"
           onClick={() => setShowPassword((prev) => !prev)}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-500 hover:text-slate-700"
-          aria-label={showPassword ? "Hide password" : "Show password"}
+          aria-label={showPassword ? "Приховати пароль" : "Показати пароль"}
         >
           <svg
             viewBox="0 0 24 24"
@@ -66,7 +66,7 @@ export function PasswordField({ label, value, onChange, error }: PasswordFieldPr
           </svg>
         </button>
       </div>
-      <p className="mt-2 text-xs text-slate-500">Minimum 6 characters</p>
+      <p className="mt-2 text-xs text-slate-500">Мінімум 6 символів</p>
       {error ? <p className="mt-2 text-xs text-red-600">{error}</p> : null}
     </label>
   );

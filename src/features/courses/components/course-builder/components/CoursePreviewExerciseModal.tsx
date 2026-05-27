@@ -63,7 +63,7 @@ export function CoursePreviewExerciseModal({
   }
 
   const title =
-    exercises.length === 1 ? exercises[0].title : `Exercises after ${module.order}.${lesson.order}`;
+    exercises.length === 1 ? exercises[0].title : `Вправи після ${module.order}.${lesson.order}`;
 
   return (
     <div
@@ -81,7 +81,7 @@ export function CoursePreviewExerciseModal({
               <div className="flex flex-wrap items-center gap-2">
                 
                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                  {`${exercises.length} exercise${exercises.length === 1 ? "" : "s"}`}
+                  {`${exercises.length} вправ`}
                 </span>
                 <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
                   {`${module.order}.${lesson.order} ${lesson.title}`}
@@ -98,7 +98,7 @@ export function CoursePreviewExerciseModal({
               variant="secondary"
               onClick={onClose}
               className="w-15 px-0"
-              aria-label="Close exercise modal"
+              aria-label="Закрити модальне вікно вправи"
             >
               <X className="h-5 w-5" />
             </Button>

@@ -62,7 +62,7 @@ export function ExerciseAiBuildSection({
       <section className={aiBuildPanelClassName}>
         <div className="space-y-5">
           <div>
-            <p className="text-sm font-semibold text-[#14213d]">Difficulty</p>
+            <p className="text-sm font-semibold text-[#14213d]">Складність</p>
             <div className="mt-3 grid w-full gap-2 sm:grid-cols-3">
               {AI_DIFFICULTY_OPTIONS.map((option) => {
                 const isActive = selectedDifficulties.includes(option.value);
@@ -86,7 +86,7 @@ export function ExerciseAiBuildSection({
 
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="min-w-[16rem]">
-              <p className="text-sm font-semibold text-[#14213d]">Exercise count</p>
+              <p className="text-sm font-semibold text-[#14213d]">Кількість вправ</p>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 <div
                   className={`inline-flex h-10 items-center overflow-hidden rounded-xl border ${
@@ -99,7 +99,7 @@ export function ExerciseAiBuildSection({
                     type="button"
                     onClick={onDecreaseExerciseCount}
                     disabled={!canAdjustExerciseCount}
-                    aria-label="Decrease exercise count"
+                    aria-label="Зменшити кількість вправ"
                     className="inline-flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     <Minus className="h-4 w-4" />
@@ -111,14 +111,14 @@ export function ExerciseAiBuildSection({
                     value={exerciseCountInputValue}
                     onChange={(event) => onExerciseCountInputChange(event.target.value)}
                     disabled={!canAdjustExerciseCount}
-                    aria-label="Exercise count"
+                    aria-label="Кількість вправ"
                     className="h-full w-20 bg-transparent px-3 text-center text-sm font-semibold text-[#14213d] outline-none disabled:cursor-not-allowed disabled:text-slate-400"
                   />
                   <button
                     type="button"
                     onClick={onIncreaseExerciseCount}
                     disabled={!canAdjustExerciseCount}
-                    aria-label="Increase exercise count"
+                    aria-label="Збільшити кількість вправ"
                     className="inline-flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-300"
                   >
                     <Plus className="h-4 w-4" />
@@ -129,7 +129,7 @@ export function ExerciseAiBuildSection({
                     exerciseCountLimitError ? "font-medium text-rose-600" : "text-slate-500"
                   }`}
                 >
-                  {`Max: ${exerciseAiCountLimit}`}
+                  {`Макс.: ${exerciseAiCountLimit}`}
                 </p>
               </div>
             </div>
@@ -141,7 +141,7 @@ export function ExerciseAiBuildSection({
               className={aiActionButtonClassName}
             >
               <Sparkles className="h-4 w-4" />
-              {isGeneratingAi ? "Generating..." : "Generate"}
+              {isGeneratingAi ? "Генерація..." : "Згенерувати"}
             </Button>
           </div>
         </div>
@@ -179,7 +179,7 @@ export function ExerciseAiBuildSection({
               className={aiActionButtonClassName}
             >
               <Sparkles className="h-4 w-4" />
-              {isGeneratingAi ? "Generating..." : "Generate another exercise"}
+              {isGeneratingAi ? "Генерація..." : "Згенерувати ще одну вправу"}
             </Button>
           </div>
         </section>
