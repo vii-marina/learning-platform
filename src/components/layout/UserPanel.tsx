@@ -31,7 +31,7 @@ export function UserPanel() {
         </div>
       </div>
       <Card className="p-4">
-        <p className="text-xs uppercase tracking-wide text-slate-500">
+        <p className="text-xs text-slate-500">
           Next up
         </p>
         <h6 className="mt-2 text-sm font-semibold text-slate-900">

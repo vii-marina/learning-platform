@@ -2,9 +2,7 @@ import {
   BookOpen,
   GraduationCap,
   LayoutGrid,
-  LogOut,
-  MessageSquare,
-  Settings,
+  LogOut
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
@@ -20,15 +18,12 @@ type SidebarItem = {
 };
 
 const primaryItems: SidebarItem[] = [
-  { id: "overview", label: "Overview", icon: LayoutGrid },
-  { id: "teachers", label: "My Teachers", icon: GraduationCap },
-  { id: "courses", label: "My Courses", icon: BookOpen },
-  { id: "messages", label: "Messages", icon: MessageSquare },
+  { id: "overview", label: "Огляд", icon: LayoutGrid },
+  { id: "teachers", label: "Мої викладачі", icon: GraduationCap },
+  { id: "courses", label: "Мої курси", icon: BookOpen }
 ];
 
-const secondaryItems: SidebarItem[] = [
-  { id: "settings", label: "Settings", icon: Settings },
-];
+
 
 type StudentDashboardSidebarProps = {
   activeSection: StudentDashboardSectionId;
@@ -39,11 +34,11 @@ type StudentDashboardSidebarProps = {
 };
 
 function getProfileDisplayName(user: CurrentUser | null) {
-  return user?.fullName?.trim() || "Student profile";
+  return user?.fullName?.trim() || "Профіль студента";
 }
 
 function getAvatarName(user: CurrentUser | null) {
-  return user?.fullName?.trim() || user?.email || "Student";
+  return user?.fullName?.trim() || user?.email || "Студент";
 }
 
 function SidebarLabel({
@@ -55,11 +50,7 @@ function SidebarLabel({
 }) {
   return (
     <span
-      className={
-        compactOnDesktop
-          ? "lg:hidden lg:group-hover:inline"
-          : ""
-      }
+      className={compactOnDesktop ? "lg:hidden lg:group-hover:inline" : ""}
     >
       {children}
     </span>
@@ -94,17 +85,17 @@ function SidebarButton({
       title={compactOnDesktop ? item.label : undefined}
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
-      className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-sm font-semibold transition ${
+      className={`flex w-full items-center gap-3 rounded-[1.25rem] px-4 py-3 text-left text-sm font-medium transition ${
         compactOnDesktop
           ? "lg:justify-center lg:px-0 lg:group-hover:justify-start lg:group-hover:px-4"
           : ""
       } ${
         isActive
-          ? "bg-[#13daec]/14 text-[#14213d] shadow-[inset_0_0_0_1px_rgba(19,218,236,0.32)]"
-          : "text-slate-500 hover:bg-[#13daec]/8 hover:text-[#14213d]"
+          ? "bg-slate-950 text-white shadow-[0_16px_32px_rgba(15,23,42,0.16)]"
+          : "text-slate-500 hover:bg-slate-100 hover:text-slate-950"
       }`}
     >
-      <Icon className="h-5 w-5" />
+      <Icon className="h-4 w-4" />
       <SidebarLabel compactOnDesktop={compactOnDesktop}>
         {item.label}
       </SidebarLabel>
@@ -123,51 +114,25 @@ export function StudentDashboardSidebar({
 
   return (
     <aside
-      className={`group border-r border-cyan-100 bg-white px-5 py-6 transition-[width,padding] duration-300 lg:sticky lg:top-0 lg:h-screen lg:py-8 ${
+      className={`group border-r border-slate-200/80 bg-white/92 px-5 py-6 backdrop-blur lg:sticky lg:top-0 lg:h-screen lg:py-8 ${
         compactOnDesktop
-          ? "lg:w-[5.75rem] lg:px-4 lg:hover:w-[18rem] lg:hover:px-7"
-          : "lg:w-[18rem] lg:px-7"
+          ? "lg:w-[5.75rem] lg:px-4 lg:hover:w-[17rem] lg:hover:px-6"
+          : "lg:w-[17rem] lg:px-6"
       }`}
       style={{ fontFamily: '"Lexend", sans-serif' }}
     >
       <div className="flex h-full flex-col">
-        <button
-          type="button"
-          title={compactOnDesktop ? "My Profile" : undefined}
-          onClick={onOpenProfile}
-          aria-current={activeSection === "profile" ? "page" : undefined}
-          className={`flex w-full items-center gap-3 rounded-[1.5rem] border px-3 py-3 text-left transition ${
-            compactOnDesktop
-              ? "lg:justify-center lg:px-2 lg:group-hover:justify-start lg:group-hover:px-3"
-              : ""
-          } ${
-            activeSection === "profile"
-              ? "border-[#a7edf3] bg-[#f8feff] shadow-[0_18px_30px_rgba(19,218,236,0.14)]"
-              : "border-cyan-100 bg-white hover:border-[#a7edf3] hover:bg-[#f8feff]"
+        <div
+          className={`flex items-center gap-3 px-1 ${
+            compactOnDesktop ? "lg:justify-center lg:group-hover:justify-start" : ""
           }`}
         >
-          <AdminTeacherAvatar
-            name={getAvatarName(currentUser)}
-            imageUrl={avatarImageUrl}
-            size="sm"
-          />
-          <div
-            className={`min-w-0 ${compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}`}
-          >
-              {currentUser ? (
-                <>
-                  <p className="truncate text-sm font-black text-[#14213d]">
-                    {getProfileDisplayName(currentUser)}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-slate-500">
-                    {currentUser.email}
-                  </p>
-                </>
-              ) : (
-                <SidebarProfilePlaceholder />
-            )}
+          <div className={compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}>
+            <p className="text-ml font-semibold text-slate-950">
+              Кабінет студента
+            </p>
           </div>
-        </button>
+        </div>
 
         <nav className="mt-10 flex flex-1 flex-col justify-between">
           <div className="space-y-2">
@@ -183,34 +148,60 @@ export function StudentDashboardSidebar({
           </div>
 
           <div className="space-y-3 pt-10">
-            {secondaryItems.map((item) => (
-              <SidebarButton
-                key={item.id}
-                item={item}
-                isActive={activeSection === item.id}
-                compactOnDesktop={compactOnDesktop}
-                onClick={() => onSectionChange(item.id)}
+            <button
+              type="button"
+              title={compactOnDesktop ? "Мій профіль" : undefined}
+              onClick={onOpenProfile}
+              aria-current={activeSection === "profile" ? "page" : undefined}
+              className={`flex w-full items-center gap-3 rounded-[0.5rem] border bg-[#13daec]/10 px-3 py-3 text-left transition hover:bg-slate-100 ${
+                compactOnDesktop
+                  ? "lg:justify-center lg:px-2 lg:group-hover:justify-start lg:group-hover:px-3"
+                  : ""
+              }`}
+            >
+              <AdminTeacherAvatar
+                name={getAvatarName(currentUser)}
+                imageUrl={avatarImageUrl}
+                size="sm"
               />
-            ))}
+              <div
+                className={`min-w-0 ${compactOnDesktop ? "lg:hidden lg:group-hover:block" : ""}`}
+              >
+                {currentUser ? (
+                  <>
+                    <p className="truncate text-sm font-semibold text-slate-950">
+                      {getProfileDisplayName(currentUser)}
+                    </p>
+                    <p className="mt-1 truncate text-xs text-slate-500">
+                      {currentUser.email}
+                    </p>
+                  </>
+                ) : (
+                  <SidebarProfilePlaceholder />
+                )}
+              </div>
+            </button>
+
+            
 
             <LogoutButton
               containerClassName="flex flex-col items-stretch gap-2"
-              buttonVariant="secondary"
-              buttonClassName={`h-12 w-full rounded-2xl border-slate-200 bg-white px-4 py-3 hover:bg-slate-50 ${
+              buttonVariant="ghost"
+              buttonClassName={`h-11 w-full rounded-[1.25rem] px-4 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-950 ${
                 compactOnDesktop
                   ? "lg:px-0 lg:group-hover:px-4"
                   : ""
               }`}
-              contentClassName={`flex items-center gap-3 text-slate-700 ${
+              contentClassName={`flex items-center gap-3 ${
                 compactOnDesktop
                   ? "justify-center lg:group-hover:justify-start"
-                  : "justify-center"
+                  : ""
               }`}
               content={
                 <>
                   <LogOut className="h-4 w-4" />
                   <SidebarLabel compactOnDesktop={compactOnDesktop}>
-                    Logout
+                    Вийти
                   </SidebarLabel>
                 </>
               }

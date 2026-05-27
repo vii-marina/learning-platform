@@ -40,8 +40,8 @@ const catalogToneStyles = {
 
 export function AdminCourseCatalog({
   courses,
-  title = "Courses",
-  emptyMessage = "No courses found.",
+  title = "Курси",
+  emptyMessage = "Курсів не знайдено.",
   sectionId,
   tone = "neutral",
   pendingActionByCourseId = {},

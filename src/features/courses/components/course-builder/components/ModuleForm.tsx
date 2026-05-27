@@ -17,7 +17,7 @@ export function ModuleForm({
   return (
     <div className="flex flex-col gap-3">
       <Input
-        placeholder="Module title"
+        placeholder="Назва модуля"
         value={title}
         onChange={(event) => onTitleChange(event.target.value)}
         disabled={disabled}

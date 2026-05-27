@@ -18,6 +18,7 @@ import { StudentDashboardProfile } from "../../features/student-dashboard/compon
 import {
   loadStudentDashboardCourses,
   loadStudentDashboardPublicCourses,
+  startStudentCourse,
 } from "../../features/student-dashboard/api/studentDashboardApi";
 import { StudentDashboardSidebar } from "../../features/student-dashboard/components/StudentDashboardSidebar";
 import { uploadStudentAvatar } from "../../features/student-dashboard/api/studentProfileStorage";
@@ -27,6 +28,10 @@ import {
 } from "../../features/auth/lib/roleRouting";
 import type { StudentDashboardSectionId } from "../../features/student-dashboard/types";
 import type { StudentDashboardCourseCatalogItem } from "../../features/student-dashboard/api/studentDashboardApi";
+
+function getStudentDisplayName(user: CurrentUser | null) {
+  return user?.fullName?.trim() || user?.email?.split("@")[0] || "Студент";
+}
 
 function StudentDashboardPlaceholder({
   title,
@@ -40,7 +45,7 @@ function StudentDashboardPlaceholder({
           {title}
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-slate-600">
-          This section is mocked for now and can be expanded next.
+          Цей розділ поки підготовлений як основа для наступного розширення.
         </p>
       </div>
     </Card>
@@ -69,6 +74,7 @@ export function StudentDashboardPage() {
   const [publicCourses, setPublicCourses] = useState<StudentDashboardCourseCatalogItem[]>([]);
   const [isPublicCoursesLoading, setIsPublicCoursesLoading] = useState(false);
   const [publicCoursesMessage, setPublicCoursesMessage] = useState<string | null>(null);
+  const [startingCourseId, setStartingCourseId] = useState<string | null>(null);
   const [activeSection, setActiveSection] =
     useState<StudentDashboardSectionId>("overview");
 
@@ -103,7 +109,7 @@ export function StudentDashboardPage() {
 
         setPageMessage({
           type: "error",
-          text: getErrorMessage(error, "Unable to load your dashboard."),
+          text: getErrorMessage(error, "Не вдалося завантажити дашборд."),
         });
       } finally {
         if (isMounted) {
@@ -145,7 +151,7 @@ export function StudentDashboardPage() {
       } else {
         setCatalogCourses([]);
         setCatalogMessage(
-          getErrorMessage(catalogResult.reason, "Unable to load your courses.")
+          getErrorMessage(catalogResult.reason, "Не вдалося завантажити ваші курси.")
         );
       }
 
@@ -157,7 +163,7 @@ export function StudentDashboardPage() {
         setPublicCoursesMessage(
           getErrorMessage(
             publicCoursesResult.reason,
-            "Unable to load available public courses."
+            "Не вдалося завантажити доступні публічні курси."
           )
         );
       }
@@ -196,16 +202,52 @@ export function StudentDashboardPage() {
         avatarPath,
       });
       setCurrentUser(updatedUser);
-      showSuccessToast("Profile saved.");
+      showSuccessToast("Профіль збережено.");
     } catch (error) {
       setProfileMessage({
         type: "error",
-        text: getErrorMessage(error, "Unable to save your information."),
+        text: getErrorMessage(error, "Не вдалося зберегти ваші дані."),
         details: error instanceof BackendApiError ? error.details : undefined,
       });
     } finally {
       setIsSavingProfile(false);
     }
+  }
+
+  async function handleStartCourse(course: StudentDashboardCourseCatalogItem) {
+    try {
+      setStartingCourseId(course.id);
+      setPageMessage(null);
+      const startedCourse = await startStudentCourse(course.id);
+      setCatalogCourses((currentCourses) => {
+        const existingCourse = currentCourses.find(
+          (currentCourse) => currentCourse.id === startedCourse.id
+        );
+
+        if (existingCourse) {
+          return currentCourses.map((currentCourse) =>
+            currentCourse.id === startedCourse.id ? startedCourse : currentCourse
+          );
+        }
+
+        return [startedCourse, ...currentCourses];
+      });
+      setPublicCourses((currentCourses) =>
+        currentCourses.filter((currentCourse) => currentCourse.id !== startedCourse.id)
+      );
+      navigate(`/student/courses/${startedCourse.id}`);
+    } catch (error) {
+      setPageMessage({
+        type: "error",
+        text: getErrorMessage(error, "Не вдалося розпочати цей курс."),
+      });
+    } finally {
+      setStartingCourseId(null);
+    }
+  }
+
+  function handleContinueCourse(courseId: string) {
+    navigate(`/student/courses/${courseId}`);
   }
 
   function renderStudentSection() {
@@ -225,7 +267,6 @@ export function StudentDashboardPage() {
       case "overview":
         return (
           <StudentDashboardOverview
-            currentUser={currentUser}
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
@@ -233,6 +274,9 @@ export function StudentDashboardPage() {
             isLoadingAvailableCourses={isPublicCoursesLoading}
             availableCoursesMessage={publicCoursesMessage}
             onOpenCourses={() => setActiveSection("courses")}
+            onStartCourse={handleStartCourse}
+            onContinueCourse={handleContinueCourse}
+            startingCourseId={startingCourseId}
           />
         );
       case "courses":
@@ -241,19 +285,17 @@ export function StudentDashboardPage() {
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
+            onContinueCourse={handleContinueCourse}
           />
         );
       case "teachers":
-        return <StudentDashboardPlaceholder title="My teachers" />;
+        return <StudentDashboardPlaceholder title="Мої викладачі" />;
       
-      case "messages":
-        return <StudentDashboardPlaceholder title="Messages" />;
       case "settings":
-        return <StudentDashboardPlaceholder title="Settings" />;
+        return <StudentDashboardPlaceholder title="Налаштування" />;
       default:
         return (
           <StudentDashboardOverview
-            currentUser={currentUser}
             courses={catalogCourses}
             isLoadingCourses={isCatalogLoading}
             coursesMessage={catalogMessage}
@@ -261,6 +303,9 @@ export function StudentDashboardPage() {
             isLoadingAvailableCourses={isPublicCoursesLoading}
             availableCoursesMessage={publicCoursesMessage}
             onOpenCourses={() => setActiveSection("courses")}
+            onStartCourse={handleStartCourse}
+            onContinueCourse={handleContinueCourse}
+            startingCourseId={startingCourseId}
           />
         );
     }
@@ -268,7 +313,7 @@ export function StudentDashboardPage() {
 
   return (
     <div
-      className="min-h-screen bg-[#f4fbfd] text-slate-900"
+      className="min-h-screen bg-[#f6f7fb] text-slate-900"
       style={{ fontFamily: '"Lexend", sans-serif' }}
     >
       <div className="mx-auto flex min-h-screen max-w-[1720px] flex-col lg:flex-row">
@@ -280,7 +325,21 @@ export function StudentDashboardPage() {
           compactOnDesktop={activeSection === "courses"}
         />
 
-        <main className="min-w-0 flex-1 px-4 py-6 md:px-8 md:py-8 xl:px-10">
+        <main className="min-w-0 flex-1">
+          <header className="border-b border-slate-200 bg-white px-4 py-6 md:px-8 xl:px-10">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h1 className="text-xl font-semibold tracking-tight text-[#18153d] ">
+                  Вітаємо, {getStudentDisplayName(currentUser)}
+                </h1>
+                <p className="mt-2 text-sm font-medium text-[#6f6aa0]">
+                  Дашборд студента
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="px-4 py-6 md:px-8 md:py-8 xl:px-10">
           {pageMessage ? (
             <Card
               className={`rounded-[1.75rem] p-6 shadow-none ${
@@ -298,6 +357,7 @@ export function StudentDashboardPage() {
           ) : hasAccess ? (
             renderStudentSection()
           ) : null}
+          </div>
         </main>
       </div>
     </div>

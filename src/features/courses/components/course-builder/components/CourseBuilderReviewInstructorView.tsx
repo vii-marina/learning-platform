@@ -101,11 +101,11 @@ export function CourseBuilderReviewInstructorView({
 
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             <div className="rounded-[1.5rem] border border-slate-100 bg-[#f9fbfd] p-5">
-              <p className="text-sm font-semibold text-slate-400">Modules</p>
+              <p className="text-sm font-semibold text-slate-400">Модулі</p>
               <p className="mt-3 text-3xl font-bold text-[#14213d]">{totalModules}</p>
             </div>
             <div className="rounded-[1.5rem] border border-slate-100 bg-[#f9fbfd] p-5">
-              <p className="text-sm font-semibold text-slate-400">Lessons</p>
+              <p className="text-sm font-semibold text-slate-400">Уроки</p>
               {isReviewContentLoading ? (
                 <div className="mt-3">
                   <LoadingState
@@ -120,7 +120,7 @@ export function CourseBuilderReviewInstructorView({
               )}
             </div>
             <div className="rounded-[1.5rem] border border-slate-100 bg-[#f9fbfd] p-5">
-              <p className="text-sm font-semibold text-slate-400">Tests</p>
+              <p className="text-sm font-semibold text-slate-400">Тести</p>
               <p className="mt-3 text-3xl font-bold text-[#14213d]">{totalTests}</p>
             </div>
           </div>
@@ -179,7 +179,7 @@ export function CourseBuilderReviewInstructorView({
                   Lesson preview
                 </span>
                 <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-                  {`Module ${reviewPreviewData.module.order}`}
+                  {`Модуль ${reviewPreviewData.module.order}`}
                 </span>
               </div>
               <h6 className="mt-4 text-2xl font-bold tracking-tight text-[#14213d]">
@@ -239,7 +239,7 @@ export function CourseBuilderReviewInstructorView({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-base font-semibold text-[#14213d]">
-                        {`Module ${module.order}`}
+                        {`Модуль ${module.order}`}
                       </p>
                       <p className="mt-1 text-sm text-slate-500">{module.title}</p>
                     </div>
@@ -251,13 +251,13 @@ export function CourseBuilderReviewInstructorView({
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                     <div className="rounded-xl bg-[#f8fafc] px-3 py-3">
-                      <p className="font-semibold text-slate-400">Lessons</p>
+                      <p className="font-semibold text-slate-400">Уроки</p>
                       <p className="mt-2 text-lg font-bold text-[#14213d]">
                         {lessons.length}
                       </p>
                     </div>
                     <div className="rounded-xl bg-[#f8fafc] px-3 py-3">
-                      <p className="font-semibold text-slate-400">Tests</p>
+                      <p className="font-semibold text-slate-400">Тести</p>
                       <p className="mt-2 text-lg font-bold text-[#14213d]">
                         {tests.length}
                       </p>

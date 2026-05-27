@@ -88,7 +88,7 @@ export function ManualExerciseEditorCard({
               type="button"
               onClick={onReset}
               disabled={disabled}
-              aria-label="Clear manual exercise"
+              aria-label="Очистити вправу, створену вручну"
               className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <Trash2 className="h-4 w-4" />
@@ -98,7 +98,7 @@ export function ManualExerciseEditorCard({
               type="button"
               onClick={onToggleConfirm}
               disabled={!canConfirm}
-              aria-label="Confirm manual exercise"
+              aria-label="Підтвердити вправу, створену вручну"
               className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition disabled:cursor-not-allowed disabled:opacity-60 ${
                 isConfirmed
                   ? "border-emerald-500 bg-emerald-500 text-white shadow-[0_0_18px_rgba(16,185,129,0.45)]"
@@ -113,7 +113,7 @@ export function ManualExerciseEditorCard({
         {draft.type === "drag_drop_code" ? (
           <div className={codePanelClassName}>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-              <p className="text-sm font-semibold text-slate-200">Code template</p>
+              <p className="text-sm font-semibold text-slate-200">Шаблон коду</p>
               <button
                 type="button"
                 onClick={onInsertDragDropBlank}
@@ -130,7 +130,7 @@ export function ManualExerciseEditorCard({
               value={draft.content.code_template}
               onChange={(event) => onDragDropCodeTemplateChange(event.target.value)}
               disabled={disabled}
-              className="min-h-[11rem] w-full resize-y border-0 bg-transparent px-5 py-5 font-mono text-sm leading-7 text-slate-100 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-70"
+              className="min-h-[11rem] w-full resize-y border-0 bg-transparent px-5 py-5 font-mono text-sm leading-7 text-slate-900 outline-none placeholder:text-slate-500 disabled:cursor-not-allowed disabled:opacity-70"
               placeholder={`Example:\nprint(${AUTHOR_BLANK_TOKEN})`}
               spellCheck={false}
             />
@@ -217,7 +217,7 @@ export function ManualExerciseEditorCard({
                                 width: getChipInputWidth(distractor, 8),
                               }}
                               className="min-w-0 bg-transparent font-mono text-sm font-semibold text-orange-700 outline-none placeholder:text-orange-300 disabled:cursor-not-allowed"
-                              placeholder="Option"
+                              placeholder="Варіант"
                             />
                             <button
                               type="button"
@@ -250,7 +250,7 @@ export function ManualExerciseEditorCard({
         ) : (
           <div className={codePanelClassName}>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-4">
-              <p className="text-sm font-semibold text-slate-200">Starter code</p>
+              <p className="text-sm font-semibold text-slate-200">Початковий код</p>
               <button
                 type="button"
                 onClick={onInsertWriteCodeAnswerSlot}
@@ -286,12 +286,12 @@ export function ManualExerciseEditorCard({
                             onWriteCodeExpectedAnswerChange(event.target.value)
                           }
                           disabled={disabled}
-                          aria-label="Expected answer"
+                          aria-label="Очікувана відповідь"
                           style={{
                             width: getInlineBlankWidth(draft.content.expected_answer, 6),
                           }}
                           className="mx-1 inline-flex min-w-[4.5rem] rounded-lg border border-orange-300 bg-orange-200/15 px-2.5 py-1 font-mono text-sm font-semibold text-orange-100 outline-none transition focus:border-orange-200 focus:bg-orange-300/20 disabled:cursor-not-allowed"
-                          placeholder="Answer"
+                          placeholder="Відповідь"
                         />
                       ) : (
                         <span
@@ -313,7 +313,7 @@ export function ManualExerciseEditorCard({
                     onChange={(event) => onWriteCodeExpectedAnswerChange(event.target.value)}
                     disabled={disabled}
                     className="h-10 w-full max-w-xs rounded-full border-orange-300 bg-white px-4 font-mono text-sm font-semibold text-orange-700 focus:border-orange-300 focus:ring-orange-100"
-                    placeholder="Expected answer"
+                    placeholder="Очікувана відповідь"
                   />
                 </div>
               )}

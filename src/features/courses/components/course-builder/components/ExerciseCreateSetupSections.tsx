@@ -74,7 +74,7 @@ export function ExerciseCreateSetupSections({
                 <Sparkles className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <h5 className="text-base font-semibold text-[#14213d]">Generate with AI</h5>
+                <h5 className="text-base font-semibold text-[#14213d]">Згенерувати з AI</h5>
               </div>
             </div>
           </button>
@@ -101,7 +101,7 @@ export function ExerciseCreateSetupSections({
                 <PenSquare className="h-4 w-4" />
               </span>
               <div className="min-w-0">
-                <h5 className="text-base font-semibold text-[#14213d]">Create Manually</h5>
+                <h5 className="text-base font-semibold text-[#14213d]">Створити вручну</h5>
               </div>
             </div>
           </button>
@@ -111,7 +111,7 @@ export function ExerciseCreateSetupSections({
       <section className={`${sectionClassName} ${isStepTwoLocked ? "opacity-45" : ""}`}>
         <div className="flex items-center gap-3">
           <span className={sectionStepClassName}>2</span>
-          <h4 className={stageTitleClassName}>Placed this exercise after:</h4>
+          <h4 className={stageTitleClassName}>Розмістити вправу після:</h4>
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-2">
@@ -139,7 +139,7 @@ export function ExerciseCreateSetupSections({
             }`}
           >
             <option value="" disabled>
-              {lessons.length === 0 ? "No lessons available" : "Select lesson"}
+              {lessons.length === 0 ? "Немає доступних уроків" : "Оберіть урок"}
             </option>
             {lessons.map((lesson) => (
               <option key={lesson.id} value={lesson.id}>
@@ -153,7 +153,7 @@ export function ExerciseCreateSetupSections({
       <section className={`${sectionClassName} ${isStepThreeLocked ? "opacity-45" : ""}`}>
         <div className="flex items-center gap-3">
           <span className={sectionStepClassName}>3</span>
-          <h4 className={stageTitleClassName}>Choose the exercise format</h4>
+          <h4 className={stageTitleClassName}>Оберіть формат вправи</h4>
         </div>
 
         <div className="mt-5 grid gap-3 xl:grid-cols-2">
@@ -179,7 +179,7 @@ export function ExerciseCreateSetupSections({
                 <RectangleEllipsis className="h-4 w-4" />
               </span>
               <div className="flex min-h-[3.5rem] min-w-0 items-center">
-                <h5 className="text-base font-semibold text-[#14213d]">Fill Missing Code</h5>
+                <h5 className="text-base font-semibold text-[#14213d]">Заповнити пропуски в коді</h5>
               </div>
             </div>
 
@@ -187,7 +187,7 @@ export function ExerciseCreateSetupSections({
               <div className="flex flex-1 flex-col justify-between gap-4 px-4 py-4">
                 <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-xs leading-6 text-slate-100">
                   <span>print(</span>
-                  <span className="mx-1 inline-flex rounded-md border border-dashed border-sky-300/50 bg-sky-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-200">
+                  <span className="mx-1 inline-flex rounded-md border border-dashed border-sky-300/50 bg-sky-500/10 px-2 py-1 text-[10px] font-semibold text-sky-200">
                     blank
                   </span>
                   <span>)</span>
@@ -228,7 +228,7 @@ export function ExerciseCreateSetupSections({
                 <PenSquare className="h-4 w-4" />
               </span>
               <div className="flex min-h-[3.5rem] min-w-0 items-center">
-                <h5 className="text-base font-semibold text-[#14213d]">Write Code</h5>
+                <h5 className="text-base font-semibold text-[#14213d]">Написати код</h5>
               </div>
             </div>
 

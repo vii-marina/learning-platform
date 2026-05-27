@@ -20,14 +20,14 @@ type AdminCreateUserModalProps = {
 function getRoleLabels(role: PublicRegistrationRole) {
   return role === "teacher"
     ? {
-        title: "Add Teacher",
-        subtitle: "Create a new teacher account for the platform.",
-        submitLabel: "Create Teacher",
+        title: "Додати викладача",
+        subtitle: "Створіть новий акаунт викладача для платформи.",
+        submitLabel: "Створити викладача",
       }
     : {
-        title: "Add Student",
-        subtitle: "Create a new student account for the platform.",
-        submitLabel: "Create Student",
+        title: "Додати студента",
+        subtitle: "Створіть новий акаунт студента для платформи.",
+        submitLabel: "Створити студента",
       };
 }
 
@@ -51,17 +51,17 @@ export function AdminCreateUserModal({
     const normalizedEmail = email.trim().toLowerCase();
 
     if (!trimmedFullName) {
-      setMessage("Please enter a full name.");
+      setMessage("Введіть повне імʼя.");
       return;
     }
 
     if (!normalizedEmail) {
-      setMessage("Please enter an email address.");
+      setMessage("Введіть email.");
       return;
     }
 
     if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+      setPasswordError("Пароль має містити щонайменше 6 символів.");
       setMessage("");
       return;
     }
@@ -79,7 +79,7 @@ export function AdminCreateUserModal({
       });
       onClose();
     } catch (error) {
-      setMessage(getErrorMessage(error, "Unable to create user."));
+      setMessage(getErrorMessage(error, "Не вдалося створити користувача."));
     } finally {
       setIsSubmitting(false);
     }
@@ -104,7 +104,7 @@ export function AdminCreateUserModal({
               <div>
                 <p className="text-sm font-bold text-cyan-700">{labels.title}</p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-[#14213d]">
-                  Create account
+                  Створити акаунт
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-slate-500">
                   {labels.subtitle}
@@ -117,7 +117,7 @@ export function AdminCreateUserModal({
               onClick={onClose}
               disabled={isSubmitting}
               className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              aria-label="Close create user modal"
+              aria-label="Закрити модальне вікно створення користувача"
             >
               <X className="h-4 w-4" />
             </button>
@@ -131,7 +131,7 @@ export function AdminCreateUserModal({
             ) : null}
 
             <label className="block text-sm text-slate-600">
-              <span>Full Name</span>
+              <span>Повне імʼя</span>
               <Input
                 value={fullName}
                 onChange={(event) => {
@@ -140,7 +140,7 @@ export function AdminCreateUserModal({
                     setMessage("");
                   }
                 }}
-                placeholder="Enter full name"
+                placeholder="Введіть повне імʼя"
                 className="mt-1"
                 disabled={isSubmitting}
               />
@@ -164,7 +164,7 @@ export function AdminCreateUserModal({
             </label>
 
             <PasswordField
-              label="Temporary Password"
+              label="Тимчасовий пароль"
               value={password}
               onChange={(nextValue) => {
                 setPassword(nextValue);
@@ -186,7 +186,7 @@ export function AdminCreateUserModal({
                 onClick={onClose}
                 disabled={isSubmitting}
               >
-                Cancel
+                Скасувати
               </Button>
               <Button type="submit" size="lg" disabled={isSubmitting}>
                 {isSubmitting ? (

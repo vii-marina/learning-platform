@@ -9,6 +9,7 @@ import {
   saveAdminDashboardTeacherProfile,
 } from "../services/adminDashboardService";
 import {
+  clearAdminDashboardStudentCourse,
   deleteAdminDashboardStudent,
   getAdminDashboardStudent,
   listAdminDashboardStudents,
@@ -91,4 +92,14 @@ export async function deleteAdminDashboardStudentHandler(req: Request, res: Resp
   const params = updateUserParamsSchema.parse(req.params);
   await deleteAdminDashboardStudent(params.id);
   res.status(200).json({ deletedId: params.id });
+}
+
+export async function clearAdminDashboardStudentCourseHandler(req: Request, res: Response) {
+  const params = updateUserParamsSchema
+    .extend({
+      courseId: updateUserParamsSchema.shape.id,
+    })
+    .parse(req.params);
+  const student = await clearAdminDashboardStudentCourse(params.id, params.courseId);
+  res.status(200).json({ student });
 }

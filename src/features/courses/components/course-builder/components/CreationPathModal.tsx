@@ -37,7 +37,7 @@ export function CreationPathModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close creation choice modal"
+            aria-label="Закрити модальне вікно вибору створення"
             className="absolute right-5 top-5 rounded-2xl border border-slate-200 bg-white p-2 text-slate-500 shadow-sm transition hover:bg-slate-50 hover:text-slate-700"
           >
             <X className="h-4 w-4" />

@@ -29,14 +29,14 @@ export function CreateModuleModal({
           Course content
         </p>
         <h3 className="mt-3 text-3xl font-extrabold tracking-tight text-[#14213d]">
-          {title.trim() ? "Edit Module" : "Create Module"}
+          {title.trim() ? "Редагувати модуль" : "Створити модуль"}
         </h3>
 
         <div className="mt-6">
           <Input
             value={title}
             onChange={(event) => onTitleChange(event.target.value)}
-            placeholder="New Module"
+            placeholder="Новий модуль"
             autoFocus
             className="h-14 rounded-2xl border border-slate-200 bg-[#f9fbfd] px-5 text-lg font-medium text-[#14213d] focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/15"
           />
@@ -55,7 +55,7 @@ export function CreateModuleModal({
             onClick={onSave}
             disabled={isSaving || !title.trim()}
           >
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? "Збереження..." : "Зберегти"}
           </Button>
         </div>
       </div>

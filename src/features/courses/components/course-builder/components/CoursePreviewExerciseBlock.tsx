@@ -25,7 +25,7 @@ function hasWriteCodeSlot(template: string) {
 }
 
 function getExerciseTypeLabel(exercise: CourseExercise) {
-  return exercise.type === "drag_drop_code" ? "Fill Missing Code" : "Write Code";
+  return exercise.type === "drag_drop_code" ? "Заповнити пропуски в коді" : "Написати код";
 }
 
 function getInitialWriteCodeValue(exercise: CourseExercise) {
@@ -91,12 +91,18 @@ export function CoursePreviewExerciseBlock({
 
   const feedbackLabel =
     result === "correct"
-      ? "Answer checked."
+      ? "Усе правильно."
       : result === "incorrect"
-        ? "That answer is not correct yet."
+        ? "Відповідь неправильна."
         : result === "revealed"
-          ? "Answer revealed."
+          ? "Відповідь показано."
           : null;
+  const feedbackClassName =
+    result === "correct"
+      ? "text-emerald-700"
+      : result === "incorrect"
+        ? "text-rose-700"
+        : "text-orange-700";
 
   if (exercise.content.type === "drag_drop_code") {
     const templateParts = exercise.content.code_template.split(DRAG_DROP_SLOT_PATTERN);
@@ -149,7 +155,7 @@ export function CoursePreviewExerciseBlock({
               </span>
               {isGenerated ? (
                 <span className="rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-semibold text-orange-600">
-                  AI Practice
+                  AI-практика
                 </span>
               ) : null}
             </div>
@@ -221,7 +227,7 @@ export function CoursePreviewExerciseBlock({
             ))
           ) : (
             <span className="text-sm text-slate-400">
-              Add tokens in the builder to preview the student interaction here.
+              Додайте токени в конструкторі, щоб переглянути взаємодію студента.
             </span>
           )}
         </div>
@@ -248,7 +254,7 @@ export function CoursePreviewExerciseBlock({
               }}
               disabled={dragDropSelections.some((selection) => !selection.trim())}
             >
-              Check Answer
+              Перевірити відповідь
             </Button>
             <Button
               type="button"
@@ -261,7 +267,7 @@ export function CoursePreviewExerciseBlock({
                 setResult(null);
               }}
             >
-              Try Again
+              Спробувати ще раз
             </Button>
             <Button
               type="button"
@@ -275,19 +281,19 @@ export function CoursePreviewExerciseBlock({
                 onResolved(exercise.id);
               }}
             >
-              Show Answer
+              Показати відповідь
             </Button>
           </div>
 
           {feedbackLabel ? (
-            <p className="text-sm font-medium text-slate-600">{feedbackLabel}</p>
+            <p className={`text-sm font-semibold ${feedbackClassName}`}>{feedbackLabel}</p>
           ) : null}
         </div>
 
         {result === "revealed" ? (
           <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/40 px-4 py-4">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-orange-600">
-              Answer
+            <p className="text-xs font-semibold text-orange-600">
+              Відповідь
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               {correctAnswer.map((token, index) => (
@@ -332,7 +338,7 @@ export function CoursePreviewExerciseBlock({
             </span>
             {isGenerated ? (
               <span className="rounded-full border border-orange-200 bg-white px-3 py-1 text-xs font-semibold text-orange-600">
-                AI Practice
+                AI-практика
               </span>
             ) : null}
           </div>
@@ -373,7 +379,7 @@ export function CoursePreviewExerciseBlock({
                       setResult(null);
                     }}
                     className="w-full bg-transparent text-sm font-medium text-slate-700 outline-none"
-                    placeholder={`Answer ${++inlineSlotIndex}`}
+                    placeholder={`Відповідь ${++inlineSlotIndex}`}
                   />
                 </span>
               ) : (
@@ -418,7 +424,7 @@ export function CoursePreviewExerciseBlock({
             }}
             disabled={!writeCodeValue.trim()}
           >
-            Check Answer
+            Перевірити відповідь
           </Button>
           <Button
             type="button"
@@ -430,7 +436,7 @@ export function CoursePreviewExerciseBlock({
               setResult(null);
             }}
           >
-            Try Again
+            Спробувати ще раз
           </Button>
           <Button
             type="button"
@@ -443,19 +449,19 @@ export function CoursePreviewExerciseBlock({
               onResolved(exercise.id);
             }}
           >
-            Show Answer
+            Показати відповідь
           </Button>
         </div>
 
         {feedbackLabel ? (
-          <p className="text-sm font-medium text-slate-600">{feedbackLabel}</p>
+          <p className={`text-sm font-semibold ${feedbackClassName}`}>{feedbackLabel}</p>
         ) : null}
       </div>
 
       {result === "revealed" ? (
         <div className="mt-4 rounded-xl border border-orange-200 bg-orange-50/40 px-4 py-4">
           <p className="text-sm font-semibold text-orange-600">
-            Answer
+            Відповідь
           </p>
           <pre className="mt-3 overflow-x-auto whitespace-pre-wrap rounded-xl bg-slate-950 px-4 py-4 font-mono text-sm leading-6 text-slate-100">
             {writeCodeContent.expected_answer}

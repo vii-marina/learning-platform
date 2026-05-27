@@ -4,9 +4,9 @@ export const testQuestionTypeOptions: Array<{
   value: TestQuestionType;
   label: string;
 }> = [
-  { value: "true_false", label: "True/False" },
-  { value: "single_choice", label: "Multiple Choice (Single)" },
-  { value: "multiple_choice", label: "Multiple Choice (Multiple)" },
+  { value: "true_false", label: "Правда/Неправда" },
+  { value: "single_choice", label: "Один варіант" },
+  { value: "multiple_choice", label: "Кілька варіантів" },
 ];
 
 export const aiQuestionGenerationModeOptions: Array<{
@@ -14,5 +14,5 @@ export const aiQuestionGenerationModeOptions: Array<{
   label: string;
 }> = [
   ...testQuestionTypeOptions,
-  { value: "mixed", label: "Mixed" },
+  { value: "mixed", label: "Змішаний" },
 ];

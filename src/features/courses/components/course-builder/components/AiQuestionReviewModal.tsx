@@ -51,7 +51,7 @@ export function AiQuestionReviewModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close AI question review modal"
+            aria-label="Закрити модальне вікно перегляду AI-запитань"
             className="rounded-2xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
           >
             <X className="h-5 w-5" />

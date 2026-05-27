@@ -4,10 +4,10 @@ const tabs: Array<{
   id: TeacherCourseFilterId;
   label: string;
 }> = [
-  { id: "all", label: "All" },
-  { id: "drafts", label: "Drafts" },
-  { id: "published", label: "Published" },
-  { id: "archived", label: "Archived" },
+  { id: "all", label: "Усі" },
+  { id: "drafts", label: "Чернетки" },
+  { id: "published", label: "Опубліковані" },
+  { id: "archived", label: "Архів" },
 ];
 
 type TeacherCourseTabsProps = {
@@ -74,7 +74,7 @@ export function TeacherCourseTabs({
       <div
         className="inline-flex min-w-full gap-2 rounded-xl border border-slate-200 bg-white p-1.5"
         role="tablist"
-        aria-label="Filter courses"
+        aria-label="Фільтр курсів"
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeTab;

@@ -1,6 +1,6 @@
 import type { TeacherCourseFilterId, TeacherCourseSummary } from "./teacherCourseDashboard.types";
 
-const relativeTimeFormatter = new Intl.RelativeTimeFormat("en", {
+const relativeTimeFormatter = new Intl.RelativeTimeFormat("uk", {
   numeric: "auto",
 });
 
@@ -101,7 +101,7 @@ export function formatCourseRelativeTime(updatedAt: string) {
   const relativeTimeParts = getRelativeTimeParts(updatedAt);
 
   if (!relativeTimeParts) {
-    return "recently";
+    return "нещодавно";
   }
 
   return relativeTimeFormatter.format(relativeTimeParts.value, relativeTimeParts.unit);
@@ -109,10 +109,10 @@ export function formatCourseRelativeTime(updatedAt: string) {
 
 export function getCourseStatusLabel(course: TeacherCourseSummary) {
   if (isArchivedCourse(course)) {
-    return "Archived";
+    return "Архів";
   }
 
-  return isPublishedCourse(course) ? "Published" : "Draft";
+  return isPublishedCourse(course) ? "Опубліковано" : "Чернетка";
 }
 
 export function getCourseStatusClassName(course: TeacherCourseSummary) {

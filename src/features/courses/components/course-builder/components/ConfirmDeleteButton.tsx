@@ -6,10 +6,10 @@ type ConfirmDeleteButtonProps = {
 };
 
 export function ConfirmDeleteButton({
-  label = "Delete",
+  label = "Видалити",
   className,
   onConfirm,
-  confirmText = "Delete this item?",
+  confirmText = "Видалити цей елемент?",
 }: ConfirmDeleteButtonProps) {
   return (
     <button

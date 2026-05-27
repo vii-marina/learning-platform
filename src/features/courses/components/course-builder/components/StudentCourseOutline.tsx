@@ -28,7 +28,7 @@ export function StudentCourseOutline({
 }: StudentCourseOutlineProps) {
   return (
     <aside className="border-r border-slate-200 bg-[#f8fafc] p-5 md:p-6">
-      <h3 className="text-xl font-bold text-[#14213d]">Course Content</h3>
+      <h3 className="text-xl font-bold text-[#14213d]">Зміст курсу</h3>
 
       <div className="mt-5 space-y-3">
         {modules.length === 0 ? (

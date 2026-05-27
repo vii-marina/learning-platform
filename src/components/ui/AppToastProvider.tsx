@@ -89,7 +89,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
           <button
             type="button"
             onClick={dismissToast}
-            aria-label="Dismiss notification"
+            aria-label="Відхилити сповіщення"
             className="pointer-events-auto absolute inset-0 bg-transparent"
           />
 
@@ -101,7 +101,7 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
             <button
               type="button"
               onClick={dismissToast}
-              aria-label="Close notification"
+              aria-label="Закрити сповіщення"
               className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
             >
               <X className="h-4 w-4" />

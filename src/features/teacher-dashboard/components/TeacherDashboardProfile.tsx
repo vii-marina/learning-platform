@@ -258,7 +258,7 @@ function FieldLabel({
           required ? "text-[#0891a4]" : "text-slate-400"
         }`}
       >
-        {required ? "Required" : "Optional"}
+        {required ? "Обовʼязково" : "Необовʼязково"}
       </span>
     </div>
   );
@@ -356,14 +356,14 @@ function GenderField({
     label: string;
     icon: LucideIcon;
   }> = [
-    { value: "male", label: "Male", icon: Mars },
-    { value: "female", label: "Female", icon: Venus },
-    { value: "other", label: "Other", icon: VenusAndMars },
+    { value: "male", label: "Чоловік", icon: Mars },
+    { value: "female", label: "Жінка", icon: Venus },
+    { value: "other", label: "Інше", icon: VenusAndMars },
   ];
 
   return (
     <FieldShell>
-      <FieldLabel label="Gender" required />
+      <FieldLabel label="Стать" required />
       <div className="grid grid-cols-3 gap-2">
         {options.map((option) => {
           const Icon = option.icon;
@@ -471,17 +471,17 @@ export function TeacherDashboardProfile({
 
   const missingRequiredFields = [
     ...(emailStatus === "valid" ? [] : ["Email"]),
-    ...(fullNameStatus === "valid" ? [] : ["Full name"]),
-    ...(educationStatus === "valid" ? [] : ["Education"]),
-    ...(genderStatus === "valid" ? [] : ["Gender"]),
-    ...(birthDateStatus === "valid" ? [] : ["Birth date"]),
-    ...(headlineStatus === "valid" ? [] : ["Headline"]),
+    ...(fullNameStatus === "valid" ? [] : ["Повне імʼя"]),
+    ...(educationStatus === "valid" ? [] : ["Освіта"]),
+    ...(genderStatus === "valid" ? [] : ["Стать"]),
+    ...(birthDateStatus === "valid" ? [] : ["Дата народження"]),
+    ...(headlineStatus === "valid" ? [] : ["Професійний заголовок"]),
   ];
 
   const invalidFields = [
     ...(emailStatus === "invalid" ? ["Email"] : []),
-    ...(birthDateStatus === "invalid" ? ["Birth date"] : []),
-    ...(experienceStatus === "invalid" ? ["Experience years"] : []),
+    ...(birthDateStatus === "invalid" ? ["Дата народження"] : []),
+    ...(experienceStatus === "invalid" ? ["Роки досвіду"] : []),
     ...(linkedinStatus === "invalid" ? ["LinkedIn URL"] : []),
     ...(githubStatus === "invalid" ? ["GitHub URL"] : []),
   ];
@@ -532,10 +532,10 @@ export function TeacherDashboardProfile({
       <div className="space-y-2">
         
         <h1 className="text-2xl font-semibold tracking-tight text-slate-950">
-          Profile Settings
+          Налаштування профілю
         </h1>
         <p className="text-sm text-slate-500">
-          Update your teacher profile, professional details, and public links.
+          Оновіть профіль викладача, професійні дані та публічні посилання.
         </p>
       </div>
 
@@ -553,13 +553,13 @@ export function TeacherDashboardProfile({
                 {formState.fullName.trim() || getTeacherDisplayName(teacher)}
               </h2>
               <p className="text-sm font-medium text-[#0891a4]">
-                {formState.headline.trim() || "Teacher profile"}
+                {formState.headline.trim() || "Профіль викладача"}
               </p>
             </div>
 
             <label className="inline-flex h-10 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#13daec]/30 bg-[#13daec]/10 px-4 text-sm font-medium text-[#0f172a] transition hover:border-[#13daec]/50 hover:bg-[#13daec]/14">
               <Camera className="h-4 w-4" />
-              <span>Upload Photo</span>
+              <span>Завантажити фото</span>
               <input
                 type="file"
                 accept="image/*"
@@ -573,7 +573,7 @@ export function TeacherDashboardProfile({
                   }
 
                   if (!isImageFile(nextFile)) {
-                    setAvatarError("Please choose an image file.");
+                    setAvatarError("Оберіть файл зображення.");
                     event.target.value = "";
                     return;
                   }
@@ -586,7 +586,7 @@ export function TeacherDashboardProfile({
             </label>
 
             <p className="text-xs text-slate-400">
-              JPG, GIF or PNG.
+              JPG, GIF або PNG.
             </p>
 
             {avatarFile ? (
@@ -607,18 +607,18 @@ export function TeacherDashboardProfile({
               </div>
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-                  Personal Information
+                  Особиста інформація
                 </h2>
               </div>
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <TextField
-                label="Full name"
+                label="Повне імʼя"
                 required
                 value={formState.fullName}
                 onChange={(value) => updateField("fullName", value)}
-                placeholder="Enter full name"
+                placeholder="Введіть повне імʼя"
                 status={fullNameStatus}
               />
               <TextField
@@ -626,7 +626,7 @@ export function TeacherDashboardProfile({
                 required
                 value={formState.email}
                 onChange={(value) => updateField("email", value)}
-                placeholder="Enter email address"
+                placeholder="Введіть email"
                 type="email"
                 status={emailStatus}
               />
@@ -637,20 +637,20 @@ export function TeacherDashboardProfile({
               />
 
               <TextField
-                label="Education"
+                label="Освіта"
                 required
                 value={formState.education}
                 onChange={(value) => updateField("education", value)}
-                placeholder="Enter education or institution"
+                placeholder="Введіть освіту або заклад"
                 status={educationStatus}
               />
 
               <TextField
-                label="Birth date"
+                label="Дата народження"
                 required
                 value={formState.birthDate}
                 onChange={(value) => updateField("birthDate", value)}
-                placeholder="Select birth date"
+                placeholder="Оберіть дату народження"
                 type="date"
                 status={birthDateStatus}
               />
@@ -664,49 +664,49 @@ export function TeacherDashboardProfile({
               </div>
               <div className="space-y-1">
                 <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-                  Professional Information
+                  Професійна інформація
                 </h2>
                 <p className="text-sm text-slate-500">
-                  Headline, biography, and links that support your teaching profile.
+                  Заголовок, біографія та посилання для профілю викладача.
                 </p>
               </div>
             </div>
 
             <div className="mt-5 space-y-4">
               <TextField
-                label="Headline"
+                label="Професійний заголовок"
                 required
                 value={formState.headline}
                 onChange={(value) => updateField("headline", value)}
-                placeholder="Python Developer, Web Instructor"
+                placeholder="Python Developer, викладач веброзробки"
                 status={headlineStatus}
               />
 
               <TextAreaField
-                label="Biography"
+                label="Біографія"
                 required={false}
                 value={formState.bio}
                 onChange={(value) => updateField("bio", value)}
-                placeholder="Write a short introduction or add more details if needed."
+                placeholder="Напишіть коротке представлення або додайте потрібні деталі."
                 status={bioStatus}
               />
 
               <div className="grid gap-4 md:grid-cols-2">
                 <TextField
-                  label="Specialization"
+                  label="Спеціалізація"
                   required={false}
                   value={formState.specialization}
                   onChange={(value) => updateField("specialization", value)}
-                  placeholder="Python, Web Development, Data Science"
+                  placeholder="Python, веброзробка, Data Science"
                   status={specializationStatus}
                 />
 
                 <TextField
-                  label="Experience years"
+                  label="Роки досвіду"
                   required={false}
                   value={formState.experienceYears}
                   onChange={(value) => updateField("experienceYears", value)}
-                  placeholder="Enter years of experience"
+                  placeholder="Введіть кількість років досвіду"
                   type="number"
                   min={0}
                   status={experienceStatus}
@@ -739,7 +739,7 @@ export function TeacherDashboardProfile({
             <div className="min-h-10 flex-1">
               {avatarError ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("error")}`}>
-                  Please choose a valid image file before saving.
+                  Перед збереженням оберіть коректний файл зображення.
                 </div>
               ) : saveMessage?.type === "error" ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm ${getNoticeClassName("error")}`}>
@@ -756,11 +756,11 @@ export function TeacherDashboardProfile({
                 </div>
               ) : hasValidationErrors ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("warning")}`}>
-                  Fix the invalid fields before saving: {joinLabels(invalidFields)}.
+                  Виправте некоректні поля перед збереженням: {joinLabels(invalidFields)}.
                 </div>
               ) : !hasRequiredFields ? (
                 <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${getNoticeClassName("info")}`}>
-                  Complete the required fields before saving: {joinLabels(missingRequiredFields)}.
+                  Заповніть обовʼязкові поля перед збереженням: {joinLabels(missingRequiredFields)}.
                 </div>
               ) : null}
             </div>
@@ -773,7 +773,7 @@ export function TeacherDashboardProfile({
                 disabled={isSaving || !hasChanges}
               >
                 <RotateCcw className="h-4 w-4" />
-                <span>Discard changes</span>
+                <span>Скасувати зміни</span>
               </Button>
 
               <Button
@@ -781,7 +781,7 @@ export function TeacherDashboardProfile({
                 onClick={() => void onSave(normalizedInput, avatarFile)}
                 disabled={isSaving || !hasRequiredFields || hasValidationErrors || !hasChanges}
               >
-                {isSaving ? "Saving..." : "Save Profile"}
+                {isSaving ? "Збереження..." : "Зберегти профіль"}
               </Button>
             </div>
           </div>

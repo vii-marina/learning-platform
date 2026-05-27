@@ -71,7 +71,7 @@ export function AdminDashboardCoursesPage() {
 
         setMessage({
           type: "error",
-          text: getErrorMessage(error, "Unable to load courses."),
+          text: getErrorMessage(error, "Не вдалося завантажити курси."),
         });
       } finally {
         if (isMounted) {
@@ -176,15 +176,15 @@ export function AdminDashboardCoursesPage() {
         type: "success",
         text:
           action === "publish"
-            ? "Course published."
+            ? "Курс опубліковано."
             : action === "unpublish"
-              ? "Course unpublished."
-              : "Course archived.",
+              ? "Курс знято з публікації."
+              : "Курс архівовано.",
       });
     } catch (error) {
       setMessage({
         type: "error",
-        text: getErrorMessage(error, "Unable to update course status."),
+        text: getErrorMessage(error, "Не вдалося оновити статус курсу."),
       });
     } finally {
       setPendingAction(null);
@@ -211,12 +211,12 @@ export function AdminDashboardCoursesPage() {
       setPendingDeleteCourse(null);
       setMessage({
         type: "success",
-        text: "Course deleted.",
+        text: "Курс видалено.",
       });
     } catch (error) {
       setMessage({
         type: "error",
-        text: getErrorMessage(error, "Unable to delete course."),
+        text: getErrorMessage(error, "Не вдалося видалити курс."),
       });
     } finally {
       setPendingAction(null);
@@ -229,12 +229,12 @@ export function AdminDashboardCoursesPage() {
         <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1.5">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
-              Course Management
+              Керування курсами
             </h1>
           </div>
 
           <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
-            Total courses: {courses.length}
+            Усього курсів: {courses.length}
           </div>
         </section>
 
@@ -250,7 +250,7 @@ export function AdminDashboardCoursesPage() {
             type="search"
             value={searchValue}
             onChange={(event) => setSearchValue(event.target.value)}
-            placeholder="Search courses or authors..."
+            placeholder="Пошук курсів або авторів..."
             className="h-12 w-full rounded-[1.15rem] border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-[#14213d] outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/12"
           />
         </div>
@@ -260,17 +260,17 @@ export function AdminDashboardCoursesPage() {
         ) : filteredCourses.length === 0 ? (
           <Card className="rounded-[1.5rem] border-slate-200/80 p-8 text-sm text-slate-500 shadow-sm">
             {deferredSearchValue.trim()
-              ? "No courses match your search."
-              : "No courses found."}
+              ? "За вашим пошуком курсів не знайдено."
+              : "Курсів не знайдено."}
           </Card>
         ) : (
           <div className="space-y-5">
             {publishedCourses.length > 0 ? (
               <AdminCourseCatalog
                 sectionId="published-courses"
-                title="Published Courses"
+                title="Опубліковані курси"
                 courses={publishedCourses}
-                emptyMessage="No published courses found."
+                emptyMessage="Опублікованих курсів не знайдено."
                 tone="published"
                 pendingActionByCourseId={pendingActionByCourseId}
                 onDelete={setPendingDeleteCourse}
@@ -280,9 +280,9 @@ export function AdminDashboardCoursesPage() {
             {draftCourses.length > 0 ? (
               <AdminCourseCatalog
                 sectionId="draft-courses"
-                title="Draft Courses"
+                title="Чернетки курсів"
                 courses={draftCourses}
-                emptyMessage="No draft courses found."
+                emptyMessage="Чернеток курсів не знайдено."
                 tone="draft"
                 pendingActionByCourseId={pendingActionByCourseId}
                 onDelete={setPendingDeleteCourse}
@@ -292,9 +292,9 @@ export function AdminDashboardCoursesPage() {
             {archivedCourses.length > 0 ? (
               <AdminCourseCatalog
                 sectionId="archived-courses"
-                title="Archived Courses"
+                title="Архів курсів"
                 courses={archivedCourses}
-                emptyMessage="No archived courses found."
+                emptyMessage="Архівованих курсів не знайдено."
                 tone="archived"
                 pendingActionByCourseId={pendingActionByCourseId}
                 onDelete={setPendingDeleteCourse}
@@ -307,19 +307,19 @@ export function AdminDashboardCoursesPage() {
 
       <AdminDeleteWarningModal
         isOpen={Boolean(pendingDeleteCourse)}
-        entityLabel="course"
+        entityLabel="курсу"
         entityName={pendingDeleteCourse?.title ?? ""}
         entityEmail={
           pendingDeleteCourse
-            ? `Author: ${getAdminCourseAuthorName(pendingDeleteCourse)}`
+            ? `Автор: ${getAdminCourseAuthorName(pendingDeleteCourse)}`
             : ""
         }
         impactItems={[
-          "The course will disappear from the admin course catalog.",
-          "Students and teachers will lose access to this course in the dashboard.",
-          "This action soft-deletes the course and should be treated as destructive.",
+          "Курс зникне з адмінського каталогу курсів.",
+          "Студенти й викладачі втратять доступ до цього курсу в дашборді.",
+          "Ця дія позначає курс як видалений і вважається небезпечною.",
         ]}
-        confirmLabel="Delete course"
+        confirmLabel="Видалити курс"
         isSubmitting={pendingAction?.action === "delete"}
         onClose={() => {
           if (pendingAction?.action === "delete") {

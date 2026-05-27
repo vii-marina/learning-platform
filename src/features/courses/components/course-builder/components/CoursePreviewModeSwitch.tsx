@@ -11,11 +11,11 @@ const modeOptions: Array<{
 }> = [
   {
     value: "student",
-    label: "Student",
+    label: "Студент",
   },
   {
     value: "teacher",
-    label: "Teacher",
+    label: "Викладач",
   },
 ];
 

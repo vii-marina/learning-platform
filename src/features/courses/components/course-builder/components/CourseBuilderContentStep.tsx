@@ -286,7 +286,7 @@ export function CourseBuilderContentStep({
                     >
                       <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
                       <span className="truncate text-xl font-semibold tracking-tight text-slate-950">
-                        {`Module ${module.order}: ${module.title}`}
+                        {`Модуль ${module.order}: ${module.title}`}
                       </span>
                       {isExpanded ? (
                         <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-[#90a0b7]" />
@@ -300,7 +300,7 @@ export function CourseBuilderContentStep({
                     <button
                       type="button"
                       onClick={() => onStartEditModule(module.id, module.title)}
-                      aria-label="Edit module"
+                      aria-label="Редагувати модуль"
                       className="rounded-lg border border-transparent p-2 text-[#90a0b7] transition hover:border-[#13daec]/20 hover:bg-white/80 hover:text-slate-700"
                     >
                       <Pencil className="h-4 w-4" />
@@ -308,7 +308,7 @@ export function CourseBuilderContentStep({
                     <button
                       type="button"
                       onClick={() => onDeleteModule(module.id)}
-                      aria-label="Delete module"
+                      aria-label="Видалити модуль"
                       className="rounded-lg border border-transparent p-2 text-[#90a0b7] transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -326,7 +326,7 @@ export function CourseBuilderContentStep({
                       {!hasLoadedModuleContent ? (
                         hasModuleContentError ? (
                           <div className="rounded-xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-700">
-                            <p>Some module content could not be loaded.</p>
+                            <p>Частину контенту модуля не вдалося завантажити.</p>
                             <Button
                               type="button"
                               variant="secondary"
@@ -373,7 +373,7 @@ export function CourseBuilderContentStep({
                             className={lessonActionButtonClassName}
                           >
                             <Plus className="h-4 w-4 text-emerald-600" />
-                            Add Lesson
+                            Додати урок
                           </Button>
                           <Button
                             type="button"
@@ -383,7 +383,7 @@ export function CourseBuilderContentStep({
                             className={testActionButtonClassName}
                           >
                             <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
-                            Add Test
+                            Додати тест
                           </Button>
                           <Button
                             type="button"
@@ -394,7 +394,7 @@ export function CourseBuilderContentStep({
                             className={exerciseActionButtonClassName}
                           >
                             <Code2 className="h-4 w-4 text-[#f97316]" />
-                            {isPreparingExercise ? "Saving Draft..." : "Add Exercise"}
+                            {isPreparingExercise ? "Зберігається..." : "Додати вправу"}
                           </Button>
                         </div>
                       </div>
@@ -484,7 +484,7 @@ export function CourseBuilderContentStep({
                       className={lessonActionButtonClassName}
                     >
                       <Plus className="h-4 w-4 text-emerald-600" />
-                      Add Lesson
+                      Додати урок
                     </Button>
                     <Button
                       type="button"
@@ -504,7 +504,7 @@ export function CourseBuilderContentStep({
                       className={testActionButtonClassName}
                     >
                       <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
-                      Add Test
+                      Додати тест
                     </Button>
                     <Button
                       type="button"
@@ -524,7 +524,7 @@ export function CourseBuilderContentStep({
                       className={exerciseActionButtonClassName}
                     >
                       <Code2 className="h-4 w-4 text-[#f97316]" />
-                      Add Exercise
+                      Додати вправу
                     </Button>
                   </div>
                 </div>
@@ -570,7 +570,7 @@ export function CourseBuilderContentStep({
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-[#13daec] text-slate-600">
                 <Plus className="h-5 w-5" />
               </div>
-              Add New Module
+              Додати новий модуль
             </button>
           ) : null}
 
@@ -583,7 +583,7 @@ export function CourseBuilderContentStep({
               className="px-0"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Course Info
+              Повернутись назад
             </Button>
 
             <Button
@@ -599,7 +599,7 @@ export function CourseBuilderContentStep({
                 (isPersistedCourse && modulesLoadState !== "ready")
               }
             >
-              Continue to Review
+              Наступний крок
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>

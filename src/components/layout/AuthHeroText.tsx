@@ -4,8 +4,8 @@ type AuthHeroTextProps = {
 };
 
 export function AuthHeroText({
-  title = "Improve your skills with EduCat",
-  description = "EduCation platform",
+  title = "Покращуйте навички з EduCat",
+  description = "Освітня платформа",
 }: AuthHeroTextProps) {
   return (
     <div className="space-y-2 text-center">

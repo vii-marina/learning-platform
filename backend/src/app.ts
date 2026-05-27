@@ -9,6 +9,7 @@ import { adminRoutes } from "./routes/adminRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { exerciseRoutes } from "./routes/exerciseRoutes";
 import { healthRoutes } from "./routes/healthRoutes";
+import { publicRoutes } from "./routes/publicRoutes";
 import aiRoutes from "./routes/aiRoutes";
 
 function isAllowedOrigin(origin: string | undefined): boolean {
@@ -42,6 +43,7 @@ export function createApp() {
   app.use(express.json());
 
   app.use(healthRoutes);
+  app.use("/public", publicRoutes);
   app.use("/auth", authRoutes);
   app.use("/admin", adminRoutes);
   app.use("/api", exerciseRoutes);

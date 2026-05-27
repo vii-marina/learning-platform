@@ -101,7 +101,7 @@ export function ModuleLessonsSection({
                       dangerouslySetInnerHTML={{ __html: lesson.content ?? "" }}
                     />
                   ) : (
-                    <p className="text-sm leading-6 text-slate-600">No lesson content yet.</p>
+                    <p className="text-sm leading-6 text-slate-600">Контент уроку поки відсутній.</p>
                   )}
 
                   {embedUrl ? <div className="clear-both" /> : null}

@@ -16,7 +16,7 @@ export function ExerciseEditorCard({
   indexLabel,
   question,
   questionAriaLabel,
-  questionPlaceholder = "Type the task for the student...",
+  questionPlaceholder = "Введіть завдання для студента...",
   isHighlighted = false,
   disabled,
   actions,

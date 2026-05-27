@@ -138,7 +138,7 @@ export function TeacherCourseCard({
         <div className="absolute right-2.5 top-2.5" ref={menuRef}>
           <button
             type="button"
-            aria-label="Open course actions"
+            aria-label="Відкрити дії курсу"
             onClick={(event) => {
               stopCardEvent(event);
               setIsMenuOpen((currentValue) => !currentValue);
@@ -165,7 +165,7 @@ export function TeacherCourseCard({
                   ) : (
                     <Upload className="h-4 w-4" />
                   )}
-                  <span>Unpublish</span>
+                  <span>Зняти з публікації</span>
                 </button>
               ) : null}
 
@@ -183,7 +183,7 @@ export function TeacherCourseCard({
                 ) : (
                   <Trash2 className="h-4 w-4" />
                 )}
-                <span>Delete</span>
+                <span>Видалити</span>
               </button>
             </div>
           ) : null}
@@ -204,9 +204,9 @@ export function TeacherCourseCard({
         </div>
 
         <div className="mt-2 flex items-center gap-2 text-sm text-slate-500">
-          <span>{course.modulesCount} modules</span>
+          <span>{course.modulesCount} модулів</span>
           <span className="h-1 w-1 rounded-full bg-slate-300" />
-          <span>{course.lessonsCount} lessons</span>
+          <span>{course.lessonsCount} уроків</span>
         </div>
 
         <div className="mt-auto space-y-2 pt-4">
@@ -219,7 +219,7 @@ export function TeacherCourseCard({
             }}
             className="w-full"
           >
-            Continue
+            Продовжити
           </Button>
 
           <div className="grid gap-2 sm:grid-cols-2">
@@ -233,7 +233,7 @@ export function TeacherCourseCard({
               }}
               className="w-full"
             >
-              Preview
+              Перегляд
             </Button>
             <Button
               type="button"
@@ -245,7 +245,7 @@ export function TeacherCourseCard({
               }}
               className="w-full"
             >
-              Publish Course
+              Опублікувати курс
             </Button>
           </div>
         </div>

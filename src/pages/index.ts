@@ -11,6 +11,7 @@ export {
   AdminDashboardTeachersPage,
   AdminStudentDetailsPage,
   AdminTeacherDetailsPage,
+  StudentCoursePage,
   StudentDashboardPage,
   TeacherDashboardPage,
 } from "./dashboards";

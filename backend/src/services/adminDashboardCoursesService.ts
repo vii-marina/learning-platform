@@ -77,6 +77,12 @@ type TestAnswerRow = {
   created_at: string;
 };
 
+type CourseProgressRow = {
+  course_id: string;
+  user_id: string;
+  finished_at: string | null;
+};
+
 type UpdateCoursePayload = Partial<
   Pick<CourseRow, "status" | "is_published" | "deleted_at">
 >;
@@ -252,6 +258,66 @@ async function listLessons(moduleIds: string[]) {
   return lessons;
 }
 
+async function listCourseProgress(courseIds: string[]) {
+  if (courseIds.length === 0) {
+    return [] as CourseProgressRow[];
+  }
+
+  const progressRows: CourseProgressRow[] = [];
+
+  for (const chunk of chunkValues(courseIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("course_progress")
+      .select("course_id,user_id,finished_at")
+      .in("course_id", chunk);
+
+    if (error) {
+      throw toServiceError(
+        500,
+        "COURSE_PROGRESS_LIST_FAILED",
+        "Unable to list course enrollments",
+        error
+      );
+    }
+
+    progressRows.push(...((data ?? []) as CourseProgressRow[]));
+  }
+
+  return progressRows;
+}
+
+function buildCourseEnrollmentStats(progressRows: CourseProgressRow[]) {
+  const statsByCourseId = new Map<
+    string,
+    { enrolledStudentCount: number; completedStudentCount: number }
+  >();
+  const seenStudentCoursePairs = new Set<string>();
+
+  for (const row of progressRows) {
+    const key = `${row.course_id}:${row.user_id}`;
+
+    if (seenStudentCoursePairs.has(key)) {
+      continue;
+    }
+
+    seenStudentCoursePairs.add(key);
+    const stats = statsByCourseId.get(row.course_id) ?? {
+      enrolledStudentCount: 0,
+      completedStudentCount: 0,
+    };
+
+    stats.enrolledStudentCount += 1;
+
+    if (row.finished_at) {
+      stats.completedStudentCount += 1;
+    }
+
+    statsByCourseId.set(row.course_id, stats);
+  }
+
+  return statsByCourseId;
+}
+
 async function listLessonBlocks(lessonIds: string[]) {
   if (lessonIds.length === 0) {
     return [] as LessonBlockRow[];
@@ -376,9 +442,10 @@ function computeCourseTotals(modules: Array<{ lessons: Array<{ blocks: LessonBlo
 async function hydrateCourseSummaries(courses: CourseRow[]) {
   const courseIds = courses.map((course) => course.id);
   const teacherIds = [...new Set(courses.map((course) => course.teacher_id).filter(isUuidValue))];
-  const [teachersById, modules] = await Promise.all([
+  const [teachersById, modules, courseProgress] = await Promise.all([
     listProfilesByIds(teacherIds),
     listModules(courseIds),
+    listCourseProgress(courseIds),
   ]);
   const moduleIds = modules.map((module) => module.id);
   const lessons = await listLessons(moduleIds);
@@ -394,6 +461,7 @@ async function hydrateCourseSummaries(courses: CourseRow[]) {
     counts.set(courseId, (counts.get(courseId) ?? 0) + 1);
     return counts;
   }, new Map<string, number>());
+  const enrollmentStatsByCourseId = buildCourseEnrollmentStats(courseProgress);
 
   return courses.map((course) => ({
     ...course,
@@ -403,6 +471,10 @@ async function hydrateCourseSummaries(courses: CourseRow[]) {
         : null,
     moduleCount: modulesByCourseId.get(course.id)?.length ?? 0,
     lessonCount: lessonCountByCourseId.get(course.id) ?? 0,
+    enrolledStudentCount:
+      enrollmentStatsByCourseId.get(course.id)?.enrolledStudentCount ?? 0,
+    completedStudentCount:
+      enrollmentStatsByCourseId.get(course.id)?.completedStudentCount ?? 0,
   }));
 }
 
@@ -414,9 +486,10 @@ export async function listAdminDashboardCourses() {
 async function hydrateCourses(courses: CourseRow[]) {
   const courseIds = courses.map((course) => course.id);
   const teacherIds = [...new Set(courses.map((course) => course.teacher_id).filter(isUuidValue))];
-  const [teachersById, modules] = await Promise.all([
+  const [teachersById, modules, courseProgress] = await Promise.all([
     listProfilesByIds(teacherIds),
     listModules(courseIds),
+    listCourseProgress(courseIds),
   ]);
   const moduleIds = modules.map((module) => module.id);
   const lessons = await listLessons(moduleIds);
@@ -455,6 +528,7 @@ async function hydrateCourses(courses: CourseRow[]) {
     tests: testsByModuleId.get(module.id) ?? [],
   }));
   const modulesByCourseId = groupBy(hydratedModules, (module) => module.course_id);
+  const enrollmentStatsByCourseId = buildCourseEnrollmentStats(courseProgress);
 
   return courses.map((course) => {
     const courseModules = modulesByCourseId.get(course.id) ?? [];
@@ -469,6 +543,10 @@ async function hydrateCourses(courses: CourseRow[]) {
       teacher,
       moduleCount: courseModules.length,
       lessonCount: totals.lessons,
+      enrolledStudentCount:
+        enrollmentStatsByCourseId.get(course.id)?.enrolledStudentCount ?? 0,
+      completedStudentCount:
+        enrollmentStatsByCourseId.get(course.id)?.completedStudentCount ?? 0,
       modules: courseModules,
       totalLessons: totals.lessons,
       totalBlocks: totals.blocks,

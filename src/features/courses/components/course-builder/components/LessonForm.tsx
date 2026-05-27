@@ -25,19 +25,19 @@ export function LessonForm({
   return (
     <div className="flex flex-col gap-3">
       <Input
-        placeholder="Lesson title"
+        placeholder="Назва уроку"
         value={title}
         onChange={(event) => onTitleChange(event.target.value)}
         disabled={disabled}
       />
       <Input
-        placeholder="Lesson content"
+        placeholder="Контент уроку"
         value={content}
         onChange={(event) => onContentChange(event.target.value)}
         disabled={disabled}
       />
       <Input
-        placeholder="Content type"
+        placeholder="Тип контенту"
         value={contentType}
         onChange={(event) => onContentTypeChange(event.target.value)}
         disabled={disabled}

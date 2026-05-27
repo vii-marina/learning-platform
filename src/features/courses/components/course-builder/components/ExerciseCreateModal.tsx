@@ -80,8 +80,8 @@ type PersistedAiExerciseState = {
 export function ExerciseCreateModal({
   isOpen,
   initialMode = null,
-  heading = "Create Exercise",
-  saveLabel = "Save Exercise",
+  heading = "Створити вправу",
+  saveLabel = "Зберегти вправу",
   courseTitle,
   modules,
   lessonsByModule,
@@ -253,11 +253,11 @@ export function ExerciseCreateModal({
     isAiMode && generatedExercises.length > 0 && acceptedGeneratedExerciseId === null;
   const validationMessage =
     isBuildLocked
-      ? "Complete steps 1-3 to continue."
+      ? "Завершіть кроки 1-3, щоб продовжити."
       : isAiMode && generatedExercises.length === 0
-        ? "Generate an exercise with AI to continue."
+        ? "Згенеруйте вправу з AI, щоб продовжити."
         : isAiMode && acceptedGeneratedExerciseId === null
-          ? "Confirm the generated exercise before saving."
+          ? "Підтвердьте згенеровану вправу перед збереженням."
         : getExerciseValidationMessage(draft);
   const canSave =
     validationMessage.length === 0 &&
@@ -291,7 +291,7 @@ export function ExerciseCreateModal({
     !controlsDisabled &&
     manualValidationMessage.length === 0;
   const unconfirmedGeneratedExerciseMessage =
-    "Confirm the generated exercise with the green check or delete it before continuing, otherwise it will be lost.";
+    "Підтвердьте згенеровану вправу зеленою галочкою або видаліть її перед продовженням, інакше вона буде втрачена.";
 
   useEffect(() => {
     if (!isOpen) {
@@ -718,7 +718,7 @@ export function ExerciseCreateModal({
 
     if (
       shouldConfirmReplace &&
-      !window.confirm("Replace the current exercise with AI-generated content?")
+      !window.confirm("Замінити поточну вправу AI-згенерованим контентом?")
     ) {
       return;
     }
@@ -735,7 +735,7 @@ export function ExerciseCreateModal({
         .filter((exercise): exercise is GeneratedExerciseAiDraft => exercise !== null);
 
       if (normalizedExercises.length === 0) {
-        throw new Error("AI returned an invalid exercise payload.");
+        throw new Error("AI повернув некоректні дані вправи.");
       }
 
       setGeneratedExercises(normalizedExercises);
@@ -758,7 +758,7 @@ export function ExerciseCreateModal({
       if (error instanceof Error && error.message.trim()) {
         setAiError(error.message);
       } else {
-        setAiError("Unable to generate exercise with AI.");
+        setAiError("Не вдалося згенерувати вправу з AI.");
       }
     } finally {
       setIsGeneratingAi(false);
@@ -990,7 +990,7 @@ export function ExerciseCreateModal({
 
                 onClose();
               }}
-              aria-label="Close exercise modal"
+              aria-label="Закрити модальне вікно вправи"
               className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
             >
               <X className="h-5 w-5" />
@@ -1023,7 +1023,7 @@ export function ExerciseCreateModal({
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-xs font-semibold text-orange-600">
                     4
                   </span>
-                  <h4 className="text-base font-semibold text-slate-600">Build the exercise</h4>
+                  <h4 className="text-base font-semibold text-slate-600">Створення вправи</h4>
                 </div>
 
                 <div className="mt-5 space-y-5">
@@ -1059,7 +1059,7 @@ export function ExerciseCreateModal({
                       dragDropEditorRef={dragDropEditorRef}
                       writeCodeEditorRef={writeCodeEditorRef}
                       onQuestionChange={handleQuestionChange}
-                      onReset={() => handleResetManualExercise("Clear the current exercise?")}
+                      onReset={() => handleResetManualExercise("Очистити поточну вправу?")}
                       onToggleConfirm={() =>
                         setIsManualExerciseConfirmed((currentValue) => !currentValue)
                       }
@@ -1149,7 +1149,7 @@ export function ExerciseCreateModal({
                       showCreateAnotherButton={activeExerciseId === null}
                       onCreateAnother={() =>
                         handleResetManualExercise(
-                          "Clear the current exercise and start a new one?"
+                          "Очистити поточну вправу й почати нову?"
                         )
                       }
                     />
@@ -1172,7 +1172,7 @@ export function ExerciseCreateModal({
                 disabled={!canSave || isSaving}
                 className="h-11 rounded-xl bg-orange-500 px-5 text-sm font-semibold text-white hover:bg-orange-600 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isSaving ? "Saving..." : saveLabel}
+                {isSaving ? "Збереження..." : saveLabel}
               </Button>
             </div>
           </div>

@@ -39,7 +39,7 @@ function CourseHeroThumbnail({
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-slate-100 text-slate-600">
           <BookOpen className="h-5 w-5" />
         </div>
-        <p className="text-sm font-medium text-slate-500">Course workspace</p>
+        <p className="text-sm font-medium text-slate-500">Робоча область курсу</p>
       </div>
     </div>
   );
@@ -58,16 +58,16 @@ export function TeacherContinueEditing({
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <p className="text-s font-semibold  text-slate-100">
-              Continue Editing
+              Продовжити редагування
             </p>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
-              No course in progress
+              Немає курсу в роботі
             </h2>
-            <p className="text-sm text-slate-500">Start a new course to begin editing.</p>
+            <p className="text-sm text-slate-500">Створіть новий курс, щоб почати редагування.</p>
           </div>
 
           <Button type="button" size="lg" onClick={onCreateCourse}>
-            + New Course
+            + Новий курс
           </Button>
         </div>
       </section>
@@ -85,25 +85,25 @@ export function TeacherContinueEditing({
               {course.title}
             </h2>
             <p className="text-sm text-slate-500">
-              Last edited {formatCourseRelativeTime(course.updated_at)}
+              Останнє редагування: {formatCourseRelativeTime(course.updated_at)}
             </p>
           </div>
 
           <div className="flex flex-wrap gap-2 text-sm text-slate-600">
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
               <Layers3 className="h-4 w-4 text-slate-500" />
-              <span>{course.modulesCount} modules</span>
+              <span>{course.modulesCount} модулів</span>
             </div>
             <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
               <BookOpen className="h-4 w-4 text-slate-500" />
-              <span>{course.lessonsCount} lessons</span>
+              <span>{course.lessonsCount} уроків</span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-3">
             <Button type="button" size="lg" onClick={() => onContinue(course)}>
               <Play className="h-4 w-4" />
-              <span>Continue Editing</span>
+              <span>Продовжити редагування</span>
             </Button>
             <Button
               type="button"
@@ -113,7 +113,7 @@ export function TeacherContinueEditing({
               disabled={isPreviewBusy}
             >
               <Eye className="h-4 w-4" />
-              <span>{isPreviewBusy ? "Opening..." : "Preview"}</span>
+              <span>{isPreviewBusy ? "Відкриття..." : "Перегляд"}</span>
             </Button>
           </div>
         </div>

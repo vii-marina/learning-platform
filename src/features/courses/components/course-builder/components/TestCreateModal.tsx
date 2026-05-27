@@ -49,8 +49,8 @@ type TestCreateModalProps = {
 export function TestCreateModal({
   isOpen,
   initialMode = null,
-  heading = "Create Test",
-  saveLabel = "Save Test",
+  heading = "Створити тест",
+  saveLabel = "Зберегти тест",
   courseTitle,
   modules,
   lessonsByModule,
@@ -219,7 +219,7 @@ export function TestCreateModal({
         }`}
       >
         <option value="" disabled>
-          {lessons.length === 0 ? "No lessons available" : "Select lesson"}
+          {lessons.length === 0 ? "Немає доступних уроків" : "Оберіть урок"}
         </option>
         {lessons.map((lesson) => (
           <option key={lesson.id} value={lesson.id}>
@@ -342,7 +342,7 @@ export function TestCreateModal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close test modal"
+              aria-label="Закрити модальне вікно тесту"
               className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
             >
               <X className="h-5 w-5" />
@@ -356,7 +356,7 @@ export function TestCreateModal({
                   <span className={sectionStepClassName}>
                     1
                   </span>
-                  <h4 className={stageTitleClassName}>How would you like to create this test?</h4>
+                  <h4 className={stageTitleClassName}>Як створити цей тест?</h4>
                 </div>
                 {creationMethodCards}
 
@@ -367,7 +367,7 @@ export function TestCreateModal({
                   <span className={sectionStepClassName}>
                     2
                   </span>
-                  <h4 className={stageTitleClassName}>Place this test after:</h4>
+                  <h4 className={stageTitleClassName}>Розмістити тест після:</h4>
                 </div>
                 {placementControls}
               </section>
@@ -379,7 +379,7 @@ export function TestCreateModal({
                       3
                     </span>
                     <h4 className={stageTitleClassName}>
-                      {mode === "ai" ? "Generate questions" : "Build questions"}
+                      {mode === "ai" ? "Згенерувати запитання" : "Створити запитання"}
                     </h4>
                   </div>
 
@@ -391,7 +391,7 @@ export function TestCreateModal({
                       disabled={controlsDisabled}
                     >
                       <Plus className="h-4 w-4 text-violet-600" />
-                      <span>Add Question</span>
+                      <span>Додати запитання</span>
                     </button>
                   ) : null}
                 </div>
@@ -400,14 +400,14 @@ export function TestCreateModal({
                   <div className="space-y-5 pt-2">
                     {!canGenerateAi ? (
                       <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800">
-                        AI needs lesson or module content before it can generate questions.
+                        Щоб генерувати питання, агенту штучного інтелекту потрібен зміст уроку або модуля.
                       </div>
                     ) : null}
 
 
                     <div>
                       <p className="text-sm font-semibold text-[#14213d]">
-                        Choose question type:
+                        Виберіть тип запитання:
                       </p>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         {aiQuestionGenerationModeOptions.map((option) => {
@@ -434,7 +434,7 @@ export function TestCreateModal({
 
                     <div>
                       <p className="text-sm font-semibold text-[#14213d]">
-                        Question count
+                        Кількість запитань
                       </p>
                       <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
                         <div className="min-w-[16rem]">
@@ -449,7 +449,7 @@ export function TestCreateModal({
                               type="button"
                               onClick={handleDecreaseAiQuestionCount}
                               disabled={!canAdjustAiQuestionCount || aiQuestionCount <= 1}
-                              aria-label="Decrease question count"
+                              aria-label="Зменшити кількість запитань"
                               className="inline-flex h-full w-10 items-center justify-center border-r border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
                             >
                               <Minus className="h-4 w-4" />
@@ -463,14 +463,14 @@ export function TestCreateModal({
                                 handleAiQuestionInputChange(event.target.value)
                               }
                               disabled={!canAdjustAiQuestionCount}
-                              aria-label="Question count"
+                              aria-label="Кількість запитань"
                               className="h-full w-20 bg-transparent px-3 text-center text-sm font-semibold text-[#14213d] outline-none disabled:cursor-not-allowed disabled:text-slate-400"
                             />
                             <button
                               type="button"
                               onClick={handleIncreaseAiQuestionCount}
                               disabled={!canAdjustAiQuestionCount}
-                              aria-label="Increase question count"
+                              aria-label="Збільшити кількість запитань"
                               className="inline-flex h-full w-10 items-center justify-center border-l border-slate-200 text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:text-slate-300"
                             >
                               <Plus className="h-4 w-4" />
@@ -486,7 +486,7 @@ export function TestCreateModal({
                           disabled={!canGenerateAi || controlsDisabled || isGeneratingAi}
                           className={aiActionButtonClassName}
                         >
-                          {isGeneratingAi ? "Generating..." : "Generate"}
+                          {isGeneratingAi ? "Генерація..." : "Згенерувати"}
                         </button>
                       </div>
                       <p
@@ -496,7 +496,7 @@ export function TestCreateModal({
                             : "text-slate-500"
                         }`}
                       >
-                        {`Maximum quantity: ${maxAiQuestionCount}`}
+                        {`Максимальна кількість: ${maxAiQuestionCount}`}
                       </p>
                     </div>
 
@@ -527,7 +527,7 @@ export function TestCreateModal({
                 disabled={!canSaveCurrentMode || isSaving}
                 className="h-11 rounded-xl bg-violet-600 px-5 text-sm font-semibold text-white hover:bg-violet-700"
               >
-                {isSaving ? "Saving..." : saveLabel}
+                {isSaving ? "Збереження..." : saveLabel}
               </Button>
             </div>
           </div>

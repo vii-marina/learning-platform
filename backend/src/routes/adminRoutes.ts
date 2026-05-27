@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  clearAdminDashboardStudentCourseHandler,
   deleteAdminDashboardStudentHandler,
   deleteAdminDashboardTeacherHandler,
   getAdminDashboardOverviewHandler,
@@ -38,6 +39,11 @@ router.delete("/dashboard/courses/:id", requireAdmin, deleteAdminDashboardCourse
 router.get("/dashboard/students", requireAdmin, listAdminDashboardStudentsHandler);
 router.get("/dashboard/students/:id", requireAdmin, getAdminDashboardStudentHandler);
 router.patch("/dashboard/students/:id", requireAdmin, updateAdminDashboardStudentHandler);
+router.delete(
+  "/dashboard/students/:id/courses/:courseId",
+  requireAdmin,
+  clearAdminDashboardStudentCourseHandler
+);
 router.delete("/dashboard/students/:id", requireAdmin, deleteAdminDashboardStudentHandler);
 router.post("/users", requireAdmin, createManagedUserHandler);
 router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandler);

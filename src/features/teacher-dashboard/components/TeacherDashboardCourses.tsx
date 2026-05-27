@@ -155,19 +155,19 @@ function TeacherCourseDeleteModal({
         <div className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
           <div className="space-y-3">
             <p className="text-sm font-semibold  text-rose-600">
-              Delete Course
+              Видалити курс
             </p>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
-              Remove {course.title}?
+              Видалити {course.title}?
             </h2>
             <p className="text-sm leading-6 text-slate-500">
-              This removes the course from your dashboard.
+              Курс буде прибрано з вашого дашборду.
             </p>
           </div>
 
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <Button type="button" variant="secondary" size="lg" onClick={onClose} disabled={isDeleting}>
-              Cancel
+              Скасувати
             </Button>
             <Button
               type="button"
@@ -176,7 +176,7 @@ function TeacherCourseDeleteModal({
               disabled={isDeleting}
               className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
             >
-              Delete
+              Видалити
             </Button>
           </div>
         </div>
@@ -223,7 +223,7 @@ function TeacherCourseDetailsModal({
                 {getCourseStatusLabel(course)}
               </span>
               <span className="text-sm text-slate-500">
-                Last edited {formatCourseRelativeTime(course.updated_at)}
+                Останнє редагування: {formatCourseRelativeTime(course.updated_at)}
               </span>
             </div>
             <div>
@@ -233,17 +233,17 @@ function TeacherCourseDetailsModal({
             </div>
             <div className="flex flex-wrap gap-2 text-sm text-slate-600">
               <span className="rounded-full bg-slate-100 px-3 py-1.5">
-                {course.modulesCount} modules
+                {course.modulesCount} модулів
               </span>
               <span className="rounded-full bg-slate-100 px-3 py-1.5">
-                {course.lessonsCount} lessons
+                {course.lessonsCount} уроків
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
             <Button type="button" size="lg" onClick={() => onContinue(course)}>
-              Continue Editing
+              Продовжити редагування
             </Button>
             <Button
               type="button"
@@ -251,7 +251,7 @@ function TeacherCourseDetailsModal({
               size="lg"
               onClick={onClose}
               className="w-15 px-0"
-              aria-label="Close course details"
+              aria-label="Закрити деталі курсу"
             >
               <X className="h-5 w-5" />
             </Button>
@@ -279,7 +279,7 @@ function TeacherCourseDetailsModal({
             />
           ) : (
             <Card className="p-10 text-sm text-slate-500">
-              Preview unavailable.
+              Перегляд недоступний.
             </Card>
           )}
         </div>
@@ -342,7 +342,7 @@ export function TeacherDashboardCourses({
 
         setMessage({
           type: "error",
-          text: getErrorMessage(error, "Unable to load your courses."),
+          text: getErrorMessage(error, "Не вдалося завантажити ваші курси."),
         });
       } finally {
         if (isMounted) {
@@ -417,7 +417,7 @@ export function TeacherDashboardCourses({
         return;
       }
 
-      setPreviewMessage(getErrorMessage(error, "Unable to load course preview."));
+      setPreviewMessage(getErrorMessage(error, "Не вдалося завантажити перегляд курсу."));
     } finally {
       if (previewRequestIdRef.current === requestId) {
         setIsPreviewLoading(false);
@@ -489,12 +489,12 @@ export function TeacherDashboardCourses({
       }
       setMessage({
         type: "success",
-        text: isPublishedCourse(course) ? "Course unpublished." : "Course published.",
+        text: isPublishedCourse(course) ? "Курс знято з публікації." : "Курс опубліковано.",
       });
     } catch (error) {
       setMessage({
         type: "error",
-        text: getErrorMessage(error, "Unable to update course status."),
+        text: getErrorMessage(error, "Не вдалося оновити статус курсу."),
       });
     } finally {
       setPendingCourseAction(null);
@@ -528,12 +528,12 @@ export function TeacherDashboardCourses({
       setPendingDeleteCourse(null);
       setMessage({
         type: "success",
-        text: "Course deleted.",
+        text: "Курс видалено.",
       });
     } catch (error) {
       setMessage({
         type: "error",
-        text: getErrorMessage(error, "Unable to delete course."),
+        text: getErrorMessage(error, "Не вдалося видалити курс."),
       });
     } finally {
       setPendingCourseAction(null);
@@ -547,7 +547,7 @@ export function TeacherDashboardCourses({
         <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-1.5">
             <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
-              My Courses
+              Мої курси
             </h1>
           </div>
 
@@ -556,7 +556,7 @@ export function TeacherDashboardCourses({
 
             <Button type="button" size="lg" onClick={onCreateCourse}>
               <Plus className="h-4 w-4" />
-              <span>New Course</span>
+              <span>Новий курс</span>
             </Button>
           </div>
         </section>
@@ -594,15 +594,15 @@ export function TeacherDashboardCourses({
                 <BookOpen className="h-5 w-5" />
               </div>
               <h2 className="text-xl font-semibold tracking-tight text-slate-950">
-                {sortedCourses.length === 0 ? "No courses yet" : `No ${activeTab} courses`}
+                {sortedCourses.length === 0 ? "Курсів поки немає" : "Немає курсів у цьому розділі"}
               </h2>
               <p className="text-sm text-slate-500">
                 {sortedCourses.length === 0
-                  ? "Create your first course to start teaching."
-                  : "Switch tabs or create a new course."}
+                  ? "Створіть перший курс, щоб почати викладати."
+                  : "Перемкніть вкладку або створіть новий курс."}
               </p>
               <Button type="button" size="lg" onClick={onCreateCourse}>
-                + New Course
+                + Новий курс
               </Button>
             </div>
           </section>

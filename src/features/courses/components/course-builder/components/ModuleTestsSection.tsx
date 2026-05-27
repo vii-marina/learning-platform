@@ -17,9 +17,9 @@ type ModuleTestsSectionProps = {
 };
 
 const questionTypeLabels: Record<TestQuestionType, string> = {
-  true_false: "True/False",
-  single_choice: "Multiple Choice (Single)",
-  multiple_choice: "Multiple Choice (Multiple)",
+  true_false: "Правда/Неправда",
+  single_choice: "Один варіант",
+  multiple_choice: "Кілька варіантів",
 };
 
 export function ModuleTestsSection({

@@ -46,24 +46,24 @@ export function CourseBuilderCourseInfoStep({
           <div className="space-y-5">
             <div className="space-y-2.5">
               <label className="block text-sm font-semibold text-slate-950">
-                Course Title
+                Заголовок курсу
               </label>
               <Input
                 value={courseTitle}
                 onChange={(event) => onCourseTitleChange(event.target.value)}
-                placeholder="e.g. Master Modern Web UI Design"
+                placeholder="Наприклад, Основи сучасного JavaScript"
                 className="h-14 rounded-2xl border-slate-200 bg-white px-4 font-semibold text-base shadow-sm"
               />
             </div>
 
             <div className="space-y-2.5">
               <label className="block text-sm font-semibold text-slate-950">
-                Detailed Description
+                Детальний опис 
               </label>
               <textarea
                 value={courseDescription}
                 onChange={(event) => onCourseDescriptionChange(event.target.value)}
-                placeholder="What will students learn? Describe the journey..."
+                placeholder="Що студенти вивчать? Опишіть навчальний шлях..."
                 maxLength={2000}
                 className="min-h-[220px] w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-4 text-base leading-7 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/12"
               />
@@ -76,7 +76,7 @@ export function CourseBuilderCourseInfoStep({
           <div className="space-y-3">
             <div>
               <p className="mb-2.5 text-sm font-semibold text-slate-950">
-                Course Thumbnail
+                Головне фото курсу
               </p>
               <CourseMediaUpload
                 disabled={!currentCourseId && !isBasicsComplete}
@@ -96,7 +96,7 @@ export function CourseBuilderCourseInfoStep({
               onClick={onNext}
               className="h-12 w-full rounded-2xl shadow-[0_12px_28px_rgba(19,218,236,0.22)]"
             >
-              Next: Course content
+              Наступний крок
               <ArrowRight className="h-4 w-4" />
             </Button>
           </div>

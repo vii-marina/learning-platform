@@ -1,5 +1,13 @@
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
-import type { CourseAccessType, CourseStatus } from "../../courses/api";
+import type {
+  CourseAccessType,
+  CourseStatus,
+  Exercise,
+  Lesson,
+  LessonBlock,
+  Module,
+} from "../../courses/api";
+import type { HydratedTestEntityResponse } from "../../courses/api/courseBuilderApi";
 
 export type StudentDashboardCourseCatalogItem = {
   id: string;
@@ -13,12 +21,42 @@ export type StudentDashboardCourseCatalogItem = {
   is_published: boolean;
   module_count: number;
   lesson_count: number;
+  test_count: number;
+  exercise_count: number;
+  completed_lessons_count: number;
+  total_lessons_count: number;
+  progress_percent: number;
+  started_at: string | null;
+  finished_at: string | null;
+  teacher_headline: string | null;
+  teacher_bio: string | null;
+  teacher_birth_date: string | null;
+  teacher_avatar_path: string | null;
   created_at: string;
   updated_at: string;
 };
 
 type StudentDashboardCoursesResponse = {
   courses: StudentDashboardCourseCatalogItem[];
+};
+
+type StudentDashboardCourseResponse = {
+  course: StudentDashboardCourseCatalogItem;
+};
+
+export type StudentCourseDetailsResponse = {
+  course: StudentDashboardCourseCatalogItem;
+  modules: Module[];
+  lessons_by_module: Record<string, Lesson[]>;
+  lesson_blocks_by_lesson: Record<string, LessonBlock[]>;
+  tests_by_module: Record<string, HydratedTestEntityResponse[]>;
+  exercises_by_module: Record<string, Exercise[]>;
+  completed_lesson_ids: string[];
+};
+
+export type StudentLessonCompletionResponse = {
+  course: StudentDashboardCourseCatalogItem;
+  completed_lesson_ids: string[];
 };
 
 export async function loadStudentDashboardCourses() {
@@ -35,4 +73,30 @@ export async function loadStudentDashboardPublicCourses() {
   );
 
   return response.courses;
+}
+
+export async function startStudentCourse(courseId: string) {
+  const response = await authorizedBackendRequest<StudentDashboardCourseResponse>(
+    `/auth/student/courses/${courseId}/start`,
+    {
+      method: "POST",
+    }
+  );
+
+  return response.course;
+}
+
+export async function loadStudentCourse(courseId: string) {
+  return authorizedBackendRequest<StudentCourseDetailsResponse>(
+    `/auth/student/courses/${courseId}`
+  );
+}
+
+export async function completeStudentLesson(courseId: string, lessonId: string) {
+  return authorizedBackendRequest<StudentLessonCompletionResponse>(
+    `/auth/student/courses/${courseId}/lessons/${lessonId}/complete`,
+    {
+      method: "POST",
+    }
+  );
 }

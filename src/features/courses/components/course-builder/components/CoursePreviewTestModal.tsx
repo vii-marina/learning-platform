@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { BadgeCheck,  X } from "lucide-react";
+import { BadgeCheck, Lightbulb, X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
 import { studentQuestionTypeLabels } from "../lib/courseBuilderPageUtils";
 import type { CourseTest } from "../types/courseBuilderUiTypes";
 import type { CoursePreviewChatContext } from "./CoursePreviewAskTeacherModal";
 import { getCoursePreviewTestTitle } from "../lib/coursePreviewUtils";
-import { CoursePreviewSourceLessonPanel } from "./CoursePreviewSourceLessonPanel";
 
 type CoursePreviewTestModalProps = {
   isOpen: boolean;
@@ -20,15 +19,21 @@ type CoursePreviewTestModalProps = {
   onComplete: (testId: string) => void;
 };
 
-function areSelectionsEqual(left: number[], right: number[]) {
-  if (left.length !== right.length) {
-    return false;
+function getQuestionOptions(question: CourseTest["questions"][number]) {
+  if (question.type === "true_false" && question.options.length === 0) {
+    return ["Правда", "Неправда"];
   }
 
-  const sortedLeft = [...left].sort((first, second) => first - second);
-  const sortedRight = [...right].sort((first, second) => first - second);
+  return question.options;
+}
 
-  return sortedLeft.every((value, index) => value === sortedRight[index]);
+function getCorrectAnswerLabel(question: CourseTest["questions"][number]) {
+  const options = getQuestionOptions(question);
+
+  return question.correctOptionIndexes
+    .map((optionIndex) => options[optionIndex])
+    .filter(Boolean)
+    .join(", ");
 }
 
 export function CoursePreviewTestModal({
@@ -41,35 +46,28 @@ export function CoursePreviewTestModal({
   onClose,
   onComplete,
 }: CoursePreviewTestModalProps) {
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [selectedOptionIndexes, setSelectedOptionIndexes] = useState<number[]>([]);
-  const [result, setResult] = useState<"correct" | "incorrect" | "revealed" | null>(null);
-  const [showSourceLesson, setShowSourceLesson] = useState(false);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number[]>>({});
+  const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     if (!isOpen || !test) {
       return;
     }
 
-    setQuestionIndex(0);
-    setSelectedOptionIndexes([]);
-    setResult(null);
-    setShowSourceLesson(false);
+    setSelectedAnswers({});
+    setRevealedHints({});
+    setIsSubmitted(false);
   }, [isOpen, test]);
 
-  const currentQuestion = test?.questions[questionIndex] ?? null;
   const title =
     module && test
       ? getCoursePreviewTestTitle(module.order, lessons, test)
-      : "Practice test";
-  
+      : "Практичний тест";
 
-  if (!isOpen || !module || !test || !currentQuestion) {
+  if (!isOpen || !module || !test) {
     return null;
   }
-
-  const isMultipleChoice = currentQuestion.type === "multiple_choice";
-  const isLastQuestion = questionIndex === test.questions.length - 1;
 
   return (
     <div
@@ -81,20 +79,20 @@ export function CoursePreviewTestModal({
       }}
     >
       <div className="mx-auto flex min-h-full max-w-3xl items-center justify-center">
-        <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
+        <div className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                <span className="inline-flex items-center gap-2 rounded-full bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
                   <BadgeCheck className="h-3.5 w-3.5" />
-                  <span>Practice Test</span>
+                  <span>Практичний тест</span>
                 </span>
                 <span className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-500">
-                  {`Question ${questionIndex + 1} of ${test.questions.length}`}
+                  {`${test.questions.length} запитань`}
                 </span>
                 {isGenerated ? (
                   <span className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-xs font-semibold text-violet-700">
-                    AI Practice
+                    AI-практика
                   </span>
                 ) : null}
                 {lesson ? (
@@ -104,10 +102,9 @@ export function CoursePreviewTestModal({
                 ) : null}
               </div>
 
-              <div>
-                <h2 className="text-xl font-semibold tracking-tight text-slate-950">{title}</h2>
-                
-              </div>
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+                {title}
+              </h2>
             </div>
 
             <Button
@@ -115,163 +112,142 @@ export function CoursePreviewTestModal({
               variant="secondary"
               onClick={onClose}
               className="w-15 px-0"
-              aria-label="Close test modal"
+              aria-label="Закрити модальне вікно тесту"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
 
-          <div className="px-5 py-5">
-            
-
-            {showSourceLesson && lesson ? (
-              <div className="mb-5">
-                <CoursePreviewSourceLessonPanel module={module} lesson={lesson} tone="test" />
-              </div>
-            ) : null}
-
-            <div className="rounded-xl border border-slate-200 bg-[#f8fafc] px-4 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <p className="flex-1 whitespace-pre-wrap text-base font-medium leading-7 text-slate-800">
-                  {currentQuestion.questionText}
-                </p>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
-                  {studentQuestionTypeLabels[currentQuestion.type]}
-                </span>
-              </div>
-
-              <div className="mt-5 space-y-2">
-                {currentQuestion.options.map((option, optionIndex) => {
-                  const isSelected = selectedOptionIndexes.includes(optionIndex);
-                  const showCorrect =
-                    result === "revealed" &&
-                    currentQuestion.correctOptionIndexes.includes(optionIndex);
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5">
+            <div className="space-y-4">
+              {test.questions.length > 0 ? (
+                test.questions.map((question, questionIndex) => {
+                  const options = getQuestionOptions(question);
+                  const selectedIndexes = selectedAnswers[question.id] ?? [];
+                  const isMultipleChoice = question.type === "multiple_choice";
+                  const isHintRevealed = Boolean(revealedHints[question.id]);
 
                   return (
-                    <button
-                      key={`${currentQuestion.id}-${optionIndex}`}
-                      type="button"
-                      onClick={() => {
-                        setResult(null);
+                    <section
+                      key={question.id}
+                      className="rounded-xl border border-slate-200 bg-[#f8fafc] px-4 py-4"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <p className="flex-1 whitespace-pre-wrap text-base font-medium leading-7 text-slate-800">
+                          {`${questionIndex + 1}. ${question.questionText}`}
+                        </p>
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-500">
+                          {studentQuestionTypeLabels[question.type]}
+                        </span>
+                      </div>
 
-                        if (isMultipleChoice) {
-                          setSelectedOptionIndexes((currentSelections) =>
-                            currentSelections.includes(optionIndex)
-                              ? currentSelections.filter((value) => value !== optionIndex)
-                              : [...currentSelections, optionIndex]
+                      <div className="mt-5 space-y-2">
+                        {options.map((option, optionIndex) => {
+                          const isSelected = selectedIndexes.includes(optionIndex);
+                          const isCorrect = question.correctOptionIndexes.includes(optionIndex);
+                          const showCorrect = isSubmitted && isCorrect;
+                          const showIncorrect = isSubmitted && isSelected && !isCorrect;
+                          const showHintCorrect = !isSubmitted && isHintRevealed && isCorrect;
+
+                          return (
+                            <button
+                              key={`${question.id}-${optionIndex}`}
+                              type="button"
+                              disabled={isSubmitted}
+                              onClick={() => {
+                                setSelectedAnswers((currentAnswers) => {
+                                  const currentSelections = currentAnswers[question.id] ?? [];
+                                  const nextSelections = isMultipleChoice
+                                    ? currentSelections.includes(optionIndex)
+                                      ? currentSelections.filter((value) => value !== optionIndex)
+                                      : [...currentSelections, optionIndex]
+                                    : [optionIndex];
+
+                                  return {
+                                    ...currentAnswers,
+                                    [question.id]: nextSelections,
+                                  };
+                                });
+                              }}
+                              className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition disabled:cursor-default ${
+                                showCorrect || showHintCorrect
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                  : showIncorrect
+                                    ? "border-rose-200 bg-rose-50 text-rose-700"
+                                    : isSelected
+                                      ? "border-[#13daec] bg-white text-[#0f172a]"
+                                      : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span
+                                className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
+                                  isMultipleChoice ? "rounded-[4px]" : "rounded-full"
+                                } ${
+                                  showCorrect || showHintCorrect
+                                    ? "border-emerald-500 bg-emerald-500"
+                                    : showIncorrect
+                                      ? "border-rose-500 bg-rose-500"
+                                      : isSelected
+                                        ? "border-[#13daec] bg-[#13daec]"
+                                        : "border-slate-300 bg-white"
+                                }`}
+                              />
+                              <span>{option}</span>
+                            </button>
                           );
-                          return;
-                        }
+                        })}
+                      </div>
 
-                        setSelectedOptionIndexes([optionIndex]);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left text-sm transition ${
-                        isSelected || showCorrect
-                          ? "border-[#13daec] bg-white text-[#0f172a]"
-                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
-                      }`}
-                    >
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
-                          isMultipleChoice ? "rounded-[4px]" : "rounded-full"
-                        } ${
-                          isSelected || showCorrect
-                            ? "border-[#13daec] bg-[#13daec]"
-                            : "border-slate-300"
-                        }`}
-                      />
-                      <span>{option}</span>
-                    </button>
+                      <div className="mt-4 flex flex-wrap items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() =>
+                            setRevealedHints((currentHints) => ({
+                              ...currentHints,
+                              [question.id]: true,
+                            }))
+                          }
+                        >
+                          <Lightbulb className="h-4 w-4" />
+                          Підказка
+                        </Button>
+
+                        {isHintRevealed ? (
+                          <p className="text-sm font-medium text-emerald-700">
+                            Правильна відповідь: {getCorrectAnswerLabel(question)}
+                          </p>
+                        ) : null}
+                      </div>
+                    </section>
                   );
-                })}
-              </div>
-
-              {currentQuestion.hint?.trim() && result !== null ? (
-                <div className="mt-4 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
-                  <span className="font-semibold text-slate-700">Hint:</span>{" "}
-                  {currentQuestion.hint.trim()}
+                })
+              ) : (
+                <div className="rounded-xl border border-dashed border-violet-200 bg-violet-50/30 px-5 py-6 text-sm text-slate-500">
+                  У цьому тесті поки немає запитань.
                 </div>
-              ) : null}
+              )}
             </div>
+          </div>
 
-            {result ? (
-              <p className="mt-4 text-sm font-medium text-slate-600">
-                {result === "correct"
-                  ? "Correct answer selected."
-                  : result === "incorrect"
-                    ? "That answer is not correct."
-                    : "The correct answer is shown below."}
-              </p>
+          <div className="flex justify-end gap-3 border-t border-slate-200 px-5 py-4">
+            {isSubmitted ? (
+              <Button type="button" variant="secondary" onClick={onClose}>
+                Закрити
+              </Button>
             ) : null}
-
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              
-
-              <div className="flex flex-wrap gap-3">
-                {result === null ? (
-                  <Button
-                    type="button"
-                    variant="accent"
-                    onClick={() => {
-                      const isCorrect = areSelectionsEqual(
-                        selectedOptionIndexes,
-                        currentQuestion.correctOptionIndexes
-                      );
-
-                      setResult(isCorrect ? "correct" : "incorrect");
-                    }}
-                    disabled={selectedOptionIndexes.length === 0}
-                  >
-                    Check Answer
-                  </Button>
-                ) : null}
-
-                {result === "incorrect" ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => {
-                        setSelectedOptionIndexes([]);
-                        setResult(null);
-                      }}
-                    >
-                      Retry
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => {
-                        setSelectedOptionIndexes(currentQuestion.correctOptionIndexes);
-                        setResult("revealed");
-                      }}
-                    >
-                      Show Correct
-                    </Button>
-                  </>
-                ) : null}
-
-                {result === "correct" || result === "revealed" ? (
-                  <Button
-                    type="button"
-                    variant="accent"
-                    onClick={() => {
-                      if (isLastQuestion) {
-                        onComplete(test.id);
-                        onClose();
-                        return;
-                      }
-
-                      setQuestionIndex((currentIndex) => currentIndex + 1);
-                      setSelectedOptionIndexes([]);
-                      setResult(null);
-                    }}
-                  >
-                    {isLastQuestion ? "Finish Test" : "Next Question"}
-                  </Button>
-                ) : null}
-              </div>
-            </div>
+            <Button
+              type="button"
+              variant="accent"
+              onClick={() => {
+                setIsSubmitted(true);
+                onComplete(test.id);
+              }}
+              disabled={test.questions.length === 0 || isSubmitted}
+            >
+              Завершити тест
+            </Button>
           </div>
         </div>
       </div>

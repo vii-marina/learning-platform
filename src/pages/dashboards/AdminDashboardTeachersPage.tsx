@@ -49,7 +49,7 @@ export function AdminDashboardTeachersPage() {
         }
 
         setMessageTone("error");
-        setMessage(getErrorMessage(error, "Unable to load teachers."));
+        setMessage(getErrorMessage(error, "Не вдалося завантажити викладачів."));
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -100,11 +100,11 @@ export function AdminDashboardTeachersPage() {
         currentTeachers.filter((teacher) => teacher.id !== teacherToDelete.id)
       );
       setMessageTone("success");
-      setMessage("Teacher deleted successfully.");
+      setMessage("Викладача успішно видалено.");
       setTeacherPendingDelete(null);
     } catch (error) {
       setMessageTone("error");
-      setMessage(getErrorMessage(error, "Unable to delete teacher."));
+      setMessage(getErrorMessage(error, "Не вдалося видалити викладача."));
       setTeacherPendingDelete(null);
     } finally {
       setIsDeletingTeacher(false);
@@ -115,12 +115,12 @@ export function AdminDashboardTeachersPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-4 px-1 py-1">
         <div>
-          <h1 className="text-3xl font-black tracking-tight text-[#14213d]">Teachers</h1>
+          <h1 className="text-3xl font-black tracking-tight text-[#14213d]">Викладачі</h1>
           
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
-            Total teachers: {teachers.length}
+            Усього викладачів: {teachers.length}
           </div>
           <Button
             type="button"
@@ -129,7 +129,7 @@ export function AdminDashboardTeachersPage() {
             onClick={() => setIsCreateTeacherOpen(true)}
           >
             <Plus className="h-4 w-4" />
-            <span>Add Teacher</span>
+            <span>Додати викладача</span>
           </Button>
         </div>
       </div>
@@ -152,7 +152,7 @@ export function AdminDashboardTeachersPage() {
           type="search"
           value={searchValue}
           onChange={(event) => setSearchValue(event.target.value)}
-          placeholder="Search teachers by name or email..."
+          placeholder="Пошук викладачів за імʼям або email..."
           className="h-12 w-full rounded-[1.15rem] border border-slate-200 bg-white pl-12 pr-4 text-sm font-medium text-[#14213d] outline-none transition focus:border-[#13daec] focus:ring-4 focus:ring-[#13daec]/12"
         />
       </div>
@@ -161,7 +161,7 @@ export function AdminDashboardTeachersPage() {
         <LoadingState variant="section" />
       ) : filteredTeachers.length === 0 ? (
         <Card className="rounded-[1.75rem] border-cyan-100 p-10 text-sm text-slate-500 shadow-[0_20px_40px_rgba(15,23,42,0.06)]">
-          No teachers match your search.
+          За вашим пошуком викладачів не знайдено.
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -179,21 +179,21 @@ export function AdminDashboardTeachersPage() {
 
       <AdminDeleteWarningModal
         isOpen={teacherPendingDelete !== null}
-        entityLabel="Teacher"
+        entityLabel="викладача"
         entityName={teacherPendingDelete ? getTeacherDisplayName(teacherPendingDelete) : ""}
         entityEmail={teacherPendingDelete?.email ?? ""}
         impactItems={
           teacherPendingDelete
             ? [
-                "Teacher profile information may be removed.",
-                `${teacherPendingDelete.courseCount} linked courses may lose their teacher reference.`,
-                `${teacherPendingDelete.publishedCourseCount} published courses may be affected.`,
-                `${teacherPendingDelete.draftCourseCount} draft courses may be affected.`,
-                `${teacherPendingDelete.assignedStudents.length} assigned student links may be lost.`,
+                "Інформацію профілю викладача може бути видалено.",
+                `${teacherPendingDelete.courseCount} повʼязаних курсів можуть втратити привʼязку до викладача.`,
+                `${teacherPendingDelete.publishedCourseCount} опублікованих курсів можуть бути зачеплені.`,
+                `${teacherPendingDelete.draftCourseCount} чернеток курсів можуть бути зачеплені.`,
+                `${teacherPendingDelete.assignedStudents.length} звʼязків зі студентами можуть бути втрачені.`,
               ]
             : []
         }
-        confirmLabel="Delete Teacher"
+        confirmLabel="Видалити викладача"
         isSubmitting={isDeletingTeacher}
         onClose={() => {
           if (!isDeletingTeacher) {
@@ -214,7 +214,7 @@ export function AdminDashboardTeachersPage() {
             const nextTeachers = await loadAdminTeachersData();
             setTeachers(nextTeachers);
             setMessageTone("success");
-            setMessage("Teacher created successfully.");
+            setMessage("Викладача успішно створено.");
           }}
         />
       ) : null}

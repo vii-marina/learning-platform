@@ -9,3 +9,4 @@ export { AdminCoursePreviewPage } from "./AdminCoursePreviewPage";
 export { AdminDashboardSettingsPage } from "./AdminDashboardSettingsPage";
 export { TeacherDashboardPage } from "./TeacherDashboardPage";
 export { StudentDashboardPage } from "./StudentDashboardPage";
+export { StudentCoursePage } from "./StudentCoursePage";

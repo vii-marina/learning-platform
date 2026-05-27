@@ -38,10 +38,10 @@ export function AdminDeleteWarningModal({
               </div>
               <div>
                 <p className="text-sm font-bold  text-rose-600">
-                  Delete {entityLabel}
+                  Видалення: {entityLabel}
                 </p>
                 <h2 className="mt-1 text-2xl font-black tracking-tight text-[#14213d]">
-                  Are you sure?
+                  Ви впевнені?
                 </h2>
               </div>
             </div>
@@ -51,15 +51,15 @@ export function AdminDeleteWarningModal({
               onClick={onClose}
               disabled={isSubmitting}
               className="rounded-full p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
-              aria-label="Close delete warning"
+              aria-label="Закрити попередження про видалення"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
 
           <p className="mt-4 text-sm leading-6 text-slate-600">
-            This action is sensitive and should be confirmed by an admin. If deletion is enabled,
-            the following records may be lost and the action may not be reversible.
+            Ця дія чутлива й має бути підтверджена адміністратором. Якщо видалення увімкнене,
+            частина даних може бути втрачена, а дію може бути неможливо скасувати.
           </p>
 
           <div className="mt-5 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4">
@@ -68,7 +68,7 @@ export function AdminDeleteWarningModal({
           </div>
 
           <div className="mt-5 rounded-[1.2rem] border border-rose-100 bg-rose-50 px-4 py-4">
-            <p className="text-sm font-bold text-rose-700">Possible data loss</p>
+            <p className="text-sm font-bold text-rose-700">Можлива втрата даних</p>
             <ul className="mt-3 space-y-2 text-sm leading-6 text-rose-700">
               {impactItems.map((item) => (
                 <li key={item} className="flex gap-2">
@@ -86,7 +86,7 @@ export function AdminDeleteWarningModal({
               disabled={isSubmitting}
               className="inline-flex h-11 items-center justify-center rounded-[1rem] border border-slate-200 bg-white px-5 text-sm font-semibold text-[#14213d] transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Cancel
+              Скасувати
             </button>
             <button
               type="button"
@@ -94,7 +94,7 @@ export function AdminDeleteWarningModal({
               disabled={isSubmitting}
               className="inline-flex h-11 items-center justify-center rounded-[1rem] border border-rose-200 bg-rose-600 px-5 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "Deleting..." : confirmLabel}
+              {isSubmitting ? "Видалення..." : confirmLabel}
             </button>
           </div>
         </div>

@@ -111,7 +111,7 @@ function getOpenButtonClassName(tab: CoursePreviewOverviewTab) {
 }
 
 function getExerciseTypeLabel(exercise: CourseExercise) {
-  return exercise.type === "drag_drop_code" ? "Fill Missing Code" : "Write Code";
+  return exercise.type === "drag_drop_code" ? "Заповнити пропуски в коді" : "Написати код";
 }
 
 function CourseOverviewPath({ module, lesson = null }: CourseOverviewPathProps) {
@@ -119,13 +119,13 @@ function CourseOverviewPath({ module, lesson = null }: CourseOverviewPathProps) 
     <div className="flex flex-wrap items-center gap-2">
       <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
         <Layers3 className="h-3.5 w-3.5 text-[#08bfd4]" />
-        <span>{`Module ${module.order}`}</span>
+        <span>{`Модуль ${module.order}`}</span>
       </span>
 
       {lesson ? (
         <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
           <Play className="ml-0.5 h-3.5 w-3.5 text-emerald-600" />
-          <span>{`Lesson ${module.order}.${lesson.order}`}</span>
+          <span>{`Урок ${module.order}.${lesson.order}`}</span>
         </span>
       ) : null}
     </div>
@@ -142,7 +142,7 @@ function TestQuestionPreviewCard({ question, index }: TestQuestionPreviewCardPro
           <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white px-2 text-xs font-semibold text-violet-700 shadow-[0_8px_18px_rgba(139,92,246,0.08)]">
             {index + 1}
           </span>
-          <label className="text-sm font-semibold text-[#14213d]">Question</label>
+          <label className="text-sm font-semibold text-[#14213d]">Запитання</label>
         </div>
 
         <span className="rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold text-violet-700">
@@ -151,7 +151,7 @@ function TestQuestionPreviewCard({ question, index }: TestQuestionPreviewCardPro
       </div>
 
       <div className="mt-3 rounded-xl border border-transparent bg-white px-4 py-3 text-sm leading-6 text-slate-700">
-        {question.questionText.trim() || `Question ${index + 1}`}
+        {question.questionText.trim() || `Запитання ${index + 1}`}
       </div>
 
       <div className="mt-4 space-y-3">
@@ -192,7 +192,7 @@ function TestQuestionPreviewCard({ question, index }: TestQuestionPreviewCardPro
 
       {question.hint?.trim() ? (
         <div className="mt-4 rounded-xl border border-violet-100 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
-          <span className="font-semibold text-slate-700">Hint:</span> {question.hint.trim()}
+          <span className="font-semibold text-slate-700">Підказка:</span> {question.hint.trim()}
         </div>
       ) : null}
     </div>
@@ -314,25 +314,25 @@ export function CoursePreviewOverviewModal({
   }> = [
     {
       id: "modules",
-      label: "Modules",
+      label: "Модулі",
       count: sortedModules.length,
       icon: Layers3,
     },
     {
       id: "lessons",
-      label: "Lessons",
+      label: "Уроки",
       count: lessonItems.length,
       icon: Play,
     },
     {
       id: "exercises",
-      label: "Exercises",
+      label: "Вправи",
       count: exerciseItems.length,
       icon: Code2,
     },
     {
       id: "tests",
-      label: "Tests",
+      label: "Тести",
       count: testItems.length,
       icon: BadgeCheck,
     },
@@ -352,14 +352,14 @@ export function CoursePreviewOverviewModal({
           <div className="flex min-h-[92px] items-center justify-between border-b border-slate-200 px-5 py-4 md:px-6">
             <div>
               <h2 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
-                Course Overview
+                Огляд курсу
               </h2>
             </div>
 
             <button
               type="button"
               onClick={onClose}
-              aria-label="Close course overview modal"
+              aria-label="Закрити модальне вікно огляду курсу"
               className="rounded-xl border border-slate-200 p-2 text-slate-500 transition hover:bg-slate-50 hover:text-slate-700"
             >
               <X className="h-5 w-5" />
@@ -413,7 +413,7 @@ export function CoursePreviewOverviewModal({
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[#ecfeff] px-3 py-1 text-xs font-semibold text-[#0f8ea0]">
                                 <Layers3 className="h-3.5 w-3.5 text-[#08bfd4]" />
-                                <span>{`Module ${module.order}`}</span>
+                                <span>{`Модуль ${module.order}`}</span>
                               </span>
                             </div>
                             <h3 className="mt-3 text-2xl font-extrabold tracking-tight text-[#14213d]">
@@ -453,7 +453,7 @@ export function CoursePreviewOverviewModal({
             {activeTab === "lessons" ? (
               lessonItems.length === 0 ? (
                 <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white px-5 py-8 text-sm text-slate-500">
-                  No lessons available yet.
+                  Уроків поки що немає.
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -479,7 +479,7 @@ export function CoursePreviewOverviewModal({
                             onClick={() => onSelectLesson(module.id, lesson.id)}
                             className={getOpenButtonClassName("lessons")}
                           >
-                            Open Lesson
+                            Відкрити урок
                           </Button>
                         </div>
 
@@ -507,7 +507,7 @@ export function CoursePreviewOverviewModal({
                             </div>
                           ) : (
                             <p className="text-sm leading-7 text-slate-500">
-                              This lesson does not have published content yet.
+                              Цей урок поки що не містить опублікованого контенту.
                             </p>
                           )}
                         </div>
@@ -521,7 +521,7 @@ export function CoursePreviewOverviewModal({
             {activeTab === "exercises" ? (
               exerciseItems.length === 0 ? (
                 <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white px-5 py-8 text-sm text-slate-500">
-                  No exercises available yet.
+                  Поки немає доступних вправ.
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -575,7 +575,7 @@ export function CoursePreviewOverviewModal({
                             disabled={!lesson}
                             className={getOpenButtonClassName("exercises")}
                           >
-                            Open Exercise
+                            Відкрити вправу
                           </Button>
                         </div>
 
@@ -586,7 +586,7 @@ export function CoursePreviewOverviewModal({
                             </span>
 
                             <div className="min-w-0 flex-1 rounded-xl border border-orange-200 bg-white px-4 py-3 text-base font-semibold leading-6 text-[#14213d]">
-                              {exercise.content.question.trim() || exercise.title || "Exercise"}
+                              {exercise.content.question.trim() || exercise.title || "Вправа"}
                             </div>
                           </div>
 
@@ -608,7 +608,7 @@ export function CoursePreviewOverviewModal({
             {activeTab === "tests" ? (
               testItems.length === 0 ? (
                 <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white px-5 py-8 text-sm text-slate-500">
-                  No tests available yet.
+                  Немає тестів.
                 </div>
               ) : (
                 <div className="space-y-5">

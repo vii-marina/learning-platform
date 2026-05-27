@@ -131,6 +131,46 @@ export async function authorizedBackendRequest<T>(
   return payload as T;
 }
 
+export async function publicBackendRequest<T>(
+  path: string,
+  options: BackendRequestOptions = {}
+): Promise<T> {
+  const headers = new Headers(options.headers);
+
+  if (options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+    ...options,
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+
+  const responseText = await response.text();
+  let payload: unknown = null;
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = responseText;
+    }
+  }
+
+  if (!response.ok) {
+    const errorPayload = parseErrorPayload(payload);
+    throw new BackendApiError(
+      errorPayload.message,
+      response.status,
+      errorPayload.code,
+      errorPayload.details
+    );
+  }
+
+  return payload as T;
+}
+
 export function getErrorMessage(error: unknown, fallbackMessage: string) {
   if (error instanceof BackendApiError) {
     return error.message;

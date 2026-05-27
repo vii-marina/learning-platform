@@ -34,7 +34,7 @@ export function AdminDashboardPage() {
           return;
         }
 
-        setMessage(getErrorMessage(error, "Unable to load overview."));
+        setMessage(getErrorMessage(error, "Не вдалося завантажити огляд."));
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -56,28 +56,28 @@ export function AdminDashboardPage() {
 
     return [
       {
-        label: "Teachers",
+        label: "Викладачі",
         value: data.totals.teachers,
         to: "/admin/dashboard/teachers",
         icon: GraduationCap,
         tone: "violet" as const,
       },
       {
-        label: "Students",
+        label: "Студенти",
         value: data.totals.students,
         to: "/admin/dashboard/students",
         icon: Users,
         tone: "sky" as const,
       },
       {
-        label: "Draft Courses",
+        label: "Чернетки курсів",
         value: data.courseStatuses.draft,
         to: "/admin/dashboard/courses#draft-courses",
         icon: FileText,
         tone: "amber" as const,
       },
       {
-        label: "Published Courses",
+        label: "Опубліковані курси",
         value: data.courseStatuses.published,
         to: "/admin/dashboard/courses#published-courses",
         icon: CheckCircle2,
@@ -90,11 +90,11 @@ export function AdminDashboardPage() {
     <div className="space-y-6">
       <section className="rounded-[2rem] border border-[#d8f5f7] px-6 py-6 shadow-[0_18px_40px_rgba(20,33,61,0.06)]">
         
-        <h2 className="text-3xl font-black tracking-tight text-slate-900">
-          Dashboard Overview
+        <h2 className="text-xl font-black tracking-tight text-slate-900">
+          Вітання, Адміністраторе!
         </h2>
-        <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-500">
-          Welcome to the admin panel. On this page, you will be able to fully manage all the platform content.
+        <p className="mt-2 max-w-3xl text-ml leading-6 text-slate-500">
+          Вітаємо в адмін-панелі. Тут можна керувати користувачами, курсами та контентом платформи.
         </p>
       </section>
 
