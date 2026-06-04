@@ -1,6 +1,7 @@
 import {
   BookOpen,
   GraduationCap,
+  LayoutTemplate,
   LayoutGrid,
   LogOut,
   Plus,
@@ -23,6 +24,7 @@ const primaryItems: SidebarItem[] = [
   { label: "Викладачі", icon: GraduationCap, to: "/admin/dashboard/teachers" },
   { label: "Студенти", icon: Users, to: "/admin/dashboard/students" },
   { label: "Курси", icon: BookOpen, to: "/admin/dashboard/courses" },
+  { label: "Лендінг", icon: LayoutTemplate, to: "/admin/dashboard/landing" },
 ];
 
 const secondaryItems: SidebarItem[] = [
@@ -60,7 +62,7 @@ export function AdminDashboardSidebar() {
         <div className="flex items-center gap-4">
           <div>
             <p className="text-ml font-black tracking-tight text-[#14213d]">
-              Навчальна платформа
+              EduCat
             </p>
             <p className="text-ml font-semibold  text-slate-500">
               Адмін-панель

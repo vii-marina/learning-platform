@@ -44,6 +44,50 @@ type AdminCourseSummaryResponse = {
   course: AdminDashboardCourseSummary;
 };
 
+type AdminLandingSettings = {
+  id: string;
+  course_id: string | null;
+  lesson_id: string | null;
+  updated_at: string;
+};
+
+export type AdminLandingPreview = {
+  course: {
+    id: string;
+    title: string;
+    description: string | null;
+    slug: string;
+    thumbnail_path: string | null;
+  };
+  module: {
+    id: string;
+    course_id: string;
+    title: string;
+    order: number;
+  };
+  lesson: {
+    id: string;
+    module_id: string;
+    title: string;
+    content: string | null;
+    order: number;
+  };
+  test: {
+    id: string;
+    title: string;
+  } | null;
+  exercise: {
+    id: string;
+    title: string;
+    type: "drag_drop_code" | "write_code";
+  } | null;
+};
+
+type AdminLandingSettingsResponse = {
+  settings: AdminLandingSettings | null;
+  preview: AdminLandingPreview | null;
+};
+
 type DeleteAdminEntityResponse = {
   deletedId: string;
 };
@@ -366,7 +410,7 @@ export async function updateAdminCourseStatus(
 }
 
 export async function deleteAdminCourse(courseId: string) {
-  await authorizedBackendRequest<DeleteAdminEntityResponse>(
+  const response = await authorizedBackendRequest<AdminCourseSummaryResponse>(
     `/admin/dashboard/courses/${courseId}`,
     {
       method: "DELETE",
@@ -375,6 +419,40 @@ export async function deleteAdminCourse(courseId: string) {
 
   deleteDashboardKeys(["overview", "courses:list", "teachers:list", courseDetailKey(courseId)]);
   deleteDashboardKeysByPrefix(["course:", "teacher:"]);
+
+  return response.course;
+}
+
+export async function permanentlyDeleteAdminCourse(courseId: string) {
+  await authorizedBackendRequest<DeleteAdminEntityResponse>(
+    `/admin/dashboard/courses/${courseId}/permanent`,
+    {
+      method: "DELETE",
+    }
+  );
+
+  deleteDashboardKeys(["overview", "courses:list", "teachers:list", courseDetailKey(courseId)]);
+  deleteDashboardKeysByPrefix(["course:", "teacher:"]);
+}
+
+export async function loadAdminLandingSettingsData() {
+  return authorizedBackendRequest<AdminLandingSettingsResponse>("/admin/dashboard/landing");
+}
+
+export async function saveAdminLandingSettingsData(input: {
+  courseId: string;
+  lessonId: string;
+}) {
+  const response = await authorizedBackendRequest<AdminLandingSettingsResponse>(
+    "/admin/dashboard/landing",
+    {
+      method: "PUT",
+      body: input,
+    }
+  );
+
+  deleteDashboardKeys(["landing"]);
+  return response;
 }
 
 export async function loadAdminSettingsData(): Promise<AdminDashboardSettingsData> {

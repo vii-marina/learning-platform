@@ -25,6 +25,7 @@ type CourseStatusRow = {
   teacher_id: string | null;
   status: string | null;
   is_published: boolean | null;
+  deleted_at?: string | null;
 };
 
 type AdminDashboardOverviewData = {
@@ -127,7 +128,8 @@ async function countProfiles(role?: "teacher" | "student") {
 async function listCourseStatusRows(teacherId?: string) {
   const query = supabaseAdmin
     .from("courses")
-    .select("teacher_id,status,is_published");
+    .select("teacher_id,status,is_published,deleted_at")
+    .is("deleted_at", null);
   const { data, error } = teacherId
     ? await query.eq("teacher_id", teacherId)
     : await query;

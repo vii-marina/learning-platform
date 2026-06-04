@@ -77,6 +77,10 @@ type TestAnswerRow = {
   created_at: string;
 };
 
+type ExerciseIdRow = {
+  id: string;
+};
+
 type CourseProgressRow = {
   course_id: string;
   user_id: string;
@@ -145,7 +149,6 @@ async function listCourses() {
   const { data, error } = await supabaseAdmin
     .from("courses")
     .select("*")
-    .is("deleted_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -161,6 +164,20 @@ async function getCourseById(courseId: string) {
     .select("*")
     .eq("id", courseId)
     .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
+  }
+
+  return (data as CourseRow | null) ?? null;
+}
+
+async function getCourseByIdIncludingDeleted(courseId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("courses")
+    .select("*")
+    .eq("id", courseId)
     .maybeSingle();
 
   if (error) {
@@ -413,6 +430,88 @@ async function listAnswers(questionIds: string[]) {
   return answers;
 }
 
+async function listExercisesByModuleIds(moduleIds: string[]) {
+  if (moduleIds.length === 0) {
+    return [] as ExerciseIdRow[];
+  }
+
+  const exercises: ExerciseIdRow[] = [];
+
+  for (const chunk of chunkValues(moduleIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("exercises")
+      .select("id")
+      .in("module_id", chunk);
+
+    if (error) {
+      throw toServiceError(500, "EXERCISES_LIST_FAILED", "Unable to list exercises", error);
+    }
+
+    exercises.push(...((data ?? []) as ExerciseIdRow[]));
+  }
+
+  return exercises;
+}
+
+function isMissingOptionalRelationError(error: { message: string; code?: string }) {
+  const message = error.message.toLowerCase();
+
+  return (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    message.includes("does not exist") ||
+    message.includes("could not find the table") ||
+    message.includes("could not find")
+  );
+}
+
+async function deleteRowsByValues(
+  tableName: string,
+  columnName: string,
+  values: string[],
+  options: {
+    optional?: boolean;
+    errorCode: string;
+    errorMessage: string;
+  }
+) {
+  if (values.length === 0) {
+    return;
+  }
+
+  for (const chunk of chunkValues(values)) {
+    const { error } = await supabaseAdmin.from(tableName).delete().in(columnName, chunk);
+
+    if (error) {
+      if (options.optional && isMissingOptionalRelationError(error)) {
+        return;
+      }
+
+      throw toServiceError(500, options.errorCode, options.errorMessage, error);
+    }
+  }
+}
+
+async function clearLandingSettingsForDeletedCourse(courseId: string, lessonIds: string[]) {
+  const { error } = await supabaseAdmin
+    .from("landing_page_settings")
+    .update({
+      course_id: null,
+      lesson_id: null,
+      updated_at: new Date().toISOString(),
+    })
+    .or(`course_id.eq.${courseId}${lessonIds.length > 0 ? `,lesson_id.in.(${lessonIds.join(",")})` : ""}`);
+
+  if (error && !isMissingOptionalRelationError(error)) {
+    throw toServiceError(
+      500,
+      "LANDING_SETTINGS_CLEAR_FAILED",
+      "Unable to clear landing settings for deleted course",
+      error
+    );
+  }
+}
+
 function computeCourseTotals(modules: Array<{ lessons: Array<{ blocks: LessonBlockRow[] }>; tests: Array<{ questions: Array<{ answers: TestAnswerRow[] }> }> }>) {
   return modules.reduce(
     (totals, module) => {
@@ -609,5 +708,85 @@ export async function deleteAdminDashboardCourse(courseId: string) {
 
   if (!deletedCourse) {
     throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
+  }
+
+  const [hydratedCourse] = await hydrateCourseSummaries([deletedCourse]);
+  return hydratedCourse;
+}
+
+export async function permanentlyDeleteAdminDashboardCourse(courseId: string) {
+  const course = await getCourseByIdIncludingDeleted(courseId);
+
+  if (!course) {
+    throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
+  }
+
+  const modules = await listModules([course.id]);
+  const moduleIds = modules.map((module) => module.id);
+  const lessons = await listLessons(moduleIds);
+  const lessonIds = lessons.map((lesson) => lesson.id);
+  const tests = await listTests(moduleIds);
+  const testIds = tests.map((test) => test.id);
+  const questions = await listQuestions(testIds);
+  const questionIds = questions.map((question) => question.id);
+  const exercises = await listExercisesByModuleIds(moduleIds);
+  const exerciseIds = exercises.map((exercise) => exercise.id);
+
+  await clearLandingSettingsForDeletedCourse(course.id, lessonIds);
+  await deleteRowsByValues("user_test_results", "test_id", testIds, {
+    optional: true,
+    errorCode: "USER_TEST_RESULTS_DELETE_FAILED",
+    errorMessage: "Unable to delete test results",
+  });
+  await deleteRowsByValues("test_answers", "question_id", questionIds, {
+    errorCode: "TEST_ANSWERS_DELETE_FAILED",
+    errorMessage: "Unable to delete test answers",
+  });
+  await deleteRowsByValues("test_questions", "test_id", testIds, {
+    errorCode: "TEST_QUESTIONS_DELETE_FAILED",
+    errorMessage: "Unable to delete test questions",
+  });
+  await deleteRowsByValues("test_entities", "module_id", moduleIds, {
+    errorCode: "TESTS_DELETE_FAILED",
+    errorMessage: "Unable to delete tests",
+  });
+  await deleteRowsByValues("exercise_content", "exercise_id", exerciseIds, {
+    errorCode: "EXERCISE_CONTENT_DELETE_FAILED",
+    errorMessage: "Unable to delete exercise content",
+  });
+  await deleteRowsByValues("exercises", "id", exerciseIds, {
+    errorCode: "EXERCISES_DELETE_FAILED",
+    errorMessage: "Unable to delete exercises",
+  });
+  await deleteRowsByValues("lesson_progress", "lesson_id", lessonIds, {
+    errorCode: "LESSON_PROGRESS_DELETE_FAILED",
+    errorMessage: "Unable to delete lesson progress",
+  });
+  await deleteRowsByValues("lesson_blocks", "lesson_id", lessonIds, {
+    errorCode: "LESSON_BLOCKS_DELETE_FAILED",
+    errorMessage: "Unable to delete lesson blocks",
+  });
+  await deleteRowsByValues("lessons", "id", lessonIds, {
+    errorCode: "LESSONS_DELETE_FAILED",
+    errorMessage: "Unable to delete lessons",
+  });
+  await deleteRowsByValues("modules", "id", moduleIds, {
+    errorCode: "MODULES_DELETE_FAILED",
+    errorMessage: "Unable to delete modules",
+  });
+  await deleteRowsByValues("course_progress", "course_id", [course.id], {
+    errorCode: "COURSE_PROGRESS_DELETE_FAILED",
+    errorMessage: "Unable to delete course progress",
+  });
+
+  const { error } = await supabaseAdmin.from("courses").delete().eq("id", course.id);
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "COURSE_PERMANENT_DELETE_FAILED",
+      "Unable to permanently delete course",
+      error
+    );
   }
 }

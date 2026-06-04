@@ -1,6 +1,7 @@
 import { AppError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext, UserProfileRow } from "../types/auth";
+import { getLandingPageSettings } from "./landingPageSettingsService";
 
 type CourseRow = {
   id: string;
@@ -190,6 +191,7 @@ export type PublicLandingLessonPreviewQuery = {
   courseId?: string;
   lessonId?: string;
   lessonTitle?: string;
+  allowAnySelectedCourse?: boolean;
 };
 
 export type PublicLandingLessonPreview = {
@@ -320,6 +322,25 @@ async function getPublishedPublicCourse(courseId: string) {
       "Published public course was not found.",
       "COURSE_NOT_FOUND"
     );
+  }
+
+  return data as CourseRow;
+}
+
+async function getAnyLandingPreviewCourse(courseId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("courses")
+    .select("*")
+    .eq("id", courseId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
+  }
+
+  if (!data) {
+    throw new AppError(404, "Landing course was not found.", "COURSE_NOT_FOUND");
   }
 
   return data as CourseRow;
@@ -1155,9 +1176,27 @@ export async function getPublicLandingLessonPreview({
   courseId,
   lessonId,
   lessonTitle = "Arithmetic operators",
+  allowAnySelectedCourse = false,
 }: PublicLandingLessonPreviewQuery = {}): Promise<PublicLandingLessonPreview> {
-  const courses = courseId
-    ? [await getPublishedPublicCourse(courseId)]
+  let resolvedCourseId = courseId;
+  let resolvedLessonId = lessonId;
+
+  if (!resolvedCourseId && !resolvedLessonId) {
+    const landingSettings = await getLandingPageSettings();
+
+    if (landingSettings?.course_id && landingSettings.lesson_id) {
+      resolvedCourseId = landingSettings.course_id;
+      resolvedLessonId = landingSettings.lesson_id;
+      allowAnySelectedCourse = true;
+    }
+  }
+
+  const courses = resolvedCourseId
+    ? [
+        allowAnySelectedCourse
+          ? await getAnyLandingPreviewCourse(resolvedCourseId)
+          : await getPublishedPublicCourse(resolvedCourseId),
+      ]
     : await listPublishedPublicCourses();
 
   if (courses.length === 0) {
@@ -1176,8 +1215,8 @@ export async function getPublicLandingLessonPreview({
   let selectedModule: ModuleRow | null = null;
   let selectedLesson: LessonRow | null = null;
 
-  if (lessonId) {
-    selectedLesson = lessons.find((lesson) => lesson.id === lessonId) ?? null;
+  if (resolvedLessonId) {
+    selectedLesson = lessons.find((lesson) => lesson.id === resolvedLessonId) ?? null;
     selectedModule = selectedLesson ? moduleById.get(selectedLesson.module_id) ?? null : null;
     selectedCourse = selectedModule ? courseById.get(selectedModule.course_id) ?? null : null;
   } else {

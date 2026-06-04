@@ -5,6 +5,7 @@ export { AdminTeacherDetailsPage } from "./AdminTeacherDetailsPage";
 export { AdminDashboardTeachersPage } from "./AdminDashboardTeachersPage";
 export { AdminDashboardStudentsPage } from "./AdminDashboardStudentsPage";
 export { AdminDashboardCoursesPage } from "./AdminDashboardCoursesPage";
+export { AdminDashboardLandingPage } from "./AdminDashboardLandingPage";
 export { AdminCoursePreviewPage } from "./AdminCoursePreviewPage";
 export { AdminDashboardSettingsPage } from "./AdminDashboardSettingsPage";
 export { TeacherDashboardPage } from "./TeacherDashboardPage";

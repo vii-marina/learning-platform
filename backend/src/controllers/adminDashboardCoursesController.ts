@@ -4,6 +4,7 @@ import {
   deleteAdminDashboardCourse,
   getAdminDashboardCourse,
   listAdminDashboardCourses,
+  permanentlyDeleteAdminDashboardCourse,
   updateAdminDashboardCourse,
 } from "../services/adminDashboardCoursesService";
 
@@ -27,6 +28,15 @@ export async function updateAdminDashboardCourseHandler(req: Request, res: Respo
 
 export async function deleteAdminDashboardCourseHandler(req: Request, res: Response) {
   const params = updateUserParamsSchema.parse(req.params);
-  await deleteAdminDashboardCourse(params.id);
+  const course = await deleteAdminDashboardCourse(params.id);
+  res.status(200).json({ course });
+}
+
+export async function permanentlyDeleteAdminDashboardCourseHandler(
+  req: Request,
+  res: Response
+) {
+  const params = updateUserParamsSchema.parse(req.params);
+  await permanentlyDeleteAdminDashboardCourse(params.id);
   res.status(200).json({ deletedId: params.id });
 }

@@ -15,6 +15,7 @@ import {
   deleteAdminDashboardCourseHandler,
   getAdminDashboardCourseHandler,
   listAdminDashboardCoursesHandler,
+  permanentlyDeleteAdminDashboardCourseHandler,
   updateAdminDashboardCourseHandler,
 } from "../controllers/adminDashboardCoursesController";
 import {
@@ -24,6 +25,10 @@ import {
   listUsersHandler,
   updateUserHandler,
 } from "../controllers/adminController";
+import {
+  getAdminLandingSettingsHandler,
+  updateAdminLandingSettingsHandler,
+} from "../controllers/adminLandingController";
 import { requireAuth } from "../middleware/auth";
 import { requireAdmin, requireSuperAdmin } from "../middleware/requireRole";
 
@@ -35,7 +40,14 @@ router.get("/dashboard/overview", requireAdmin, getAdminDashboardOverviewHandler
 router.get("/dashboard/courses", requireAdmin, listAdminDashboardCoursesHandler);
 router.get("/dashboard/courses/:id", requireAdmin, getAdminDashboardCourseHandler);
 router.patch("/dashboard/courses/:id", requireAdmin, updateAdminDashboardCourseHandler);
+router.delete(
+  "/dashboard/courses/:id/permanent",
+  requireAdmin,
+  permanentlyDeleteAdminDashboardCourseHandler
+);
 router.delete("/dashboard/courses/:id", requireAdmin, deleteAdminDashboardCourseHandler);
+router.get("/dashboard/landing", requireAdmin, getAdminLandingSettingsHandler);
+router.put("/dashboard/landing", requireAdmin, updateAdminLandingSettingsHandler);
 router.get("/dashboard/students", requireAdmin, listAdminDashboardStudentsHandler);
 router.get("/dashboard/students/:id", requireAdmin, getAdminDashboardStudentHandler);
 router.patch("/dashboard/students/:id", requireAdmin, updateAdminDashboardStudentHandler);

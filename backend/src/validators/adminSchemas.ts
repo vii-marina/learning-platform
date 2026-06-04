@@ -24,6 +24,11 @@ export const updateAdminCourseSchema = z.object({
   action: z.enum(["publish", "unpublish", "archive"]),
 });
 
+export const updateLandingPageSettingsSchema = z.object({
+  courseId: z.string().uuid("Course id must be a valid UUID."),
+  lessonId: z.string().uuid("Lesson id must be a valid UUID."),
+});
+
 export const updateUserSchema = z
   .object({
     fullName: z.string().trim().min(1).max(120).nullable().optional(),

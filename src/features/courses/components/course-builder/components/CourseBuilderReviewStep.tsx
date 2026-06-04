@@ -40,7 +40,7 @@ export function CourseBuilderReviewStep({
   return (
     <section className="mx-auto w-full max-w-[72rem]">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-950 ">
           {title}
         </h1>
 
@@ -65,7 +65,7 @@ export function CourseBuilderReviewStep({
             {publishBlockingIssues.length === 0 ? (
               <span className="inline-flex items-center gap-2 rounded-full bg-[#13daec]/10 px-4 py-2 text-sm font-semibold text-[#0f8ea0]">
                 <BadgeCheck className="h-4 w-4" />
-                Ready to publish
+                Готово до публікації
               </span>
             ) : (
               publishBlockingIssues.map((issue) => (
@@ -87,7 +87,7 @@ export function CourseBuilderReviewStep({
               size="lg"
               onClick={onSaveDraft}
             >
-              Save as Draft
+              Зберегти як чернетку
             </Button>
             <Button
               type="button"
@@ -96,7 +96,7 @@ export function CourseBuilderReviewStep({
               onClick={onPublish}
               disabled={!canPublish}
             >
-              Publish Now
+              Опублікувати зараз
             </Button>
           </div>
         </div>

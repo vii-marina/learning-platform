@@ -185,6 +185,7 @@ export function StudentCoursePage() {
             exercisesByModule={previewData.exercisesByModule}
             initialCompletedLessonIds={completedLessonIds}
             onCompleteLesson={handleCompleteLesson}
+            showCourseOverviewActions={false}
           />
         ) : null}
       </div>

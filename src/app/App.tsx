@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import {
   AdminCoursePreviewPage,
   AdminDashboardCoursesPage,
+  AdminDashboardLandingPage,
   AdminDashboardLayout,
   AdminDashboardPage,
   AdminDashboardSettingsPage,
@@ -37,6 +38,7 @@ function App() {
           <Route path="students/:studentId" element={<AdminStudentDetailsPage />} />
           <Route path="courses/:courseId" element={<AdminCoursePreviewPage />} />
           <Route path="courses" element={<AdminDashboardCoursesPage />} />
+          <Route path="landing" element={<AdminDashboardLandingPage />} />
           <Route path="settings" element={<AdminDashboardSettingsPage />} />
         </Route>
         <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />

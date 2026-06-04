@@ -441,7 +441,7 @@ export function CoursePreviewLessonContent({
                 </div>
               ) : currentQuestion ? (
                 <div className="relative overflow-hidden rounded-[1.25rem] border border-[#dedcff] bg-white p-5 shadow-[0_16px_34px_rgba(31,27,77,0.07)]">
-                  {currentQuestionResult ? (
+                  {currentQuestionResult && !isCurrentCorrectAnswerRevealed ? (
                     <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/60 px-4 backdrop-blur-[3px]">
                       <div className="flex w-full max-w-[32rem] flex-col items-center justify-center gap-3 rounded-[1.25rem] border border-[#dedcff] bg-white/90 px-5 py-6 text-center shadow-[0_18px_40px_rgba(31,27,77,0.16)]">
                         <div
@@ -598,6 +598,36 @@ export function CoursePreviewLessonContent({
                         <span>Перевірити відповідь</span>
                         <Check className="h-4 w-4" />
                       </Button>
+                    </div>
+                  ) : null}
+
+                  {currentQuestionResult === "incorrect" && isCurrentCorrectAnswerRevealed ? (
+                    <div className="mt-5  gap-3 rounded-xl border border-violet-100 bg-[#f8f7ff] px-4 py-4 sm:flex-row sm:items-center sm:justify-between">
+
+                      <div className="flex justify-between gap-3">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={handleRetryCurrentQuestion}
+                          className="border-[#dedcff] text-[#5549f1] hover:bg-[#f1f0ff]"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                          Спробувати ще раз
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onClick={handleGoToNextQuestion}
+                          className="bg-[#5549f1] hover:bg-[#4035d6]"
+                        >
+                          <span>
+                            {currentQuestionIndex < currentTest.questions.length - 1
+                              ? "Наступне запитання"
+                              : "Завершити тест"}
+                          </span>
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ) : null}
                 </div>

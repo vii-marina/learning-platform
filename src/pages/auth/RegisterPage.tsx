@@ -190,7 +190,7 @@ export function RegisterPage() {
               <School className="h-4 w-4" />
             </span>
             <span className="text-xl font-extrabold tracking-tight md:text-2xl">
-              Навчальна платформа
+              EduCat
             </span>
           </Link>
           <div className="flex items-center gap-4">

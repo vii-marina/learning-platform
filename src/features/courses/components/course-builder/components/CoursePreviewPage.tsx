@@ -1,5 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BookOpen, Code2, ClipboardList, Layers3, Play } from "lucide-react";
 import type { Lesson, Module } from "../../../api/index";
 import { createLocalEntityId } from "../lib/courseBuilderPageUtils";
 import {
@@ -35,6 +36,7 @@ type CoursePreviewPageProps = {
   exercisesByModule: Record<string, CourseExercise[]>;
   initialCompletedLessonIds?: string[];
   onCompleteLesson?: (lessonId: string) => Promise<string[] | void>;
+  showCourseOverviewActions?: boolean;
 };
 
 type StoredPreviewProgress = {
@@ -109,12 +111,15 @@ function getNavigationButtonLabel(
 export function CoursePreviewPage({
   courseId = null,
   courseTitle,
+  courseDescription,
+  courseThumbnailUrl,
   modules,
   lessonsByModule,
   testsByModule,
   exercisesByModule,
   initialCompletedLessonIds,
   onCompleteLesson,
+  showCourseOverviewActions = true,
 }: CoursePreviewPageProps) {
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
   const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
@@ -197,17 +202,32 @@ export function CoursePreviewPage({
     (activeLessonId ? lessonRefById.get(activeLessonId) : null) ?? lessonSequence[0] ?? null;
   const activeModule = activeLessonRef?.module ?? modules[0] ?? null;
   const activeLesson = activeLessonRef?.lesson ?? null;
-  const activeModuleLessons = activeModule ? lessonsByModule[activeModule.id] ?? [] : [];
-  const activeModuleTests = activeModule ? testsByModule[activeModule.id] ?? [] : [];
-  const activeModuleExercises = activeModule ? exercisesByModule[activeModule.id] ?? [] : [];
-  const activeLessonExercises =
-    activeLesson && activeModule
-      ? getLessonExercises(activeModuleLessons, activeModuleExercises, activeLesson.id)
-      : [];
-  const activeLessonTests =
-    activeLesson && activeModule
-      ? getLessonTests(activeModuleLessons, activeModuleTests, activeLesson.id)
-      : [];
+  const activeModuleLessons = useMemo(
+    () => (activeModule ? lessonsByModule[activeModule.id] ?? [] : []),
+    [activeModule, lessonsByModule]
+  );
+  const activeModuleTests = useMemo(
+    () => (activeModule ? testsByModule[activeModule.id] ?? [] : []),
+    [activeModule, testsByModule]
+  );
+  const activeModuleExercises = useMemo(
+    () => (activeModule ? exercisesByModule[activeModule.id] ?? [] : []),
+    [activeModule, exercisesByModule]
+  );
+  const activeLessonExercises = useMemo(
+    () =>
+      activeLesson && activeModule
+        ? getLessonExercises(activeModuleLessons, activeModuleExercises, activeLesson.id)
+        : [],
+    [activeLesson, activeModule, activeModuleExercises, activeModuleLessons]
+  );
+  const activeLessonTests = useMemo(
+    () =>
+      activeLesson && activeModule
+        ? getLessonTests(activeModuleLessons, activeModuleTests, activeLesson.id)
+        : [],
+    [activeLesson, activeModule, activeModuleLessons, activeModuleTests]
+  );
   const activeSequenceIndex = previewSequence.findIndex((item) => {
     if (activeContentType === "lesson") {
       return item.type === "lesson" && item.lesson.id === activeLesson?.id;
@@ -223,6 +243,19 @@ export function CoursePreviewPage({
   const nextSequenceItem =
     activeSequenceIndex >= 0 ? previewSequence[activeSequenceIndex + 1] ?? null : null;
   const chatMessages = chatContext ? chatMessagesByReference[chatContext.reference] ?? [] : [];
+  const totalLessons = useMemo(
+    () => Object.values(lessonsByModule).reduce((sum, lessons) => sum + lessons.length, 0),
+    [lessonsByModule]
+  );
+  const totalExercises = useMemo(
+    () =>
+      Object.values(exercisesByModule).reduce((sum, exercises) => sum + exercises.length, 0),
+    [exercisesByModule]
+  );
+  const totalTests = useMemo(
+    () => Object.values(testsByModule).reduce((sum, tests) => sum + tests.length, 0),
+    [testsByModule]
+  );
 
   useEffect(() => {
     setActiveExerciseId(null);
@@ -570,6 +603,76 @@ export function CoursePreviewPage({
 
   return (
     <>
+      <section className="mb-5 rounded-[0.75rem] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
+        <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+          <div className="aspect-video overflow-hidden rounded-[0.75rem] border border-slate-200 bg-slate-950">
+            {courseThumbnailUrl ? (
+              <img
+                src={courseThumbnailUrl}
+                alt={`${courseTitle} thumbnail`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-[#14213d] text-white">
+                <BookOpen className="h-12 w-12" />
+              </div>
+            )}
+          </div>
+
+          <div className="min-w-0">
+            <h2 className="text-2xl font-black tracking-tight text-[#14213d] ">
+              {courseTitle}
+            </h2>
+            {courseDescription?.trim() ? (
+              <p className="mt-3 max-h-32 overflow-y-auto whitespace-pre-line pr-2 text-sm font-semibold leading-7 text-slate-600">
+                {courseDescription}
+              </p>
+            ) : (
+              <p className="mt-3 text-sm font-semibold leading-7 text-slate-500">
+                Опис курсу поки не додано.
+              </p>
+            )}
+
+            {showCourseOverviewActions ? (
+              <div className="mt-5 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOverviewModalTab("modules")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-200 bg-cyan-50 px-3 py-2 text-sm font-bold text-cyan-800 transition hover:border-cyan-300 hover:bg-cyan-100"
+                >
+                  <Layers3 className="h-4 w-4" />
+                  {modules.length} модулі
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewModalTab("lessons")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800 transition hover:border-emerald-300 hover:bg-emerald-100"
+                >
+                  <Play className="h-4 w-4" />
+                  {totalLessons} уроки
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewModalTab("exercises")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-bold text-orange-800 transition hover:border-orange-300 hover:bg-orange-100"
+                >
+                  <Code2 className="h-4 w-4" />
+                  {totalExercises} вправи
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setOverviewModalTab("tests")}
+                  className="inline-flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-sm font-bold text-violet-800 transition hover:border-violet-300 hover:bg-violet-100"
+                >
+                  <ClipboardList className="h-4 w-4" />
+                  {totalTests} тести
+                </button>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </section>
+
       <section className="flex h-[calc(100vh-6.5rem)] min-h-[40rem] flex-col overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
         <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
           <div

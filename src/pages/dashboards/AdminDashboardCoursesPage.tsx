@@ -6,6 +6,7 @@ import { LoadingState } from "../../components/ui/LoadingState";
 import {
   deleteAdminCourse,
   loadAdminCoursesData,
+  permanentlyDeleteAdminCourse,
   updateAdminCourseStatus,
 } from "../../features/admin-dashboard/api/adminDashboardApi";
 import { AdminCourseCatalog } from "../../features/admin-dashboard/components/AdminCourseCatalog";
@@ -13,6 +14,7 @@ import { AdminDeleteWarningModal } from "../../features/admin-dashboard/componen
 import { getAdminCourseAuthorName } from "../../features/admin-dashboard/lib/adminCoursePreview";
 import {
   isArchivedAdminCourse,
+  isDeletedAdminCourse,
   isPublishedAdminCourse,
   sortAdminCoursesByRecent,
 } from "../../features/admin-dashboard/lib/adminCourseStatus";
@@ -29,7 +31,7 @@ type PageMessage =
 type PendingCourseAction =
   | {
       courseId: string;
-      action: "publish" | "unpublish" | "archive" | "delete";
+      action: "publish" | "unpublish" | "archive" | "delete" | "permanent-delete";
     }
   | null;
 
@@ -47,6 +49,8 @@ export function AdminDashboardCoursesPage() {
   const [searchValue, setSearchValue] = useState("");
   const [pendingAction, setPendingAction] = useState<PendingCourseAction>(null);
   const [pendingDeleteCourse, setPendingDeleteCourse] =
+    useState<AdminDashboardCourseSummary | null>(null);
+  const [pendingPermanentDeleteCourse, setPendingPermanentDeleteCourse] =
     useState<AdminDashboardCourseSummary | null>(null);
   const deferredSearchValue = useDeferredValue(searchValue);
 
@@ -111,19 +115,32 @@ export function AdminDashboardCoursesPage() {
   const publishedCourses = useMemo(
     () =>
       filteredCourses.filter(
-        (course) => isPublishedAdminCourse(course) && !isArchivedAdminCourse(course)
+        (course) =>
+          isPublishedAdminCourse(course) &&
+          !isArchivedAdminCourse(course) &&
+          !isDeletedAdminCourse(course)
       ),
     [filteredCourses]
   );
   const draftCourses = useMemo(
     () =>
       filteredCourses.filter(
-        (course) => !isPublishedAdminCourse(course) && !isArchivedAdminCourse(course)
+        (course) =>
+          !isPublishedAdminCourse(course) &&
+          !isArchivedAdminCourse(course) &&
+          !isDeletedAdminCourse(course)
       ),
     [filteredCourses]
   );
   const archivedCourses = useMemo(
-    () => filteredCourses.filter((course) => isArchivedAdminCourse(course)),
+    () =>
+      filteredCourses.filter(
+        (course) => isArchivedAdminCourse(course) && !isDeletedAdminCourse(course)
+      ),
+    [filteredCourses]
+  );
+  const deletedCourses = useMemo(
+    () => filteredCourses.filter((course) => isDeletedAdminCourse(course)),
     [filteredCourses]
   );
   const pendingActionByCourseId = useMemo(
@@ -151,7 +168,14 @@ export function AdminDashboardCoursesPage() {
     requestAnimationFrame(() => {
       element.scrollIntoView({ behavior: "smooth", block: "start" });
     });
-  }, [archivedCourses.length, draftCourses.length, isLoading, location.hash, publishedCourses.length]);
+  }, [
+    archivedCourses.length,
+    deletedCourses.length,
+    draftCourses.length,
+    isLoading,
+    location.hash,
+    publishedCourses.length,
+  ]);
 
   async function handleUpdateCourseStatus(
     course: AdminDashboardCourseSummary,
@@ -204,14 +228,16 @@ export function AdminDashboardCoursesPage() {
         action: "delete",
       });
 
-      await deleteAdminCourse(courseId);
+      const deletedCourse = await deleteAdminCourse(courseId);
       setCourses((currentCourses) =>
-        currentCourses.filter((course) => course.id !== courseId)
+        currentCourses
+          .map((course) => (course.id === courseId ? deletedCourse : course))
+          .sort(sortAdminCoursesByRecent)
       );
       setPendingDeleteCourse(null);
       setMessage({
         type: "success",
-        text: "Курс видалено.",
+        text: "Курс переміщено у видалені.",
       });
     } catch (error) {
       setMessage({
@@ -222,6 +248,40 @@ export function AdminDashboardCoursesPage() {
       setPendingAction(null);
     }
   }
+
+  async function handleConfirmPermanentDeleteCourse() {
+    if (!pendingPermanentDeleteCourse) {
+      return;
+    }
+
+    const courseId = pendingPermanentDeleteCourse.id;
+
+    try {
+      setPendingAction({
+        courseId,
+        action: "permanent-delete",
+      });
+
+      await permanentlyDeleteAdminCourse(courseId);
+      setCourses((currentCourses) =>
+        currentCourses.filter((course) => course.id !== courseId)
+      );
+      setPendingPermanentDeleteCourse(null);
+      setMessage({
+        type: "success",
+        text: "Курс видалено назавжди.",
+      });
+    } catch (error) {
+      setMessage({
+        type: "error",
+        text: getErrorMessage(error, "Не вдалося видалити курс назавжди."),
+      });
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
+  const activeCourseCount = courses.filter((course) => !isDeletedAdminCourse(course)).length;
 
   return (
     <>
@@ -234,7 +294,7 @@ export function AdminDashboardCoursesPage() {
           </div>
 
           <div className="rounded-full border border-cyan-100 bg-cyan-50 px-4 py-2 text-sm font-semibold text-cyan-800">
-            Усього курсів: {courses.length}
+            Активних курсів: {activeCourseCount}
           </div>
         </section>
 
@@ -301,6 +361,19 @@ export function AdminDashboardCoursesPage() {
                 onUpdateStatus={handleUpdateCourseStatus}
               />
             ) : null}
+            {deletedCourses.length > 0 ? (
+              <AdminCourseCatalog
+                sectionId="deleted-courses"
+                title="Видалені курси"
+                courses={deletedCourses}
+                emptyMessage="Видалених курсів не знайдено."
+                tone="archived"
+                pendingActionByCourseId={pendingActionByCourseId}
+                onDelete={setPendingDeleteCourse}
+                onPermanentDelete={setPendingPermanentDeleteCourse}
+                onUpdateStatus={handleUpdateCourseStatus}
+              />
+            ) : null}
           </div>
         )}
       </div>
@@ -315,9 +388,9 @@ export function AdminDashboardCoursesPage() {
             : ""
         }
         impactItems={[
-          "Курс зникне з адмінського каталогу курсів.",
+          "Курс переміститься в окремий блок Видалені.",
           "Студенти й викладачі втратять доступ до цього курсу в дашборді.",
-          "Ця дія позначає курс як видалений і вважається небезпечною.",
+          "Після цього адмін зможе видалити курс назавжди.",
         ]}
         confirmLabel="Видалити курс"
         isSubmitting={pendingAction?.action === "delete"}
@@ -330,6 +403,34 @@ export function AdminDashboardCoursesPage() {
         }}
         onConfirm={() => {
           void handleConfirmDeleteCourse();
+        }}
+      />
+
+      <AdminDeleteWarningModal
+        isOpen={Boolean(pendingPermanentDeleteCourse)}
+        entityLabel="курсу"
+        entityName={pendingPermanentDeleteCourse?.title ?? ""}
+        entityEmail={
+          pendingPermanentDeleteCourse
+            ? `Автор: ${getAdminCourseAuthorName(pendingPermanentDeleteCourse)}`
+            : ""
+        }
+        impactItems={[
+          "Курс буде фізично видалено з бази даних.",
+          "Модулі, уроки, блоки уроків, тести, відповіді, вправи і прогрес студентів для цього курсу також будуть видалені.",
+          "Цю дію неможливо відкотити з адмін-панелі.",
+        ]}
+        confirmLabel="Видалити назавжди"
+        isSubmitting={pendingAction?.action === "permanent-delete"}
+        onClose={() => {
+          if (pendingAction?.action === "permanent-delete") {
+            return;
+          }
+
+          setPendingPermanentDeleteCourse(null);
+        }}
+        onConfirm={() => {
+          void handleConfirmPermanentDeleteCourse();
         }}
       />
     </>

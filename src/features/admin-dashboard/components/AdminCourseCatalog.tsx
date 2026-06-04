@@ -8,8 +8,12 @@ type AdminCourseCatalogProps = {
   emptyMessage?: string;
   sectionId?: string;
   tone?: "neutral" | "published" | "draft" | "archived";
-  pendingActionByCourseId?: Record<string, "publish" | "unpublish" | "archive" | "delete" | null>;
+  pendingActionByCourseId?: Record<
+    string,
+    "publish" | "unpublish" | "archive" | "delete" | "permanent-delete" | null
+  >;
   onDelete: (course: AdminDashboardCourseSummary) => void;
+  onPermanentDelete?: (course: AdminDashboardCourseSummary) => void;
   onUpdateStatus: (
     course: AdminDashboardCourseSummary,
     action: "publish" | "unpublish" | "archive"
@@ -46,6 +50,7 @@ export function AdminCourseCatalog({
   tone = "neutral",
   pendingActionByCourseId = {},
   onDelete,
+  onPermanentDelete,
   onUpdateStatus,
 }: AdminCourseCatalogProps) {
   const styles = catalogToneStyles[tone];
@@ -76,6 +81,7 @@ export function AdminCourseCatalog({
                   course={course}
                   actionInFlight={pendingActionByCourseId[course.id] ?? null}
                   onDelete={onDelete}
+                  onPermanentDelete={onPermanentDelete}
                   onUpdateStatus={onUpdateStatus}
                 />
               ))}

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   BarChart3,
   BookOpen,
+  Check,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
@@ -16,11 +17,14 @@ import {
   Menu,
   PenLine,
   Play,
+  RefreshCw,
   Sparkles,
   Trophy,
   X,
+  XCircle,
 } from "lucide-react";
 import { publicBackendRequest } from "../../features/auth/api/backendClient";
+import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
 
 const COLORS = {
   primary: "#5549F1",
@@ -161,7 +165,7 @@ function SecondaryLink({
 function LandingNavbar() {
   const [open, setOpen] = useState(false);
   const links = [
-    { label: "Превʼю платформи", href: "#features" },
+    { label: "Превʼю курсу", href: "#course-preview" },
     { label: "Для викладачів", href: "#teachers" },
     { label: "Для студентів", href: "#students" },
     { label: "FAQ", href: "#faq" },
@@ -249,25 +253,40 @@ const previewTabs: Array<{ key: PreviewMode; label: string; icon: IconComponent 
 function PreviewTabs({
   mode,
   onModeChange,
+  preview,
 }: {
   mode: PreviewMode;
   onModeChange?: (mode: PreviewMode) => void;
+  preview: PublicLandingPreview;
 }) {
+  const isModeAvailable = (nextMode: PreviewMode) =>
+    nextMode === "lesson" ||
+    (nextMode === "test" && Boolean(preview.test)) ||
+    (nextMode === "exercise" && Boolean(preview.exercise));
+
   return (
     <div className="rounded-[1.4rem] bg-[#e6e1ff] p-1.5">
       <div className="grid grid-cols-3 gap-1">
         {previewTabs.map(({ key, label, icon: Icon }) => {
           const isActive = mode === key;
+          const isAvailable = isModeAvailable(key);
 
           return (
             <button
               key={key}
               type="button"
-              onClick={() => onModeChange?.(key)}
+              onClick={() => {
+                if (isAvailable) {
+                  onModeChange?.(key);
+                }
+              }}
+              disabled={!isAvailable}
               className={`flex items-center justify-center gap-2 rounded-[1.05rem] px-3 py-2.5 text-sm font-extrabold transition ${
                 isActive
                   ? "bg-white text-[#5549f1] shadow-[0_10px_24px_rgba(31,27,77,0.1)]"
-                  : "text-[#6d6a9f] hover:bg-white/45"
+                  : isAvailable
+                    ? "text-[#6d6a9f] hover:bg-white/45"
+                    : "cursor-not-allowed text-[#6d6a9f]/35 blur-[0.35px]"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -295,22 +314,15 @@ function PreviewSidebar({
       label: string;
       type: PreviewMode;
       tone?: "exercise" | "test";
+      available: boolean;
     }> = [
       {
         id: lesson.id,
         label: `${preview.module.order}.${lesson.order} ${lesson.title}`,
         type: "lesson",
+        available: lesson.id === preview.lesson.id,
       },
     ];
-
-    if (lesson.id === preview.lesson.id && preview.exercise) {
-      lessonItems.push({
-        id: preview.exercise.id,
-        label: preview.exercise.title || "Написати код",
-        type: "exercise",
-        tone: "exercise",
-      });
-    }
 
     if (lesson.id === preview.lesson.id && preview.test) {
       lessonItems.push({
@@ -318,6 +330,17 @@ function PreviewSidebar({
         label: preview.test.title || preview.lesson.title,
         type: "test",
         tone: "test",
+        available: true,
+      });
+    }
+
+    if (lesson.id === preview.lesson.id && preview.exercise) {
+      lessonItems.push({
+        id: preview.exercise.id,
+        label: preview.exercise.title || "Написати код",
+        type: "exercise",
+        tone: "exercise",
+        available: true,
       });
     }
 
@@ -327,7 +350,7 @@ function PreviewSidebar({
   return (
     <aside className="hidden min-h-0 overflow-hidden border-r border-[#5549f1]/15 bg-white md:block">
       <div className="border-b border-[#5549f1]/15 p-5">
-        <PreviewTabs mode={mode} onModeChange={onModeChange} />
+        <PreviewTabs mode={mode} onModeChange={onModeChange} preview={preview} />
       </div>
       <div className="p-5">
         <div className="flex items-start gap-3">
@@ -351,23 +374,34 @@ function PreviewSidebar({
             const Icon = item.type === "exercise" ? Code2 : item.type === "test" ? ClipboardList : Play;
 
             return (
-              <div
+              <button
                 key={`${item.type}-${item.id}`}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-extrabold ${
+                type="button"
+                disabled={!item.available}
+                onClick={() => {
+                  if (item.available) {
+                    onModeChange?.(item.type);
+                  }
+                }}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-extrabold transition ${
                   isActive
                     ? item.tone === "exercise" && mode === "exercise"
                       ? "rounded-2xl bg-orange-50 text-orange-700"
                       : item.type === "lesson"
                         ? "bg-[#e7e2ff] text-[#5549f1]"
                         : "rounded-2xl bg-[#e7e2ff] text-[#5549f1]"
+                    : !item.available
+                      ? "cursor-not-allowed text-[#5b5686]/35 blur-[0.45px]"
                     : item.tone === "exercise"
                       ? "text-orange-600"
-                      : "text-[#5b5686]"
+                      : item.tone === "test"
+                        ? "text-[#5549f1]"
+                        : "text-[#5b5686] hover:bg-[#f1f0ff]"
                 }`}
               >
                 <Icon className="h-5 w-5 shrink-0" />
                 <span className="min-w-0 truncate">{item.label}</span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -496,14 +530,20 @@ const arithmeticQuestions = [
   {
     text: "What does the plus sign (+) represent in arithmetic operations?",
     answers: ["Subtraction", "Addition", "Multiplication", "Division"],
+    correctIndexes: [1],
+    type: "single_choice" as const,
   },
   {
     text: "What type of number is the result of dividing two integers in Python?",
     answers: ["Integer", "Floating-point number", "String", "Boolean"],
+    correctIndexes: [1],
+    type: "single_choice" as const,
   },
   {
     text: "What is the result of the operation 84 // 2 in Python?",
     answers: ["42.0", "42", "43", "41"],
+    correctIndexes: [1],
+    type: "single_choice" as const,
   },
   {
     text: "What does the operator ** do in Python?",
@@ -513,10 +553,14 @@ const arithmeticQuestions = [
       "Performs division",
       "Performs subtraction",
     ],
+    correctIndexes: [1],
+    type: "single_choice" as const,
   },
   {
     text: "What is the result of the operation 85 // 2 in Python?",
     answers: ["42.5", "42", "43", "41"],
+    correctIndexes: [1],
+    type: "single_choice" as const,
   },
 ];
 
@@ -529,42 +573,79 @@ function getPreviewQuestions(preview: PublicLandingPreview) {
 
   return backendQuestions.map((question) => ({
     text: question.question_text,
+    type: question.type,
     answers:
       question.answers.length > 0
         ? question.answers.map((answer) => answer.answer_text)
         : ["Правда", "Неправда"],
+    correctIndexes: question.answers
+      .map((answer, index) => (answer.is_correct ? index : -1))
+      .filter((index) => index >= 0),
   }));
 }
 
-function TestPreviewContent({ preview }: { preview: PublicLandingPreview }) {
+function TestPreviewSession({ preview }: { preview: PublicLandingPreview }) {
   const [questionIndex, setQuestionIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number[]>>({});
+  const [checkedResults, setCheckedResults] = useState<Record<number, "correct" | "incorrect">>({});
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const questions = getPreviewQuestions(preview);
   const question = questions[questionIndex] ?? questions[0];
+  const questionSelections = selectedAnswers[questionIndex] ?? [];
+  const questionResult = checkedResults[questionIndex] ?? null;
+  const correctCount = Object.values(checkedResults).filter((result) => result === "correct").length;
+  const isMultiple = question?.type === "multiple_choice";
 
-  useEffect(() => {
-    setQuestionIndex(0);
-  }, [preview.test?.id]);
+  function handleCheckAnswer() {
+    const correctIndexes = question?.correctIndexes ?? [];
+    const isCorrect =
+      questionSelections.length === correctIndexes.length &&
+      questionSelections.every((selectedIndex) => correctIndexes.includes(selectedIndex));
+
+    setCheckedResults((currentResults) => ({
+      ...currentResults,
+      [questionIndex]: isCorrect ? "correct" : "incorrect",
+    }));
+  }
+
+  function handleNextQuestion() {
+    if (questionIndex < questions.length - 1) {
+      setQuestionIndex((currentIndex) => currentIndex + 1);
+      return;
+    }
+
+    setIsSubmitted(true);
+  }
 
   return (
     <div>
       <p className="text-sm font-extrabold text-[#6d6a9f]">
         {`Урок ${preview.module.order}.${preview.lesson.order} · Перевірка знань`}
       </p>
-      <h3 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1f1b4d]">
+      <h3 className="mt-2 text-xl font-extrabold tracking-tight text-[#1f1b4d]">
         {preview.test?.title || preview.lesson.title}
       </h3>
       <div className="mt-6 flex items-center justify-between text-sm font-extrabold text-[#6d6a9f]">
         <span>{`Запитання ${questionIndex + 1} з ${questions.length}`}</span>
-        <span>0 відповідей</span>
+        <span>{`${Object.keys(checkedResults).length} відповідей`}</span>
       </div>
-      <div className="mt-3 grid grid-cols-5 overflow-hidden rounded-2xl border border-[#d8d3ff] bg-[#e7e2ff]">
+      <div
+        className="mt-3 grid overflow-hidden rounded-xl border border-[#d8d3ff] bg-[#e7e2ff]"
+        style={{ gridTemplateColumns: `repeat(${Math.max(questions.length, 1)}, minmax(0, 1fr))` }}
+      >
         {questions.map((_, index) => (
           <button
             key={index}
             type="button"
             onClick={() => setQuestionIndex(index)}
-            className={`py-3 text-center text-sm font-extrabold transition ${
-              questionIndex === index ? "bg-[#5549f1] text-white" : "text-[#6d6a9f]"
+            className={`py-2 text-center text-xs font-extrabold transition ${
+              checkedResults[index] === "correct"
+                ? "bg-emerald-500 text-white"
+                : checkedResults[index] === "incorrect"
+                  ? "bg-rose-500 text-white"
+                  : questionIndex === index
+                    ? "bg-[#5549f1] text-white"
+                    : "text-[#6d6a9f]"
             }`}
           >
             {index + 1}
@@ -572,17 +653,75 @@ function TestPreviewContent({ preview }: { preview: PublicLandingPreview }) {
         ))}
       </div>
 
-      <div className="mt-6 rounded-3xl border border-[#d8d3ff] bg-white p-5 shadow-sm sm:p-6">
+      {isSubmitted ? (
+        <div className="mt-6 rounded-xl border border-[#d8d3ff] bg-white p-8 text-center shadow-sm">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-xl font-extrabold text-emerald-700">
+            {questions.length ? `${Math.round((correctCount / questions.length) * 100)}%` : "0%"}
+          </div>
+          <h4 className="mt-5 text-2xl font-extrabold text-[#1f1b4d]">Тест завершено</h4>
+          <p className="mt-2 text-sm font-extrabold text-[#6d6a9f]">
+            {`Правильних відповідей: ${correctCount} з ${questions.length}`}
+          </p>
+          <button
+            type="button"
+            className="mt-6 inline-flex items-center gap-2 rounded-2xl border border-[#ded9ff] px-5 py-3 text-xs font-extrabold text-[#5549f1] transition hover:bg-[#f1f0ff]"
+            onClick={() => {
+              setQuestionIndex(0);
+              setSelectedAnswers({});
+              setCheckedResults({});
+              setIsSubmitted(false);
+            }}
+          >
+            <RefreshCw className="h-4 w-4" />
+            Пройти ще раз
+          </button>
+        </div>
+      ) : (
+      <div className="relative mt-6 rounded-xl border border-[#d8d3ff] bg-white p-5 shadow-sm sm:p-6">
+        {questionResult ? (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-3xl bg-white/65 px-4 backdrop-blur-[3px]">
+            <div className="max-w-sm rounded-3xl border border-[#ded9ff] bg-white px-5 py-6 text-center shadow-[0_18px_42px_rgba(31,27,77,0.16)]">
+              <div
+                className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${
+                  questionResult === "correct"
+                    ? "bg-emerald-100 text-emerald-700"
+                    : "bg-rose-100 text-rose-700"
+                }`}
+              >
+                {questionResult === "correct" ? (
+                  <CheckCircle2 className="h-7 w-7" />
+                ) : (
+                  <XCircle className="h-7 w-7" />
+                )}
+              </div>
+              <p className="mt-3 text-base font-extrabold text-[#1f1b4d]">
+                {questionResult === "correct" ? "Правильна відповідь" : "Відповідь неправильна"}
+              </p>
+              <button
+                type="button"
+                className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-[#5549f1] px-5 py-3 text-sm font-extrabold text-white"
+                onClick={handleNextQuestion}
+              >
+                {questionIndex < questions.length - 1 ? "Наступне запитання" : "Показати результат"}
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center gap-3">
           <span className="inline-flex items-center gap-2 rounded-full bg-[#f1f0ff] px-3 py-1 text-xs font-extrabold text-[#5549f1]">
-            <span className="h-4 w-4 rounded-full border-2 border-[#5549f1]" />
-            Одна правильна відповідь
+            <span
+              className={`h-4 w-4 border-2 border-[#5549f1] ${
+                isMultiple ? "rounded-[5px]" : "rounded-full"
+              }`}
+            />
+            {isMultiple ? "Кілька правильних відповідей" : "Одна правильна відповідь"}
           </span>
           <span className="text-xs font-extrabold text-[#6d6a9f]">
-            Оберіть один варіант
+            {isMultiple ? "Можна обрати кілька варіантів" : "Оберіть один варіант"}
           </span>
         </div>
-        <h4 className="mt-5 text-xl font-extrabold leading-7 text-[#1f1b4d]">
+        <h4 className="mt-5 text-ml font-extrabold leading-7 text-[#1f1b4d]">
           {question.text}
         </h4>
         <div className="mt-5 space-y-3">
@@ -590,9 +729,36 @@ function TestPreviewContent({ preview }: { preview: PublicLandingPreview }) {
             <button
               type="button"
               key={answer}
-              className="flex w-full items-center gap-4 rounded-2xl border-2 border-[#ded9ff] bg-white px-4 py-3 text-left text-sm font-extrabold text-[#1f1b4d] transition hover:bg-[#fbfaff]"
+              onClick={() => {
+                setSelectedAnswers((currentAnswers) => {
+                  const currentSelections = currentAnswers[questionIndex] ?? [];
+                  const nextSelections = isMultiple
+                    ? currentSelections.includes(index)
+                      ? currentSelections.filter((selectedIndex) => selectedIndex !== index)
+                      : [...currentSelections, index]
+                    : [index];
+
+                  return {
+                    ...currentAnswers,
+                    [questionIndex]: nextSelections,
+                  };
+                });
+              }}
+              className={`flex w-full items-center gap-4 rounded-xl border-2 px-4 py-3 text-left text-xs font-extrabold transition ${
+                questionSelections.includes(index)
+                  ? "border-[#5549f1] bg-[#f1f0ff] text-[#5549f1]"
+                  : "border-[#ded9ff] bg-white text-[#1f1b4d] hover:bg-[#fbfaff]"
+              }`}
             >
-              <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#ded9ff] text-xs text-[#6d6a9f]">
+              <span
+                className={`flex h-8 w-8 items-center justify-center border-2 text-xs ${
+                  isMultiple ? "rounded-lg" : "rounded-full"
+                } ${
+                  questionSelections.includes(index)
+                    ? "border-[#5549f1] bg-[#5549f1] text-white"
+                    : "border-[#ded9ff] text-[#6d6a9f]"
+                }`}
+              >
                 {String.fromCharCode(65 + index)}
               </span>
               {answer}
@@ -600,13 +766,23 @@ function TestPreviewContent({ preview }: { preview: PublicLandingPreview }) {
           ))}
         </div>
         <div className="mt-5 flex justify-end">
-          <button className="inline-flex items-center gap-2 rounded-2xl bg-[#8f84f6] px-5 py-3 text-sm font-extrabold text-white">
-            Перевірити відповідь <CheckCircle2 className="h-4 w-4" />
+          <button
+            type="button"
+            disabled={questionSelections.length === 0}
+            onClick={handleCheckAnswer}
+            className="inline-flex items-center gap-2 rounded-xl bg-[#5549f1] px-5 py-3 text-xs font-extrabold text-white transition hover:bg-[#4035d6] disabled:cursor-not-allowed disabled:bg-[#8f84f6]/55"
+          >
+            Перевірити відповідь <Check className="h-4 w-4" />
           </button>
         </div>
       </div>
+      )}
     </div>
   );
+}
+
+function TestPreviewContent({ preview }: { preview: PublicLandingPreview }) {
+  return <TestPreviewSession key={preview.test?.id ?? preview.lesson.id} preview={preview} />;
 }
 
 function getExerciseContentString(
@@ -631,7 +807,30 @@ function getExerciseCodeTemplate(exercise: LandingPreviewExercise | null) {
   );
 }
 
-function ExercisePreviewContent({ preview }: { preview: PublicLandingPreview }) {
+function getExerciseExpectedAnswers(exercise: LandingPreviewExercise | null) {
+  if (!exercise) {
+    return ["+"];
+  }
+
+  const expectedAnswer = exercise.content.expected_answer;
+  const correctAnswer = exercise.content.correct_answer;
+
+  if (typeof expectedAnswer === "string") {
+    return [expectedAnswer];
+  }
+
+  if (Array.isArray(correctAnswer)) {
+    return correctAnswer.map((item) => String(item));
+  }
+
+  if (typeof correctAnswer === "string") {
+    return [correctAnswer];
+  }
+
+  return ["+"];
+}
+
+function ExercisePreviewSession({ preview }: { preview: PublicLandingPreview }) {
   const exercise = preview.exercise ?? fallbackLandingPreview.exercise;
   const question =
     getExerciseContentString(exercise?.content, "question") ||
@@ -639,52 +838,121 @@ function ExercisePreviewContent({ preview }: { preview: PublicLandingPreview }) 
     "Fill in the missing operator to perform addition.";
   const codeTemplate = getExerciseCodeTemplate(exercise);
   const codeParts = codeTemplate.split(/(___|{{blank_\d+}}|{{answer}})/g);
+  const expectedAnswers = getExerciseExpectedAnswers(exercise);
+  const [answers, setAnswers] = useState<string[]>(() => expectedAnswers.map(() => ""));
+  const [result, setResult] = useState<"correct" | "incorrect" | null>(null);
+
+  function handleCheckExercise() {
+    const isCorrect = expectedAnswers.every(
+      (expectedAnswer, index) => answers[index]?.trim() === expectedAnswer.trim()
+    );
+
+    setResult(isCorrect ? "correct" : "incorrect");
+  }
+
+  let blankIndex = 0;
 
   return (
     <div>
       <p className="text-sm font-extrabold text-[#6d6a9f]">
         {`Урок ${preview.module.order}.${preview.lesson.order} · Практика`}
       </p>
-      <h3 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1f1b4d]">
+      <h3 className="mt-2 text-xl font-extrabold tracking-tight text-[#1f1b4d]">
         Практичні вправи
       </h3>
-      <div className="mt-6 rounded-3xl border-2 border-orange-200 bg-white p-5 shadow-sm sm:p-6">
-        <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-sm font-extrabold text-orange-700">
+      <div className="mt-6 rounded-xl border-2 border-orange-200 bg-white p-5 shadow-sm sm:p-6">
+        <span className="inline-flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-extrabold text-orange-700">
           <Code2 className="h-4 w-4" />
           {exercise?.type === "drag_drop_code" ? "Заповнити пропуски в коді" : "Написати код"}
         </span>
-        <p className="mt-6 text-base font-bold leading-7 text-slate-700">
+        <p className="mt-2 text-sm font-bold leading-7 text-slate-700">
           {question}
         </p>
-        <div className="mt-5 overflow-hidden rounded-2xl bg-[#111827] px-5 py-4 font-mono text-base font-bold text-slate-100">
+        <div className="mt-5 overflow-hidden rounded-xl bg-[#111827] px-5 py-4 font-mono text-sm font-bold text-slate-100">
           {codeParts.map((part, index) =>
-            /^(___|{{blank_\d+}}|{{answer}})$/.test(part) ? (
-              <span
-                key={`blank-${index}`}
-                className="mx-2 inline-flex min-w-32 rounded-xl border-2 border-orange-300 bg-white px-4 py-2 text-slate-400"
-              >
-                Відповідь 1
-              </span>
-            ) : (
+            /^(___|{{blank_\d+}}|{{answer}})$/.test(part) ? (() => {
+              const currentBlankIndex = blankIndex;
+              blankIndex += 1;
+
+              return (
+                <input
+                  key={`blank-${index}`}
+                  value={answers[currentBlankIndex] ?? ""}
+                  onChange={(event) => {
+                    setAnswers((currentAnswers) =>
+                      currentAnswers.map((answer, answerIndex) =>
+                        answerIndex === currentBlankIndex ? event.target.value : answer
+                      )
+                    );
+                    setResult(null);
+                  }}
+                  onFocus={() => {
+                    setResult(null);
+                  }}
+                  className="mx-2 inline-flex w-32 rounded-xl border-2 border-orange-300 bg-white px-4 py-2 text-slate-900 outline-none focus:border-orange-500"
+                  placeholder={`Відповідь`}
+                />
+              );
+            })() : (
               <span key={`text-${index}`} className="whitespace-pre-wrap">
                 {part}
               </span>
             )
           )}
         </div>
+        {result ? (
+          <div
+            className={`mt-4 rounded-xl border px-4 py-3 text-sm font-extrabold ${
+              result === "correct"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                : "border-rose-200 bg-rose-50 text-rose-800"
+            }`}
+          >
+            {result === "correct"
+              ? "Правильно. Система зарахувала відповідь."
+              : "Поки неправильно. Спробуйте змінити відповідь або подивіться підказку."}
+          </div>
+        ) : null}
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button className="rounded-2xl bg-orange-300 px-5 py-3 text-sm font-extrabold text-white">
-            Перевірити відповідь
+          <button
+            type="button"
+            onClick={handleCheckExercise}
+            className="rounded-xl bg-orange-500 px-5 py-3 text-xs font-extrabold text-white transition hover:bg-orange-600"
+          >
+            Перевірити 
           </button>
-          <button className="rounded-2xl border border-slate-300 px-5 py-3 text-sm font-extrabold text-slate-600">
+          <button
+            type="button"
+            onClick={() => {
+              setAnswers(expectedAnswers.map(() => ""));
+              setResult(null);
+            }}
+            className="rounded-xl border border-slate-300 px-5 py-3 text-xs font-extrabold text-slate-600"
+          >
             Спробувати ще раз
           </button>
-          <button className="px-4 py-3 text-sm font-extrabold text-slate-500">
+          <button
+            type="button"
+            onClick={() => {
+              setAnswers(expectedAnswers);
+              setResult(null);
+            }}
+            className="px-4 py-3 text-xs font-extrabold text-slate-500"
+          >
             Показати відповідь
           </button>
         </div>
       </div>
     </div>
+  );
+}
+
+function ExercisePreviewContent({ preview }: { preview: PublicLandingPreview }) {
+  return (
+    <ExercisePreviewSession
+      key={preview.exercise?.id ?? preview.lesson.id}
+      preview={preview}
+    />
   );
 }
 
@@ -699,16 +967,39 @@ function CoursePreviewFrame({
   onModeChange?: (mode: PreviewMode) => void;
   compact?: boolean;
 }) {
+  const canOpenExercise = Boolean(preview.exercise);
+  const canOpenTest = Boolean(preview.test);
+  const previousMode =
+    mode === "test"
+      ? canOpenExercise
+        ? "exercise"
+        : "lesson"
+      : mode === "exercise"
+        ? "lesson"
+        : null;
+  const nextMode =
+    mode === "lesson"
+      ? canOpenExercise
+          ? "exercise"
+          : canOpenTest
+            ? "test"
+            : null
+      : mode === "exercise"
+        ? canOpenTest
+          ? "test"
+          : null
+        : null;
+
   return (
     <div
       className={`mx-auto h-[34rem] w-full overflow-hidden rounded-[1.5rem] border border-[#dedcff] bg-white text-left shadow-[0_24px_70px_rgba(31,27,77,0.08)] ${
-        compact ? "mt-8 max-w-5xl" : "mt-12 max-w-6xl"
+        compact ? "mt-8 max-w-5xl" : "mt-0 max-w-6xl rounded-t-none border-t-0"
       }`}
     >
       <div className="grid h-full md:grid-cols-[320px_minmax(0,1fr)]">
         <PreviewSidebar mode={mode} onModeChange={onModeChange} preview={preview} />
         <div className="border-b border-[#5549f1]/15 p-4 md:hidden">
-          <PreviewTabs mode={mode} onModeChange={onModeChange} />
+          <PreviewTabs mode={mode} onModeChange={onModeChange} preview={preview} />
         </div>
         <main className="flex h-full min-h-0 flex-col bg-[#f1f0ff]">
           <div
@@ -727,6 +1018,12 @@ function CoursePreviewFrame({
           <div className="flex shrink-0 items-center justify-between gap-4 border-t border-[#dedcff] bg-white px-6 py-4">
             <button
               type="button"
+              disabled={!previousMode}
+              onClick={() => {
+                if (previousMode) {
+                  onModeChange?.(previousMode);
+                }
+              }}
               className="inline-flex min-w-[11rem] items-center justify-start gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:bg-slate-50"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -734,6 +1031,12 @@ function CoursePreviewFrame({
             </button>
             <button
               type="button"
+              disabled={!nextMode}
+              onClick={() => {
+                if (nextMode) {
+                  onModeChange?.(nextMode);
+                }
+              }}
               className={`inline-flex min-w-[11rem] items-center justify-end gap-2 rounded-xl border px-4 py-2.5 text-sm font-bold transition ${
                 mode === "lesson"
                   ? "border-orange-200 bg-white text-orange-800 hover:bg-orange-50"
@@ -754,9 +1057,45 @@ function CoursePreviewFrame({
   );
 }
 
-function Hero({ preview }: { preview: PublicLandingPreview }) {
-  const [previewMode, setPreviewMode] = useState<PreviewMode>("lesson");
+function LandingCourseSummary({ preview }: { preview: PublicLandingPreview }) {
+  const thumbnailUrl = getCourseMediaPublicUrl(preview.course.thumbnail_path);
+  const description =
+    preview.course.description?.trim() ||
+    "Курс показано у форматі, близькому до реального проходження студентом: урок, тест і практика в одному потоці.";
 
+  return (
+    <div className="mx-auto mt-12 max-w-6xl rounded-t-xl border border-b-0 border-[#dedcff] bg-white p-5 text-left shadow-[0_18px_54px_rgba(31,27,77,0.06)] md:p-6">
+      <div className="grid gap-5 md:grid-cols-[16rem_minmax(0,1fr)] md:items-center">
+        <div className="aspect-video overflow-hidden rounded-[1rem] border border-[#dedcff] bg-[#1f1b4d]">
+          {thumbnailUrl ? (
+            <img
+              src={thumbnailUrl}
+              alt={preview.course.title}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-[#1f1b4d] text-white">
+              <BookOpen className="h-12 w-12" />
+            </div>
+          )}
+        </div>
+        <div className="min-w-0">
+          <h2 className="mt-2 text-xl font-extrabold tracking-tight text-[#1f1b4d] ">
+            {preview.course.title}
+          </h2>
+          <p className="mt-3 max-h-28 overflow-y-auto pr-2 text-sm font-semibold leading-7 text-[#6d6a9f]">
+            {description}
+          </p>
+          
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+function Hero() {
   return (
     <section className="bg-[#f8f7ff] px-5 pb-16 pt-16 text-center md:pt-20">
       <div className="mx-auto max-w-4xl">
@@ -782,8 +1121,23 @@ function Hero({ preview }: { preview: PublicLandingPreview }) {
           </SecondaryLink>
         </div>
       </div>
+    </section>
+  );
+}
+
+function CoursePreviewSection({ preview }: { preview: PublicLandingPreview }) {
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("lesson");
+  const resolvedPreviewMode =
+    (previewMode === "test" && !preview.test) ||
+    (previewMode === "exercise" && !preview.exercise)
+      ? "lesson"
+      : previewMode;
+
+  return (
+    <section id="course-preview" className="bg-[#f8f7ff] px-5 pb-16 pt-4 text-center">
+      <LandingCourseSummary preview={preview} />
       <CoursePreviewFrame
-        mode={previewMode}
+        mode={resolvedPreviewMode}
         preview={preview}
         onModeChange={setPreviewMode}
       />
@@ -802,7 +1156,7 @@ function AudienceCards() {
         "AI-генерація тестів і вправ"
       ],
       action: "Створити курс",
-      to: "/teacher/dashboard",
+      to: "/register",
       variant: "light",
     },
     {
@@ -815,7 +1169,7 @@ function AudienceCards() {
         "Зрозумілий перехід між темами",
       ],
       action: "Перейти до навчання",
-      to: "/student/dashboard",
+      to: "/register",
       variant: "primary",
     },
   ];
@@ -826,22 +1180,24 @@ function AudienceCards() {
         {cards.map(({ icon: Icon, title, text, features, action, to, variant }) => (
           <div
             key={title}
-            className={`flex min-h-[360px] flex-col rounded-3xl border p-8 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
+            className={`flex min-h-[360px] flex-col rounded-xl border p-8 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg ${
               variant === "primary"
                 ? "border-transparent bg-[#5549f1] text-white"
                 : "border-[#5549f1]/15 bg-white"
             }`}
           >
-            <span
-              className={`flex h-12 w-12 items-center justify-center rounded-2xl ${
-                variant === "primary" ? "bg-white/15" : "bg-[#ede9ff]"
-              }`}
-            >
-              <Icon className={`h-6 w-6 ${variant === "primary" ? "text-white" : "text-[#5549f1]"}`} />
-            </span>
-            <h3 className="mt-5 text-2xl font-extrabold">{title}</h3>
+            <div className="flex items-center gap-4">
+              <span
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+                  variant === "primary" ? "bg-white/15" : "bg-[#ede9ff]"
+                }`}
+              >
+                <Icon className={`h-6 w-6 ${variant === "primary" ? "text-white" : "text-[#5549f1]"}`} />
+              </span>
+              <h3 className="text-2xl font-extrabold">{title}</h3>
+            </div>
             <p
-              className={`mt-3 text-sm leading-7 ${
+              className={`mt-5 text-sm leading-7 ${
                 variant === "primary" ? "text-white/75" : "text-[#6d6a9f]"
               }`}
             >
@@ -892,28 +1248,28 @@ const teacherFeatures: Array<{
     color: "#5549F1",
     bg: "#EDE9FF",
     title: "Конструктор курсу",
-    text: "Створюйте курс у зрозумілих кроках: інформація, структура, контент і перегляд.",
+    text: "Курс по кроках",
   },
   {
     icon: ClipboardList,
     color: "#F97316",
     bg: "#FFEDD5",
     title: "Тести до уроків",
-    text: "Додавайте питання з однією або кількома правильними відповідями та швидко перевіряйте знання.",
+    text: "Перевірка знань",
   },
   {
     icon: Code2,
     color: "#0891B2",
     bg: "#CFFAFE",
     title: "Практичні вправи",
-    text: "Прикріплюйте coding-завдання до тем, щоб студенти не тільки читали, а й писали код.",
+    text: "Завдання з кодом",
   },
   {
     icon: Eye,
     color: "#8B5CF6",
     bg: "#EDE9FE",
     title: "Превʼю для студента",
-    text: "Перед публікацією можна побачити курс саме так, як його відкриє студент.",
+    text: "Погляд перед публікацією",
   },
 ];
 
@@ -929,28 +1285,28 @@ const studentFeatures: Array<{
     color: "#5549F1",
     bg: "#EDE9FF",
     title: "Дашборд навчання",
-    text: "Студент бачить активні, непройдені та завершені курси без зайвого пошуку.",
+    text: "Усе навчання поруч",
   },
   {
     icon: BookOpen,
     color: "#0891B2",
     bg: "#CFFAFE",
     title: "Зручний перегляд уроків",
-    text: "Сайдбар зі структурою курсу, фіксований блок уроку та перемикання між уроком, тестом і вправою.",
+    text: "Урок, тест і практика",
   },
   {
     icon: BarChart3,
     color: "#10B981",
     bg: "#D1FAE5",
     title: "Прогрес і завершення",
-    text: "Видно, які уроки вже виконано, що йде далі та скільки курсу залишилось пройти.",
+    text: "Видно наступний крок",
   },
   {
     icon: Trophy,
     color: "#F59E0B",
     bg: "#FEF3C7",
     title: "Мотивація",
-    text: "Прогрес, завершені блоки та короткі практичні кроки підтримують регулярне навчання.",
+    text: "Короткі досяжні етапи",
   },
 ];
 
@@ -970,26 +1326,32 @@ function FeatureGrid({
   tinted?: boolean;
 }) {
   return (
-    <section id={id} className={`px-5 py-20 ${tinted ? "bg-[#f1f0ff]" : "bg-white"}`}>
+    <section id={id} className={`px-5 py-16 ${tinted ? "bg-[#f1f0ff]" : "bg-white"}`}>
       <div className="mx-auto max-w-5xl">
         <SectionLabel>{label}</SectionLabel>
         <SectionHeading title={title} subtitle={subtitle} />
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {items.map(({ icon: Icon, color, bg, title: itemTitle, text }) => (
             <div
               key={itemTitle}
-              className="rounded-2xl border border-[#5549f1]/10 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              className="rounded-xl border border-[#5549f1]/10 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
-              <span
-                className="flex h-11 w-11 items-center justify-center rounded-xl"
-                style={{ backgroundColor: bg }}
-              >
-                <Icon className="h-5 w-5" style={{ color }} />
-              </span>
-              <h3 className="mt-5 text-base font-extrabold text-[#1f1b4d]">
-                {itemTitle}
-              </h3>
-              <p className="mt-2 text-sm leading-6 text-[#6d6a9f]">{text}</p>
+              <div className="flex items-center gap-3">
+                <span
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: bg }}
+                >
+                  <Icon className="h-5 w-5" style={{ color }} />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-sm font-extrabold leading-5 text-[#1f1b4d]">
+                    {itemTitle}
+                  </h3>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-[#6d6a9f]">
+                    {text}
+                  </p>
+                </div>
+              </div>
             </div>
           ))}
         </div>
@@ -1106,8 +1468,8 @@ function LandingFooter() {
           Освітня платформа для створення курсів і практичного навчання.
         </p>
         <div className="flex gap-4 text-xs font-semibold text-[#6d6a9f]">
-          <a href="#features" className="hover:text-[#5549f1]">
-            Превʼю платформи
+          <a href="#course-preview" className="hover:text-[#5549f1]">
+            Превʼю курсу
           </a>
           <a href="#faq" className="hover:text-[#5549f1]">
             FAQ
@@ -1128,7 +1490,7 @@ export function LandingPage() {
     async function loadLandingPreview() {
       try {
         const loadedPreview = await publicBackendRequest<PublicLandingPreview>(
-          "/public/landing-preview?lessonTitle=Arithmetic%20operators"
+          "/public/landing-preview"
         );
 
         if (isMounted) {
@@ -1152,21 +1514,22 @@ export function LandingPage() {
     <div className="min-h-screen bg-white text-[#1f1b4d]">
       <LandingNavbar />
       <main>
-        <Hero preview={preview} />
+        <Hero />
         <AudienceCards />
+        <CoursePreviewSection preview={preview} />
         <FeatureGrid
           id="teachers"
           label="Викладачам"
-          title="Все потрібне для створення якісного курсу"
-          subtitle="Структура, AI-допомога, фінальний перегляд і публікація зібрані в одному робочому процесі."
+          title="Інструменти без зайвого шуму"
+          subtitle="Курс, тести, практика і превʼю зібрані в одному робочому процесі."
           items={teacherFeatures}
           tinted
         />
         <FeatureGrid
           id="students"
           label="Студентам"
-          title="Навчання, яке легко продовжити"
-          subtitle="Кабінет, прогрес, уроки, тести й вправи спроєктовані так, щоб студент швидко повертався до наступного кроку."
+          title="Зрозумілий шлях проходження"
+          subtitle="Студент бачить матеріал, практику і свій наступний крок без пошуку."
           items={studentFeatures}
         />
         <FAQ />

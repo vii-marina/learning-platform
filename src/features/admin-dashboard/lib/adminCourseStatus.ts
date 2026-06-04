@@ -69,6 +69,10 @@ export function isArchivedAdminCourse(course: AdminDashboardCourseSummary) {
   return course.status === "archived";
 }
 
+export function isDeletedAdminCourse(course: AdminDashboardCourseSummary) {
+  return Boolean(course.deleted_at);
+}
+
 export function sortAdminCoursesByRecent(
   leftCourse: AdminDashboardCourseSummary,
   rightCourse: AdminDashboardCourseSummary
@@ -89,6 +93,10 @@ export function formatAdminCourseRelativeTime(updatedAt: string) {
 }
 
 export function getAdminCourseStatusLabel(course: AdminDashboardCourseSummary) {
+  if (isDeletedAdminCourse(course)) {
+    return "Видалено";
+  }
+
   if (isArchivedAdminCourse(course)) {
     return "Архів";
   }
@@ -97,6 +105,10 @@ export function getAdminCourseStatusLabel(course: AdminDashboardCourseSummary) {
 }
 
 export function getAdminCourseStatusCardClassName(course: AdminDashboardCourseSummary) {
+  if (isDeletedAdminCourse(course)) {
+    return "border-rose-200 bg-[linear-gradient(180deg,#fff1f2_0%,#ffffff_72%)] hover:border-rose-300";
+  }
+
   if (isArchivedAdminCourse(course)) {
     return "border-slate-300 bg-[linear-gradient(180deg,#f1f5f9_0%,#ffffff_72%)] hover:border-slate-400";
   }
@@ -109,6 +121,10 @@ export function getAdminCourseStatusCardClassName(course: AdminDashboardCourseSu
 export function getAdminCourseStatusThumbnailClassName(
   course: AdminDashboardCourseSummary
 ) {
+  if (isDeletedAdminCourse(course)) {
+    return "border border-rose-200/90 bg-rose-100/95 text-rose-800";
+  }
+
   if (isArchivedAdminCourse(course)) {
     return "border border-slate-300/90 bg-slate-100/95 text-slate-700";
   }
@@ -119,6 +135,10 @@ export function getAdminCourseStatusThumbnailClassName(
 }
 
 export function getAdminCourseStatusDotClassName(course: AdminDashboardCourseSummary) {
+  if (isDeletedAdminCourse(course)) {
+    return "bg-rose-500";
+  }
+
   if (isArchivedAdminCourse(course)) {
     return "bg-slate-500";
   }
