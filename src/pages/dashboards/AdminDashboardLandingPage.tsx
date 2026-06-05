@@ -324,7 +324,6 @@ export function AdminDashboardLandingPage() {
   }, [courseDetails, selectedCourseId]);
 
   const selectedCourse = selectedCourseId ? courseDetails[selectedCourseId] ?? null : null;
-  const selectedCourseSummary = courses.find((course) => course.id === selectedCourseId) ?? null;
   const lessonOptions = useMemo(() => flattenCourseLessons(selectedCourse), [selectedCourse]);
   const selectedLesson =
     lessonOptions.find((item) => item.lesson.id === selectedLessonId) ?? lessonOptions[0] ?? null;
@@ -500,20 +499,9 @@ export function AdminDashboardLandingPage() {
               </button>
             </Card>
 
-            <Card className="rounded-xl border-cyan-100 bg-white p-5 shadow-none">
+            <Card className="rounded-xl border-cyan-100 shadow-none">
               <div className="space-y-3">
-                <div className="rounded-xl border border-slate-100 bg-[#f8fafc] px-4 py-3">
-                  <p className="text-xs font-bold uppercase text-slate-400">Курс</p>
-                  <p className="mt-1 text-sm font-bold leading-5 text-[#14213d]">
-                    {selectedCourseSummary?.title ?? "Не вибрано"}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-slate-100 bg-[#f8fafc] px-4 py-3">
-                  <p className="text-xs font-bold uppercase text-slate-400">Урок</p>
-                  <p className="mt-1 text-sm font-bold leading-5 text-[#14213d]">
-                    {selectedLesson?.lesson.title ?? "Не вибрано"}
-                  </p>
-                </div>
+                
                 <div className="grid grid-cols-2 gap-3">
                   <div className="rounded-xl border border-violet-100 bg-violet-50 px-4 py-3">
                     <ClipboardList className="h-4 w-4 text-violet-700" />
