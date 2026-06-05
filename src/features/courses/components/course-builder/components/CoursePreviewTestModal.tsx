@@ -16,7 +16,7 @@ type CoursePreviewTestModalProps = {
   isGenerated: boolean;
   onClose: () => void;
   onAskTeacher: (context: CoursePreviewChatContext) => void;
-  onComplete: (testId: string) => void;
+  onComplete: (testId: string, scorePercent: number) => Promise<void> | void;
 };
 
 function getQuestionOptions(question: CourseTest["questions"][number]) {
@@ -34,6 +34,33 @@ function getCorrectAnswerLabel(question: CourseTest["questions"][number]) {
     .map((optionIndex) => options[optionIndex])
     .filter(Boolean)
     .join(", ");
+}
+
+function isAnswerCorrect(
+  question: CourseTest["questions"][number],
+  selectedIndexes: number[]
+) {
+  const correctIndexes = question.correctOptionIndexes;
+
+  return (
+    selectedIndexes.length === correctIndexes.length &&
+    selectedIndexes.every((selectedIndex) => correctIndexes.includes(selectedIndex))
+  );
+}
+
+function getScorePercent(
+  questions: CourseTest["questions"],
+  selectedAnswers: Record<string, number[]>
+) {
+  if (questions.length === 0) {
+    return 0;
+  }
+
+  const score = questions.filter((question) =>
+    isAnswerCorrect(question, selectedAnswers[question.id] ?? [])
+  ).length;
+
+  return Math.round((score / questions.length) * 100);
 }
 
 export function CoursePreviewTestModal({
@@ -242,7 +269,7 @@ export function CoursePreviewTestModal({
               variant="accent"
               onClick={() => {
                 setIsSubmitted(true);
-                onComplete(test.id);
+                void onComplete(test.id, getScorePercent(test.questions, selectedAnswers));
               }}
               disabled={test.questions.length === 0 || isSubmitted}
             >

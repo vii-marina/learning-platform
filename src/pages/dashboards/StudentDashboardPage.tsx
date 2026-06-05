@@ -15,6 +15,7 @@ import type {
 import { StudentDashboardCourses } from "../../features/student-dashboard/components/StudentDashboardCourses";
 import { StudentDashboardOverview } from "../../features/student-dashboard/components/StudentDashboardOverview";
 import { StudentDashboardProfile } from "../../features/student-dashboard/components/StudentDashboardProfile";
+import { StudentDashboardTeachers } from "../../features/student-dashboard/components/StudentDashboardTeachers";
 import {
   loadStudentDashboardCourses,
   loadStudentDashboardPublicCourses,
@@ -233,7 +234,9 @@ export function StudentDashboardPage() {
         return [startedCourse, ...currentCourses];
       });
       setPublicCourses((currentCourses) =>
-        currentCourses.filter((currentCourse) => currentCourse.id !== startedCourse.id)
+        currentCourses.map((currentCourse) =>
+          currentCourse.id === startedCourse.id ? startedCourse : currentCourse
+        )
       );
       navigate(`/student/courses/${startedCourse.id}`);
     } catch (error) {
@@ -289,7 +292,17 @@ export function StudentDashboardPage() {
           />
         );
       case "teachers":
-        return <StudentDashboardPlaceholder title="Мої викладачі" />;
+        return (
+          <StudentDashboardTeachers
+            courses={catalogCourses}
+            availableCourses={publicCourses}
+            isLoading={isCatalogLoading || isPublicCoursesLoading}
+            message={catalogMessage ?? publicCoursesMessage}
+            onStartCourse={handleStartCourse}
+            onContinueCourse={handleContinueCourse}
+            startingCourseId={startingCourseId}
+          />
+        );
       
       case "settings":
         return <StudentDashboardPlaceholder title="Налаштування" />;
@@ -326,18 +339,20 @@ export function StudentDashboardPage() {
         />
 
         <main className="min-w-0 flex-1">
-          <header className="border-b border-slate-200 bg-white px-4 py-6 md:px-8 xl:px-10">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-[#18153d] ">
-                  Вітаємо, {getStudentDisplayName(currentUser)}
-                </h1>
-                <p className="mt-2 text-sm font-medium text-[#6f6aa0]">
-                  Дашборд студента
-                </p>
+          {activeSection === "overview" ? (
+            <header className="border-b border-slate-200 bg-white px-4 py-6 md:px-8 xl:px-10">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight text-[#18153d]">
+                    Вітаємо, {getStudentDisplayName(currentUser)}
+                  </h1>
+                  <p className="mt-2 text-sm font-medium text-[#6f6aa0]">
+                    Дашборд студента
+                  </p>
+                </div>
               </div>
-            </div>
-          </header>
+            </header>
+          ) : null}
 
           <div className="px-4 py-6 md:px-8 md:py-8 xl:px-10">
           {pageMessage ? (

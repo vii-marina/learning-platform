@@ -13,6 +13,7 @@ export type StudentDashboardCourseCatalogItem = {
   id: string;
   title: string;
   description: string | null;
+  teacher_id: string | null;
   teacher_name: string;
   slug: string;
   thumbnail_path: string | null;
@@ -23,6 +24,10 @@ export type StudentDashboardCourseCatalogItem = {
   lesson_count: number;
   test_count: number;
   exercise_count: number;
+  completed_tests_count: number;
+  test_progress_percent: number;
+  completed_exercises_count: number;
+  exercise_progress_percent: number;
   completed_lessons_count: number;
   total_lessons_count: number;
   progress_percent: number;
@@ -30,8 +35,14 @@ export type StudentDashboardCourseCatalogItem = {
   finished_at: string | null;
   teacher_headline: string | null;
   teacher_bio: string | null;
+  teacher_specialization: string | null;
+  teacher_experience_years: number | null;
+  teacher_education: string | null;
+  teacher_gender: string | null;
   teacher_birth_date: string | null;
   teacher_avatar_path: string | null;
+  teacher_linkedin_url: string | null;
+  teacher_github_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,11 +63,26 @@ export type StudentCourseDetailsResponse = {
   tests_by_module: Record<string, HydratedTestEntityResponse[]>;
   exercises_by_module: Record<string, Exercise[]>;
   completed_lesson_ids: string[];
+  completed_exercise_ids: string[];
 };
 
 export type StudentLessonCompletionResponse = {
   course: StudentDashboardCourseCatalogItem;
   completed_lesson_ids: string[];
+};
+
+export type StudentTestCompletionResponse = {
+  test_result: {
+    test_id: string;
+    score: number;
+    passed: boolean;
+    updated_at: string;
+  };
+};
+
+export type StudentExerciseCompletionResponse = {
+  course: StudentDashboardCourseCatalogItem;
+  completed_exercise_ids: string[];
 };
 
 export async function loadStudentDashboardCourses() {
@@ -95,6 +121,29 @@ export async function loadStudentCourse(courseId: string) {
 export async function completeStudentLesson(courseId: string, lessonId: string) {
   return authorizedBackendRequest<StudentLessonCompletionResponse>(
     `/auth/student/courses/${courseId}/lessons/${lessonId}/complete`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export async function completeStudentTest(
+  courseId: string,
+  testId: string,
+  scorePercent: number
+) {
+  return authorizedBackendRequest<StudentTestCompletionResponse>(
+    `/auth/student/courses/${courseId}/tests/${testId}/complete`,
+    {
+      method: "POST",
+      body: { score_percent: scorePercent },
+    }
+  );
+}
+
+export async function completeStudentExercise(courseId: string, exerciseId: string) {
+  return authorizedBackendRequest<StudentExerciseCompletionResponse>(
+    `/auth/student/courses/${courseId}/exercises/${exerciseId}/complete`,
     {
       method: "POST",
     }

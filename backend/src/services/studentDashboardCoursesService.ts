@@ -71,8 +71,14 @@ type TeacherProfileRow = {
   id: string;
   headline: string | null;
   bio: string | null;
+  specialization: string | null;
+  experience_years: number | null;
+  education: string | null;
+  gender: string | null;
   birth_date?: string | null;
   avatar_path: string | null;
+  linkedin_url: string | null;
+  github_url: string | null;
 } & Record<string, unknown>;
 
 type StudentCourseLessonBlock = {
@@ -92,6 +98,14 @@ type StudentCourseTestEntity = {
   title: string;
   order: number;
   created_at: string;
+  updated_at: string;
+};
+
+type StudentTestResultRow = {
+  user_id: string;
+  test_id: string;
+  score: number | null;
+  passed: boolean | null;
   updated_at: string;
 };
 
@@ -142,6 +156,15 @@ type StudentCourseExercise = {
   updated_at: string;
 };
 
+type StudentExerciseResultRow = {
+  user_id: string;
+  exercise_id: string;
+  is_completed: boolean;
+  attempts: number;
+  completed_at: string | null;
+  updated_at: string;
+};
+
 type HydratedStudentCourseTestQuestion = StudentCourseTestQuestion & {
   answers: StudentCourseTestAnswer[];
 };
@@ -154,6 +177,7 @@ export type StudentDashboardCourseSummary = {
   id: string;
   title: string;
   description: string | null;
+  teacher_id: string | null;
   teacher_name: string;
   slug: string;
   thumbnail_path: string | null;
@@ -164,6 +188,10 @@ export type StudentDashboardCourseSummary = {
   lesson_count: number;
   test_count: number;
   exercise_count: number;
+  completed_tests_count: number;
+  test_progress_percent: number;
+  completed_exercises_count: number;
+  exercise_progress_percent: number;
   completed_lessons_count: number;
   total_lessons_count: number;
   progress_percent: number;
@@ -171,8 +199,14 @@ export type StudentDashboardCourseSummary = {
   finished_at: string | null;
   teacher_headline: string | null;
   teacher_bio: string | null;
+  teacher_specialization: string | null;
+  teacher_experience_years: number | null;
+  teacher_education: string | null;
+  teacher_gender: string | null;
   teacher_birth_date: string | null;
   teacher_avatar_path: string | null;
+  teacher_linkedin_url: string | null;
+  teacher_github_url: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -185,6 +219,7 @@ export type StudentCourseDetails = {
   tests_by_module: Record<string, HydratedStudentCourseTest[]>;
   exercises_by_module: Record<string, StudentCourseExercise[]>;
   completed_lesson_ids: string[];
+  completed_exercise_ids: string[];
 };
 
 export type PublicLandingLessonPreviewQuery = {
@@ -206,6 +241,20 @@ export type PublicLandingLessonPreview = {
 export type StudentLessonCompletionResult = {
   course: StudentDashboardCourseSummary;
   completed_lesson_ids: string[];
+};
+
+export type StudentTestCompletionResult = {
+  test_result: {
+    test_id: string;
+    score: number;
+    passed: boolean;
+    updated_at: string;
+  };
+};
+
+export type StudentExerciseCompletionResult = {
+  course: StudentDashboardCourseSummary;
+  completed_exercise_ids: string[];
 };
 
 const profileSelect = "id,full_name,email";
@@ -571,6 +620,143 @@ async function updateCourseProgressAfterLessonCompletion(
   return data as CourseProgressRow;
 }
 
+function normalizeScorePercent(rawScorePercent: unknown) {
+  const scorePercent =
+    typeof rawScorePercent === "number"
+      ? rawScorePercent
+      : typeof rawScorePercent === "string" && rawScorePercent.trim()
+        ? Number(rawScorePercent)
+        : NaN;
+
+  if (!Number.isFinite(scorePercent)) {
+    throw new AppError(400, "Missing or invalid score_percent.", "INVALID_TEST_SCORE");
+  }
+
+  return Math.min(100, Math.max(0, Math.round(scorePercent)));
+}
+
+async function upsertUserTestResult(
+  userId: string,
+  testId: string,
+  scorePercent: number
+) {
+  const now = new Date().toISOString();
+  const passed = scorePercent >= 70;
+  const payload = {
+    user_id: userId,
+    test_id: testId,
+    score: scorePercent,
+    passed,
+    updated_at: now,
+  };
+
+  const { data: existingResult, error: existingError } = await supabaseAdmin
+    .from("user_test_results")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("test_id", testId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    throw toServiceError(
+      500,
+      "TEST_RESULT_FETCH_FAILED",
+      "Unable to load test result",
+      existingError
+    );
+  }
+
+  const resultId =
+    existingResult &&
+    typeof existingResult === "object" &&
+    "id" in existingResult &&
+    typeof existingResult.id === "string"
+      ? existingResult.id
+      : null;
+  const { error } = resultId
+    ? await supabaseAdmin
+        .from("user_test_results")
+        .update(payload)
+        .eq("id", resultId)
+    : await supabaseAdmin
+        .from("user_test_results")
+        .insert(payload);
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "TEST_RESULT_SAVE_FAILED",
+      "Unable to save test result",
+      error
+    );
+  }
+
+  return {
+    test_id: testId,
+    score: scorePercent,
+    passed,
+    updated_at: now,
+  };
+}
+
+async function upsertUserExerciseResult(userId: string, exerciseId: string) {
+  const now = new Date().toISOString();
+  const { data: existingResult, error: existingError } = await supabaseAdmin
+    .from("user_exercise_results")
+    .select("id,attempts,completed_at")
+    .eq("user_id", userId)
+    .eq("exercise_id", exerciseId)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingError) {
+    throw toServiceError(
+      500,
+      "EXERCISE_RESULT_FETCH_FAILED",
+      "Unable to load exercise result",
+      existingError
+    );
+  }
+
+  const result =
+    existingResult && typeof existingResult === "object"
+      ? (existingResult as { id?: unknown; attempts?: unknown; completed_at?: unknown })
+      : null;
+  const resultId = typeof result?.id === "string" ? result.id : null;
+  const attempts =
+    typeof result?.attempts === "number" && Number.isFinite(result.attempts)
+      ? result.attempts + 1
+      : 1;
+  const completedAt = typeof result?.completed_at === "string" ? result.completed_at : now;
+  const payload = {
+    user_id: userId,
+    exercise_id: exerciseId,
+    is_completed: true,
+    attempts,
+    completed_at: completedAt,
+    updated_at: now,
+  };
+  const { error } = resultId
+    ? await supabaseAdmin
+        .from("user_exercise_results")
+        .update(payload)
+        .eq("id", resultId)
+    : await supabaseAdmin
+        .from("user_exercise_results")
+        .insert(payload);
+
+  if (error) {
+    throw toServiceError(
+      500,
+      "EXERCISE_RESULT_SAVE_FAILED",
+      "Unable to save exercise result",
+      error
+    );
+  }
+}
+
 async function listTeacherNamesById(ids: string[]) {
   if (ids.length === 0) {
     return new Map<string, string>();
@@ -609,7 +795,9 @@ async function listTeacherProfilesById(ids: string[]) {
   for (const chunk of chunkValues(ids)) {
     const { data, error } = await supabaseAdmin
       .from("teacher_profiles")
-      .select("id,headline,bio,birth_date,avatar_path")
+      .select(
+        "id,headline,bio,specialization,experience_years,education,gender,birth_date,avatar_path,linkedin_url,github_url"
+      )
       .in("id", chunk);
 
     if (error) {
@@ -736,6 +924,58 @@ async function listTestCountsByModuleIds(moduleIds: string[]) {
   return counts;
 }
 
+async function listTestRowsByModuleIds(moduleIds: string[]) {
+  if (moduleIds.length === 0) {
+    return [] as Array<Pick<StudentCourseTestEntity, "id" | "module_id">>;
+  }
+
+  const tests: Array<Pick<StudentCourseTestEntity, "id" | "module_id">> = [];
+
+  for (const chunk of chunkValues(moduleIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("test_entities")
+      .select("id,module_id")
+      .in("module_id", chunk);
+
+    if (error) {
+      throw toServiceError(500, "TESTS_LIST_FAILED", "Unable to load tests", error);
+    }
+
+    tests.push(...((data ?? []) as Array<Pick<StudentCourseTestEntity, "id" | "module_id">>));
+  }
+
+  return tests;
+}
+
+async function listUserTestResults(userId: string | undefined, testIds: string[]) {
+  if (!userId || testIds.length === 0) {
+    return [] as StudentTestResultRow[];
+  }
+
+  const results: StudentTestResultRow[] = [];
+
+  for (const chunk of chunkValues(testIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("user_test_results")
+      .select("user_id,test_id,score,passed,updated_at")
+      .eq("user_id", userId)
+      .in("test_id", chunk);
+
+    if (error) {
+      throw toServiceError(
+        500,
+        "TEST_RESULTS_LIST_FAILED",
+        "Unable to load test progress",
+        error
+      );
+    }
+
+    results.push(...((data ?? []) as StudentTestResultRow[]));
+  }
+
+  return results;
+}
+
 async function listExerciseCountsByModuleIds(moduleIds: string[]) {
   if (moduleIds.length === 0) {
     return new Map<string, number>();
@@ -764,6 +1004,67 @@ async function listExerciseCountsByModuleIds(moduleIds: string[]) {
   }
 
   return counts;
+}
+
+async function listExerciseRowsByModuleIds(moduleIds: string[]) {
+  if (moduleIds.length === 0) {
+    return [] as Array<Pick<StudentCourseExercise, "id" | "module_id">>;
+  }
+
+  const exercises: Array<Pick<StudentCourseExercise, "id" | "module_id">> = [];
+
+  for (const chunk of chunkValues(moduleIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("exercises")
+      .select("id,module_id")
+      .in("module_id", chunk);
+
+    if (error) {
+      throw toServiceError(
+        500,
+        "EXERCISES_LIST_FAILED",
+        "Unable to load exercises",
+        error
+      );
+    }
+
+    exercises.push(...((data ?? []) as Array<Pick<StudentCourseExercise, "id" | "module_id">>));
+  }
+
+  return exercises;
+}
+
+async function listUserExerciseResults(
+  userId: string | undefined,
+  exerciseIds: string[]
+) {
+  if (!userId || exerciseIds.length === 0) {
+    return [] as StudentExerciseResultRow[];
+  }
+
+  const results: StudentExerciseResultRow[] = [];
+
+  for (const chunk of chunkValues(exerciseIds)) {
+    const { data, error } = await supabaseAdmin
+      .from("user_exercise_results")
+      .select("user_id,exercise_id,is_completed,attempts,completed_at,updated_at")
+      .eq("user_id", userId)
+      .eq("is_completed", true)
+      .in("exercise_id", chunk);
+
+    if (error) {
+      throw toServiceError(
+        500,
+        "EXERCISE_RESULTS_LIST_FAILED",
+        "Unable to load exercise progress",
+        error
+      );
+    }
+
+    results.push(...((data ?? []) as StudentExerciseResultRow[]));
+  }
+
+  return results;
 }
 
 async function listLessonBlocks(lessonIds: string[]) {
@@ -1033,10 +1334,20 @@ async function buildStudentDashboardCourseSummaries(
     listModules(courseIds),
   ]);
   const moduleIds = modules.map((module) => module.id);
-  const [lessons, testCountByModuleId, exerciseCountByModuleId] = await Promise.all([
+  const [lessons, testRows, exerciseRows] = await Promise.all([
     listLessons(moduleIds),
-    listTestCountsByModuleIds(moduleIds),
-    listExerciseCountsByModuleIds(moduleIds),
+    listTestRowsByModuleIds(moduleIds),
+    listExerciseRowsByModuleIds(moduleIds),
+  ]);
+  const [testResults, exerciseResults] = await Promise.all([
+    listUserTestResults(
+      options.userId,
+      testRows.map((test) => test.id)
+    ),
+    listUserExerciseResults(
+      options.userId,
+      exerciseRows.map((exercise) => exercise.id)
+    ),
   ]);
   const completedLessonProgress = options.userId
     ? await listCompletedLessonProgress(
@@ -1047,20 +1358,65 @@ async function buildStudentDashboardCourseSummaries(
 
   const moduleCountByCourseId = groupCounts(modules, (module) => module.course_id);
   const courseIdByModuleId = new Map(modules.map((module) => [module.id, module.course_id]));
-  const testCountByCourseId = modules.reduce((counts, module) => {
-    counts.set(
-      module.course_id,
-      (counts.get(module.course_id) ?? 0) + (testCountByModuleId.get(module.id) ?? 0)
-    );
-    return counts;
-  }, new Map<string, number>());
-  const exerciseCountByCourseId = modules.reduce((counts, module) => {
-    counts.set(
-      module.course_id,
-      (counts.get(module.course_id) ?? 0) + (exerciseCountByModuleId.get(module.id) ?? 0)
-    );
-    return counts;
-  }, new Map<string, number>());
+  const testIdsByCourseId = testRows.reduce((testsByCourse, test) => {
+    const courseId = courseIdByModuleId.get(test.module_id);
+
+    if (!courseId) {
+      return testsByCourse;
+    }
+
+    testsByCourse.set(courseId, [...(testsByCourse.get(courseId) ?? []), test.id]);
+    return testsByCourse;
+  }, new Map<string, string[]>());
+  const courseIdByTestId = new Map(
+    testRows.flatMap((test) => {
+      const courseId = courseIdByModuleId.get(test.module_id);
+      return courseId ? [[test.id, courseId] as const] : [];
+    })
+  );
+  const completedTestIdsByCourseId = testResults.reduce((testsByCourse, result) => {
+    const courseId = courseIdByTestId.get(result.test_id);
+
+    if (!courseId) {
+      return testsByCourse;
+    }
+
+    const testIds = testsByCourse.get(courseId) ?? new Set<string>();
+    testIds.add(result.test_id);
+    testsByCourse.set(courseId, testIds);
+    return testsByCourse;
+  }, new Map<string, Set<string>>());
+  const exerciseIdsByCourseId = exerciseRows.reduce((exercisesByCourse, exercise) => {
+    const courseId = courseIdByModuleId.get(exercise.module_id);
+
+    if (!courseId) {
+      return exercisesByCourse;
+    }
+
+    exercisesByCourse.set(courseId, [
+      ...(exercisesByCourse.get(courseId) ?? []),
+      exercise.id,
+    ]);
+    return exercisesByCourse;
+  }, new Map<string, string[]>());
+  const courseIdByExerciseId = new Map(
+    exerciseRows.flatMap((exercise) => {
+      const courseId = courseIdByModuleId.get(exercise.module_id);
+      return courseId ? [[exercise.id, courseId] as const] : [];
+    })
+  );
+  const completedExerciseIdsByCourseId = exerciseResults.reduce((exercisesByCourse, result) => {
+    const courseId = courseIdByExerciseId.get(result.exercise_id);
+
+    if (!courseId) {
+      return exercisesByCourse;
+    }
+
+    const exerciseIds = exercisesByCourse.get(courseId) ?? new Set<string>();
+    exerciseIds.add(result.exercise_id);
+    exercisesByCourse.set(courseId, exerciseIds);
+    return exercisesByCourse;
+  }, new Map<string, Set<string>>());
   const courseIdByLessonId = new Map(
     lessons.flatMap((lesson) => {
       const courseId = courseIdByModuleId.get(lesson.module_id);
@@ -1093,6 +1449,14 @@ async function buildStudentDashboardCourseSummaries(
   return courses.map((course) => {
     const totalLessons = lessonCountByCourseId.get(course.id) ?? 0;
     const completedLessons = completedLessonIdsByCourseId.get(course.id)?.size ?? 0;
+    const totalTests = testIdsByCourseId.get(course.id)?.length ?? 0;
+    const completedTests = completedTestIdsByCourseId.get(course.id)?.size ?? 0;
+    const testProgressPercent =
+      totalTests > 0 ? Math.round((completedTests / totalTests) * 100) : 0;
+    const totalExercises = exerciseIdsByCourseId.get(course.id)?.length ?? 0;
+    const completedExercises = completedExerciseIdsByCourseId.get(course.id)?.size ?? 0;
+    const exerciseProgressPercent =
+      totalExercises > 0 ? Math.round((completedExercises / totalExercises) * 100) : 0;
     const progressPercent =
       totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
     const courseProgress = options.progressByCourseId?.get(course.id) ?? null;
@@ -1105,6 +1469,7 @@ async function buildStudentDashboardCourseSummaries(
       id: course.id,
       title: course.title,
       description: course.description,
+      teacher_id: course.teacher_id,
       teacher_name:
         course.teacher_id && isUuidValue(course.teacher_id)
           ? teacherNamesById.get(course.teacher_id) ?? "Platform instructor"
@@ -1116,8 +1481,12 @@ async function buildStudentDashboardCourseSummaries(
       is_published: course.is_published,
       module_count: moduleCountByCourseId.get(course.id) ?? 0,
       lesson_count: totalLessons,
-      test_count: testCountByCourseId.get(course.id) ?? 0,
-      exercise_count: exerciseCountByCourseId.get(course.id) ?? 0,
+      test_count: totalTests,
+      exercise_count: totalExercises,
+      completed_tests_count: completedTests,
+      test_progress_percent: testProgressPercent,
+      completed_exercises_count: completedExercises,
+      exercise_progress_percent: exerciseProgressPercent,
       completed_lessons_count: completedLessons,
       total_lessons_count: totalLessons,
       progress_percent: progressPercent,
@@ -1125,6 +1494,15 @@ async function buildStudentDashboardCourseSummaries(
       finished_at: courseProgress?.finished_at ?? null,
       teacher_headline: teacherProfile?.headline ?? null,
       teacher_bio: teacherProfile?.bio ?? null,
+      teacher_specialization: teacherProfile?.specialization ?? null,
+      teacher_experience_years:
+        typeof teacherProfile?.experience_years === "number"
+          ? teacherProfile.experience_years
+          : typeof teacherProfile?.experienceYears === "number"
+            ? teacherProfile.experienceYears
+            : null,
+      teacher_education: teacherProfile?.education ?? null,
+      teacher_gender: teacherProfile?.gender ?? null,
       teacher_birth_date:
         typeof teacherProfile?.birth_date === "string"
           ? teacherProfile.birth_date
@@ -1132,6 +1510,8 @@ async function buildStudentDashboardCourseSummaries(
             ? teacherProfile.birthDate
             : null,
       teacher_avatar_path: teacherProfile?.avatar_path ?? null,
+      teacher_linkedin_url: teacherProfile?.linkedin_url ?? null,
+      teacher_github_url: teacherProfile?.github_url ?? null,
       created_at: course.created_at,
       updated_at: course.updated_at,
     };
@@ -1325,9 +1705,13 @@ export async function getStudentCourseDetails(
     listExercisesByModuleIds(moduleIds),
   ]);
   const lessonIds = lessons.map((lesson) => lesson.id);
-  const [lessonBlocks, completedLessonProgress] = await Promise.all([
+  const [lessonBlocks, completedLessonProgress, completedExerciseResults] = await Promise.all([
     listLessonBlocks(lessonIds),
     listCompletedLessonProgress(auth.userId, lessonIds),
+    listUserExerciseResults(
+      auth.userId,
+      exercises.map((exercise) => exercise.id)
+    ),
   ]);
   const [courseSummary] = await buildStudentDashboardCourseSummaries([course], {
     userId: auth.userId,
@@ -1351,6 +1735,9 @@ export async function getStudentCourseDetails(
     exercises_by_module: groupBy(exercises, (exercise) => exercise.module_id),
     completed_lesson_ids: [
       ...new Set(completedLessonProgress.map((progressRow) => progressRow.lesson_id)),
+    ],
+    completed_exercise_ids: [
+      ...new Set(completedExerciseResults.map((result) => result.exercise_id)),
     ],
   };
 }
@@ -1416,5 +1803,102 @@ export async function completeStudentCourseLesson(
   return {
     course: courseSummary,
     completed_lesson_ids: completedLessonIds,
+  };
+}
+
+export async function completeStudentCourseTest(
+  auth: AuthenticatedRequestContext,
+  courseId: string,
+  testId: string,
+  rawScorePercent: unknown
+): Promise<StudentTestCompletionResult> {
+  ensureStudentRole(auth);
+
+  const scorePercent = normalizeScorePercent(rawScorePercent);
+  const course = await getPublishedCourse(courseId);
+  const courseProgress = await getCourseProgressByUserAndCourse(auth.userId, course.id);
+
+  if (!courseProgress) {
+    throw new AppError(
+      403,
+      "Start this course before completing tests.",
+      "COURSE_NOT_STARTED"
+    );
+  }
+
+  const modules = await listModules([course.id]);
+  const tests = await listTestsByModuleIds(modules.map((module) => module.id));
+  const testBelongsToCourse = tests.some((test) => test.id === testId);
+
+  if (!testBelongsToCourse) {
+    throw new AppError(404, "Test was not found in this course.", "TEST_NOT_FOUND");
+  }
+
+  const testResult = await upsertUserTestResult(auth.userId, testId, scorePercent);
+  await updateCourseProgressAfterLessonCompletion(courseProgress, false);
+
+  return {
+    test_result: testResult,
+  };
+}
+
+export async function completeStudentCourseExercise(
+  auth: AuthenticatedRequestContext,
+  courseId: string,
+  exerciseId: string
+): Promise<StudentExerciseCompletionResult> {
+  ensureStudentRole(auth);
+
+  const course = await getPublishedCourse(courseId);
+  const courseProgress = await getCourseProgressByUserAndCourse(auth.userId, course.id);
+
+  if (!courseProgress) {
+    throw new AppError(
+      403,
+      "Start this course before completing exercises.",
+      "COURSE_NOT_STARTED"
+    );
+  }
+
+  const modules = await listModules([course.id]);
+  const exercises = await listExercisesByModuleIds(modules.map((module) => module.id));
+  const exerciseBelongsToCourse = exercises.some((exercise) => exercise.id === exerciseId);
+
+  if (!exerciseBelongsToCourse) {
+    throw new AppError(
+      404,
+      "Exercise was not found in this course.",
+      "EXERCISE_NOT_FOUND"
+    );
+  }
+
+  await upsertUserExerciseResult(auth.userId, exerciseId);
+  const updatedCourseProgress = await updateCourseProgressAfterLessonCompletion(
+    courseProgress,
+    false
+  );
+
+  const completedExerciseResults = await listUserExerciseResults(
+    auth.userId,
+    exercises.map((exercise) => exercise.id)
+  );
+  const [courseSummary] = await buildStudentDashboardCourseSummaries([course], {
+    userId: auth.userId,
+    progressByCourseId: new Map([[course.id, updatedCourseProgress]]),
+  });
+
+  if (!courseSummary) {
+    throw new AppError(
+      500,
+      "Unable to build completed exercise summary.",
+      "EXERCISE_COMPLETION_SUMMARY_FAILED"
+    );
+  }
+
+  return {
+    course: courseSummary,
+    completed_exercise_ids: [
+      ...new Set(completedExerciseResults.map((result) => result.exercise_id)),
+    ],
   };
 }

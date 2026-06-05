@@ -44,8 +44,8 @@ type CoursePreviewLessonContentProps = {
   onGoToNextItem: () => void;
   onAskTeacher: (context: CoursePreviewChatContext) => void;
   onSelectExercise: (exerciseId: string) => void;
-  onResolveExercise: (exerciseId: string) => void;
-  onCompleteTest: (testId: string) => void;
+  onResolveExercise: (exerciseId: string) => Promise<void> | void;
+  onCompleteTest: (testId: string, scorePercent: number) => Promise<void> | void;
   isCurrentLessonCompleted?: boolean;
   isCompletingLesson?: boolean;
   onCompleteLesson?: () => void;
@@ -231,7 +231,7 @@ export function CoursePreviewLessonContent({
     }));
   }
 
-  function handleGoToNextQuestion() {
+  async function handleGoToNextQuestion() {
     if (!currentTest) {
       return;
     }
@@ -242,7 +242,11 @@ export function CoursePreviewLessonContent({
     }
 
     setIsTestSubmitted(true);
-    onCompleteTest(currentTest.id);
+    const scorePercent =
+      currentTest.questions.length > 0
+        ? Math.round((score / currentTest.questions.length) * 100)
+        : 0;
+    await onCompleteTest(currentTest.id, scorePercent);
   }
 
   return (

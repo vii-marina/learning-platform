@@ -12,7 +12,7 @@ type CoursePreviewExerciseBlockProps = {
   isGenerated: boolean;
   isHighlighted: boolean;
   onAskTeacher: (context: CoursePreviewChatContext) => void;
-  onResolved: (exerciseId: string) => void;
+  onResolved: (exerciseId: string) => Promise<void> | void;
 };
 
 const DRAG_DROP_SLOT_PATTERN = /(___|{{blank_\d+}})/g;

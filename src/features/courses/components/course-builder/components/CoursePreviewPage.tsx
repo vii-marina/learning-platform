@@ -35,7 +35,10 @@ type CoursePreviewPageProps = {
   testsByModule: Record<string, CourseTest[]>;
   exercisesByModule: Record<string, CourseExercise[]>;
   initialCompletedLessonIds?: string[];
+  initialCompletedExerciseIds?: string[];
   onCompleteLesson?: (lessonId: string) => Promise<string[] | void>;
+  onCompleteExercise?: (exerciseId: string) => Promise<string[] | void>;
+  onCompleteTest?: (testId: string, scorePercent: number) => Promise<void> | void;
   showCourseOverviewActions?: boolean;
 };
 
@@ -118,7 +121,10 @@ export function CoursePreviewPage({
   testsByModule,
   exercisesByModule,
   initialCompletedLessonIds,
+  initialCompletedExerciseIds,
   onCompleteLesson,
+  onCompleteExercise,
+  onCompleteTest,
   showCourseOverviewActions = true,
 }: CoursePreviewPageProps) {
   const [expandedModuleId, setExpandedModuleId] = useState<string | null>(null);
@@ -316,9 +322,19 @@ export function CoursePreviewPage({
     setActiveTestId(null);
     setActiveContentType("lesson");
     setCompletedLessonIds(toRecord(initialCompletedLessonIds ?? storedProgress?.completedLessonIds));
-    setCompletedExerciseIds(toRecord(storedProgress?.completedExerciseIds));
+    setCompletedExerciseIds(
+      toRecord(initialCompletedExerciseIds ?? storedProgress?.completedExerciseIds)
+    );
     setCompletedTestIds(toRecord(storedProgress?.completedTestIds));
-  }, [activeLessonId, initialCompletedLessonIds, lessonRefById, lessonSequence, modules, progressStorageKey]);
+  }, [
+    activeLessonId,
+    initialCompletedExerciseIds,
+    initialCompletedLessonIds,
+    lessonRefById,
+    lessonSequence,
+    modules,
+    progressStorageKey,
+  ]);
 
   async function handleCompleteActiveLesson() {
     if (!activeLesson || isCompletingLesson) {
@@ -569,11 +585,26 @@ export function CoursePreviewPage({
     setActiveExerciseId(null);
   }
 
-  function handleCompleteModalTest(testId: string) {
+  async function handleCompleteModalTest(testId: string, scorePercent: number) {
     setCompletedTestIds((currentMap) => ({
       ...currentMap,
       [testId]: true,
     }));
+
+    await onCompleteTest?.(testId, scorePercent);
+  }
+
+  async function handleCompleteExercise(exerciseId: string) {
+    setCompletedExerciseIds((currentMap) => ({
+      ...currentMap,
+      [exerciseId]: true,
+    }));
+
+    const completedIds = await onCompleteExercise?.(exerciseId);
+
+    if (completedIds) {
+      setCompletedExerciseIds(toRecord(completedIds));
+    }
   }
 
   function handleSidebarResizeStart(event: ReactPointerEvent<HTMLButtonElement>) {
@@ -760,10 +791,7 @@ export function CoursePreviewPage({
             isCompletingLesson={isCompletingLesson}
             onCompleteLesson={undefined}
             onResolveExercise={(exerciseId) => {
-              setCompletedExerciseIds((currentMap) => ({
-                ...currentMap,
-                [exerciseId]: true,
-              }));
+              void handleCompleteExercise(exerciseId);
             }}
             onCompleteTest={handleCompleteModalTest}
           />

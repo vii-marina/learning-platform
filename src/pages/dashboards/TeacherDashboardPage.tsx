@@ -67,7 +67,7 @@ export function TeacherDashboardPage() {
     details?: unknown;
   } | null>(null);
   const [activeSection, setActiveSection] =
-    useState<TeacherDashboardSectionId>("courses");
+    useState<TeacherDashboardSectionId>("overview");
   const [builderCourseId, setBuilderCourseId] = useState<string | null>(null);
   const [builderInitialStep, setBuilderInitialStep] = useState<BuilderStep>(1);
   const [pendingBuilderExit, setPendingBuilderExit] =
@@ -289,7 +289,9 @@ export function TeacherDashboardPage() {
       case "overview":
         return (
           <TeacherDashboardOverview
+            teacherId={currentUser?.id ?? null}
             onOpenCourseBuilder={() => handleOpenCourseBuilder(null)}
+            onContinueCourse={(courseId) => handleOpenCourseBuilder(courseId)}
           />
         );
       case "courses":
@@ -323,7 +325,9 @@ export function TeacherDashboardPage() {
       default:
         return (
           <TeacherDashboardOverview
+            teacherId={currentUser?.id ?? null}
             onOpenCourseBuilder={() => handleOpenCourseBuilder(null)}
+            onContinueCourse={(courseId) => handleOpenCourseBuilder(courseId)}
           />
         );
     }
@@ -340,6 +344,8 @@ export function TeacherDashboardPage() {
           onSectionChange={handleSidebarSectionChange}
           currentUser={currentUser}
           onOpenProfile={() => handleSidebarSectionChange("profile")}
+          onCreateCourse={() => handleOpenCourseBuilder(null)}
+          onContinueCourse={(courseId) => handleOpenCourseBuilder(courseId)}
           onLogout={() => requestBuilderExit({ type: "logout" })}
           isLoggingOut={isLoggingOut}
           logoutMessage={logoutMessage}

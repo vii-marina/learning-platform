@@ -16,7 +16,7 @@ type CoursePreviewExerciseModalProps = {
   selectedExerciseId: string | null;
   onClose: () => void;
   onAskTeacher: (context: CoursePreviewChatContext) => void;
-  onResolveExercise: (exerciseId: string) => void;
+  onResolveExercise: (exerciseId: string) => Promise<void> | void;
 };
 
 export function CoursePreviewExerciseModal({

@@ -16,7 +16,9 @@ import {
   updateMeHandler,
 } from "../controllers/authController";
 import {
+  completeStudentCourseExerciseHandler,
   completeStudentCourseLessonHandler,
+  completeStudentCourseTestHandler,
   getStudentCourseDetailsHandler,
   listStudentDashboardCoursesHandler,
   listStudentDashboardPublicCoursesHandler,
@@ -41,6 +43,16 @@ router.post(
   "/student/courses/:courseId/lessons/:lessonId/complete",
   requireAuth,
   completeStudentCourseLessonHandler
+);
+router.post(
+  "/student/courses/:courseId/tests/:testId/complete",
+  requireAuth,
+  completeStudentCourseTestHandler
+);
+router.post(
+  "/student/courses/:courseId/exercises/:exerciseId/complete",
+  requireAuth,
+  completeStudentCourseExerciseHandler
 );
 router.get("/teacher/dashboard/courses", requireAuth, listTeacherDashboardCoursesHandler);
 router.get("/teacher/dashboard/students", requireAuth, listTeacherDashboardStudentsHandler);

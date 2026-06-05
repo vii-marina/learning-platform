@@ -5,7 +5,9 @@ import { Button } from "../../components/ui/button";
 import { Card } from "../../components/ui/Card";
 import { LoadingState } from "../../components/ui/LoadingState";
 import {
+  completeStudentExercise,
   completeStudentLesson,
+  completeStudentTest,
   loadStudentCourse,
   type StudentCourseDetailsResponse,
 } from "../../features/student-dashboard/api/studentDashboardApi";
@@ -109,6 +111,10 @@ export function StudentCoursePage() {
     () => courseData?.completed_lesson_ids ?? [],
     [courseData?.completed_lesson_ids]
   );
+  const completedExerciseIds = useMemo(
+    () => courseData?.completed_exercise_ids ?? [],
+    [courseData?.completed_exercise_ids]
+  );
 
   async function handleCompleteLesson(lessonId: string) {
     if (!courseId) {
@@ -132,6 +138,44 @@ export function StudentCoursePage() {
     } catch (error) {
       setMessage(getErrorMessage(error, "Не вдалося завершити цей урок."));
       return completedLessonIds;
+    }
+  }
+
+  async function handleCompleteTest(testId: string, scorePercent: number) {
+    if (!courseId) {
+      return;
+    }
+
+    try {
+      setMessage(null);
+      await completeStudentTest(courseId, testId, scorePercent);
+    } catch (error) {
+      setMessage(getErrorMessage(error, "Не вдалося зберегти результат тесту."));
+    }
+  }
+
+  async function handleCompleteExercise(exerciseId: string) {
+    if (!courseId) {
+      return completedExerciseIds;
+    }
+
+    try {
+      setMessage(null);
+      const result = await completeStudentExercise(courseId, exerciseId);
+      setCourseData((currentCourseData) =>
+        currentCourseData
+          ? {
+              ...currentCourseData,
+              course: result.course,
+              completed_exercise_ids: result.completed_exercise_ids,
+            }
+          : currentCourseData
+      );
+
+      return result.completed_exercise_ids;
+    } catch (error) {
+      setMessage(getErrorMessage(error, "Не вдалося зберегти результат вправи."));
+      return completedExerciseIds;
     }
   }
 
@@ -184,7 +228,10 @@ export function StudentCoursePage() {
             testsByModule={previewData.testsByModule}
             exercisesByModule={previewData.exercisesByModule}
             initialCompletedLessonIds={completedLessonIds}
+            initialCompletedExerciseIds={completedExerciseIds}
             onCompleteLesson={handleCompleteLesson}
+            onCompleteExercise={handleCompleteExercise}
+            onCompleteTest={handleCompleteTest}
             showCourseOverviewActions={false}
           />
         ) : null}

@@ -14,6 +14,10 @@ export type StudentDashboardCatalogCard = {
   lessonCount: number;
   testCount: number;
   exerciseCount: number;
+  completedTestsCount: number;
+  testProgressPercent: number;
+  completedExercisesCount: number;
+  exerciseProgressPercent: number;
   accessLabel: string;
   updatedLabel: string;
   releaseLabel: string;
@@ -131,6 +135,10 @@ export function buildStudentDashboardCatalogCards(
     lessonCount: course.lesson_count,
     testCount: course.test_count,
     exerciseCount: course.exercise_count,
+    completedTestsCount: course.completed_tests_count,
+    testProgressPercent: course.test_progress_percent,
+    completedExercisesCount: course.completed_exercises_count,
+    exerciseProgressPercent: course.exercise_progress_percent,
     accessLabel: getAccessLabel(course.access_type),
     updatedLabel: formatShortDate(course.updated_at),
     releaseLabel: getReleaseLabel(course.created_at),

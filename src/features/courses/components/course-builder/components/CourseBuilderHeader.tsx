@@ -29,7 +29,7 @@ export function CourseBuilderHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div
-        className={`flex w-full items-center justify-between gap-4 px-6 py-4 ${
+        className={`grid w-full grid-cols-1 gap-3 px-4 py-4 md:px-6 xl:grid-cols-[auto_minmax(0,1fr)_auto] xl:items-center ${
           embedded ? "xl:px-8" : "mx-auto max-w-[92rem] lg:px-10"
         }`}
       >
@@ -49,8 +49,8 @@ export function CourseBuilderHeader({
           
         </div>
 
-        <nav className="hidden flex-1 items-center justify-center xl:flex">
-          <ol className="flex items-center gap-3">
+        <nav className="hidden min-w-0 items-center justify-center overflow-x-auto xl:flex">
+          <ol className="flex min-w-max items-center gap-2 px-2 2xl:gap-3">
             {steps.map((step, index) => {
               const isActive = activeStep === step.id;
               const isEnabled = canNavigateToStep(step.id);
@@ -82,7 +82,7 @@ export function CourseBuilderHeader({
                     disabled={!isEnabled}
                     aria-current={isActive ? "step" : undefined}
                     onClick={() => onStepChange(step.id)}
-                    className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition ${
+                    className={`flex h-14 items-center gap-3 rounded-xl border px-3 text-left transition 2xl:px-4 ${
                       isEnabled ? stepStateClass : `${stepStateClass} cursor-not-allowed`
                     }`}
                   >
@@ -101,7 +101,7 @@ export function CourseBuilderHeader({
                   {index < steps.length - 1 ? (
                     <span
                       aria-hidden="true"
-                      className={`h-[2px] w-20 rounded-full ${connectorClass}`}
+                      className={`h-[2px] w-8 rounded-full 2xl:w-16 ${connectorClass}`}
                     />
                   ) : null}
                 </li>
@@ -110,7 +110,7 @@ export function CourseBuilderHeader({
           </ol>
         </nav>
 
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3 xl:justify-end">
           <div className="hidden rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-bold text-slate-400 lg:block xl:hidden">
             {steps.find((step) => step.id === activeStep)?.label}
           </div>

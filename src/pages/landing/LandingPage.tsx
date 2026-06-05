@@ -3,14 +3,13 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   ArrowLeft,
-  BarChart3,
   BookOpen,
   Check,
   CheckCircle2,
   ChevronDown,
   ClipboardList,
-  Code2,
-  Eye,
+  FileChartColumn,
+  ListTodo,
   GraduationCap,
   Layers,
   LayoutDashboard,
@@ -20,8 +19,10 @@ import {
   RefreshCw,
   Sparkles,
   Trophy,
+  Code2,
   X,
   XCircle,
+  FileUser,
 } from "lucide-react";
 import { publicBackendRequest } from "../../features/auth/api/backendClient";
 import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
@@ -1099,22 +1100,21 @@ function Hero() {
   return (
     <section className="bg-[#f8f7ff] px-5 pb-16 pt-16 text-center md:pt-20">
       <div className="mx-auto max-w-4xl">
-        <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#c7c3ff] bg-[#eceaff] px-4 py-1.5 text-xs font-bold text-[#5549f1]">
-          <Sparkles className="h-3.5 w-3.5" />
-          AI-асистент для створення курсів і практичного навчання
+        <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#c7c3ff] bg-[#eceaff] px-4 py-1.5 text-sm font-bold text-[#5549f1]">
+          <Sparkles className="h-5 w-5" />
+          Навчальна платформа з AI-генерацією завдань
         </div>
         <h1 className="text-4xl font-extrabold leading-[1.08] text-[#1f1b4d] sm:text-5xl lg:text-6xl">
           Створюйте курси.
           <span className="text-[#5549f1]"> Закріплюйте знання практикою.</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-[#6d6a9f]">
-          EduCat допомагає викладачам збирати структуровані курси з уроками,
-          тестами та вправами, а студентам проходити навчання в одному зрозумілому
-          інтерфейсі.
+          EduCat допомагає викладачам створювати структуровані курси з уроками, тестами й вправами, 
+          а студентам — послідовно проходити навчання та відстежувати власний прогрес.
         </p>
         <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <PrimaryLink to="/register">
-            Почати безкоштовно <ArrowRight className="h-4 w-4" />
+            Створити акаунт <ArrowRight className="h-4 w-4" />
           </PrimaryLink>
           <SecondaryLink to="/login">
             Увійти в кабінет <ArrowRight className="h-4 w-4" />
@@ -1150,10 +1150,11 @@ function AudienceCards() {
     {
       icon: PenLine,
       title: "Для викладачів",
-      text: "Будуйте курс крок за кроком: опис, модулі, уроки, тести, вправи та фінальний перегляд перед публікацією.",
+      text: "Створюйте навчальні курси. Переглядайте структуру перед публікацією та редагуйте матеріали у зручному конструкторі.",
       features: [
-        "Конструктор курсу з модулями та уроками",
-        "AI-генерація тестів і вправ"
+        "Конструктор курсів, модулів і уроків",
+        "AI-генерація тестів і практичних вправ",
+        "Публікація, архівація та редагування курсів",
       ],
       action: "Створити курс",
       to: "/register",
@@ -1162,11 +1163,11 @@ function AudienceCards() {
     {
       icon: BookOpen,
       title: "Для студентів",
-      text: "Проходьте уроки, відповідайте на тести, пишіть код у вправах і бачте свій прогрес у курсах.",
+      text: "Проходьте уроки, виконуйте тести й практичні вправи. Поступово рухайтеся між темами та відстежуйте власний прогрес.",
       features: [
-        "Особистий кабінет із прогресом",
-        "Уроки, тести й вправи в єдиній структурі",
-        "Зрозумілий перехід між темами",
+        "Особистий кабінет із прогресом навчання",
+        "Уроки, тести й вправи в одній структурі",
+        "Послідовне проходження тем курсу",
       ],
       action: "Перейти до навчання",
       to: "/register",
@@ -1194,7 +1195,9 @@ function AudienceCards() {
               >
                 <Icon className={`h-6 w-6 ${variant === "primary" ? "text-white" : "text-[#5549f1]"}`} />
               </span>
-              <h3 className="text-2xl font-extrabold">{title}</h3>
+              <h3 className={`text-2xl font-extrabold
+              ${variant === "primary" ? "text-white" : "text-[#5549f1]"}
+              `}>{title}</h3>
             </div>
             <p
               className={`mt-5 text-sm leading-7 ${
@@ -1247,29 +1250,29 @@ const teacherFeatures: Array<{
     icon: Layers,
     color: "#5549F1",
     bg: "#EDE9FF",
-    title: "Конструктор курсу",
-    text: "Курс по кроках",
+    title: "Мої курси",
+    text: "Створення й редагування",
   },
   {
-    icon: ClipboardList,
+    icon: FileUser,
     color: "#F97316",
     bg: "#FFEDD5",
-    title: "Тести до уроків",
-    text: "Перевірка знань",
+    title: "Студенти",
+    text: "Інформація про учасників",
   },
   {
-    icon: Code2,
+    icon: FileChartColumn,
     color: "#0891B2",
     bg: "#CFFAFE",
-    title: "Практичні вправи",
-    text: "Завдання з кодом",
+    title: "Результати",
+    text: "Прогрес проходження",
   },
   {
-    icon: Eye,
-    color: "#8B5CF6",
-    bg: "#EDE9FE",
-    title: "Превʼю для студента",
-    text: "Погляд перед публікацією",
+    icon: ListTodo,
+    color: "#096f4d",
+    bg: "#b7ead9",
+    title: "Тести й вправи",
+    text: "Перевірка знань",
   },
 ];
 
@@ -1284,27 +1287,27 @@ const studentFeatures: Array<{
     icon: LayoutDashboard,
     color: "#5549F1",
     bg: "#EDE9FF",
-    title: "Дашборд навчання",
-    text: "Усе навчання поруч",
+    title: "Власний темп",
+    text: "Навчання без обмежень",
+  },
+  {
+    icon: FileChartColumn,
+    color: "#F97316",
+    bg: "#FFEDD5",
+    title: "Відстежуйте прогрес",
+    text: "Слідкуйте за успіхами",
   },
   {
     icon: BookOpen,
     color: "#0891B2",
     bg: "#CFFAFE",
-    title: "Зручний перегляд уроків",
-    text: "Урок, тест і практика",
-  },
-  {
-    icon: BarChart3,
-    color: "#10B981",
-    bg: "#D1FAE5",
-    title: "Прогрес і завершення",
-    text: "Видно наступний крок",
+    title: "Практика & тести",
+    text: "Закріплюйте знання",
   },
   {
     icon: Trophy,
-    color: "#F59E0B",
-    bg: "#FEF3C7",
+    color: "#096f4d",
+    bg: "#b7ead9",
     title: "Мотивація",
     text: "Короткі досяжні етапи",
   },
@@ -1435,8 +1438,8 @@ function FinalCTA() {
           Готові створити курс або почати навчання?
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-base leading-7 text-white/60">
-          Платформа поєднує робочий кабінет викладача, зручний студентський
-          дашборд і практичний перегляд уроків.
+          EduCat об’єднує курси, уроки, тести, вправи та прогрес навчання 
+          в одному зручному середовищі.
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
           <PrimaryLink to="/register">
@@ -1465,7 +1468,7 @@ function LandingFooter() {
           <span className="font-extrabold text-[#1f1b4d]">EduCat</span>
         </Link>
         <p className="text-xs text-[#6d6a9f]">
-          Освітня платформа для створення курсів і практичного навчання.
+          Платформа для створення курсів, проходження уроків і виконання практичних завдань.
         </p>
         <div className="flex gap-4 text-xs font-semibold text-[#6d6a9f]">
           <a href="#course-preview" className="hover:text-[#5549f1]">
@@ -1520,16 +1523,16 @@ export function LandingPage() {
         <FeatureGrid
           id="teachers"
           label="Викладачам"
-          title="Інструменти без зайвого шуму"
-          subtitle="Курс, тести, практика і превʼю зібрані в одному робочому процесі."
+          title="Керування курсами та студентами"
+          subtitle="Викладач створює курси, переглядає студентів і відстежує результати навчання."
           items={teacherFeatures}
           tinted
         />
         <FeatureGrid
           id="students"
           label="Студентам"
-          title="Зрозумілий шлях проходження"
-          subtitle="Студент бачить матеріал, практику і свій наступний крок без пошуку."
+          title="Зручне проходження курсу"
+          subtitle="Студент проходить уроки, тести й вправи у своєму темпі та бачить інформацію про викладача."
           items={studentFeatures}
         />
         <FAQ />

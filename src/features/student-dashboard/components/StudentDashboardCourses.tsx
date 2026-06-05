@@ -29,6 +29,15 @@ export function StudentDashboardCourses({
   return (
     <>
       <div className="space-y-6">
+        <section className="space-y-1.5">
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
+            Мої курси
+          </h1>
+          <p className="max-w-3xl text-sm leading-6 text-slate-500">
+            Курси, на які ви записані, з прогресом уроків, тестів і вправ.
+          </p>
+        </section>
+
         {coursesMessage ? (
           <Card className="rounded-[1.5rem] border-amber-200 bg-amber-50 p-5 text-amber-900 shadow-none">
             <p className="text-sm font-medium">{coursesMessage}</p>
@@ -45,7 +54,7 @@ export function StudentDashboardCourses({
             </p>
           </section>
         ) : (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
             {catalogCards.map((course) => (
               <StudentDashboardCourseCard
                 key={course.id}

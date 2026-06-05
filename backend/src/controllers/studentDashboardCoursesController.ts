@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import { AppError } from "../lib/appError";
 import {
+  completeStudentCourseExercise,
   completeStudentCourseLesson,
+  completeStudentCourseTest,
   getStudentCourseDetails,
   listStudentDashboardCourses,
   listStudentDashboardPublicCourses,
@@ -42,5 +44,25 @@ export async function completeStudentCourseLessonHandler(req: Request, res: Resp
   const courseId = getStringRouteParam(req.params.courseId, "courseId");
   const lessonId = getStringRouteParam(req.params.lessonId, "lessonId");
   const result = await completeStudentCourseLesson(req.auth!, courseId, lessonId);
+  res.status(200).json(result);
+}
+
+export async function completeStudentCourseTestHandler(req: Request, res: Response) {
+  const courseId = getStringRouteParam(req.params.courseId, "courseId");
+  const testId = getStringRouteParam(req.params.testId, "testId");
+  const rawScorePercent =
+    typeof req.body === "object" && req.body !== null
+      ? (req.body as Record<string, unknown>).score_percent
+      : undefined;
+  const result = await completeStudentCourseTest(req.auth!, courseId, testId, rawScorePercent);
+
+  res.status(200).json(result);
+}
+
+export async function completeStudentCourseExerciseHandler(req: Request, res: Response) {
+  const courseId = getStringRouteParam(req.params.courseId, "courseId");
+  const exerciseId = getStringRouteParam(req.params.exerciseId, "exerciseId");
+  const result = await completeStudentCourseExercise(req.auth!, courseId, exerciseId);
+
   res.status(200).json(result);
 }

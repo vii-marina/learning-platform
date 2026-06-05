@@ -18,7 +18,7 @@ type SidebarItem = {
 };
 
 const primaryItems: SidebarItem[] = [
-  { id: "overview", label: "Огляд", icon: LayoutGrid },
+  { id: "overview", label: "Головна", icon: LayoutGrid },
   { id: "teachers", label: "Мої викладачі", icon: GraduationCap },
   { id: "courses", label: "Мої курси", icon: BookOpen }
 ];
