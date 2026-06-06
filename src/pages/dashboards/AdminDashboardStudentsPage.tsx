@@ -138,10 +138,10 @@ export function AdminDashboardStudentsPage() {
   return (
     <div className="space-y-5">
       <section className="overflow-hidden rounded-[1.75rem] border border-cyan-100 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-        <div className="bg-[linear-gradient(135deg,#effcff_0%,#ffffff_54%,#f4f2ff_100%)] px-6 py-6">
+        <div className="bg-white px-6 py-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h1 className="mt-1 text-3xl font-black tracking-tight text-[#14213d]">
+              <h1 className="mt-1 text-xl font-black tracking-tight text-[#14213d]">
                 Студенти
               </h1>
             </div>

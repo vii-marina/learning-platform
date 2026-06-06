@@ -183,10 +183,10 @@ export function StudentDashboardOverview({
         ) : null}
 
         {inProgressCourses.length > 0 ? (
-        <section className="py-2">
+        <section className="py-1">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
+              <h2 className="text-xl font-semibold tracking-tight text-slate-950">
                 Продовжити навчання
               </h2>
             </div>
