@@ -1,9 +1,10 @@
 import { randomUUID } from "node:crypto";
 import OpenAI from "openai";
 import { z } from "zod";
+import { env } from "../config/env";
 
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: env.OPENAI_API_KEY,
 });
 
 export type GeneratedExerciseType = "drag_drop_code" | "write_code";

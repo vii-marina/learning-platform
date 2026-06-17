@@ -183,7 +183,7 @@ export function ManualExerciseEditorCard({
                 </div>
               ) : (
                 <p className="text-sm text-slate-400">
-                  Click “Add Blank” to insert `___` into the code.
+                  Натисніть “Add Blank” щоб вставити `___` у код.
                 </p>
               )}
             </div>
@@ -330,7 +330,7 @@ export function ManualExerciseEditorCard({
             disabled={disabled}
             className={actionButtonClassName}
           >
-            Create another exercise
+            Створити ще одну вправу
           </Button>
         </div>
       ) : null}

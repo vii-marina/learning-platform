@@ -47,7 +47,7 @@ export function ExerciseCreateSetupSections({
         <div className="flex items-center gap-3">
           <span className={sectionStepClassName}>1</span>
           <h4 className={stageTitleClassName}>
-            How would you like to create this exercise?
+            Як ви хочете створити цю вправу?
           </h4>
         </div>
 
@@ -125,7 +125,7 @@ export function ExerciseCreateSetupSections({
             }`}
             disabled={isSaving || isStepTwoLocked}
           >
-            This Module
+            Модуль
           </button>
 
           <select

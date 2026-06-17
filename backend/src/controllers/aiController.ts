@@ -59,6 +59,19 @@ function normalizeExerciseDifficulties(value: unknown): ExerciseDifficulty[] | n
   return difficulties.length > 0 ? difficulties : null;
 }
 
+function sendAiError(
+  res: Response,
+  status: number,
+  message: string,
+  code: string
+) {
+  return res.status(status).json({
+    message,
+    error: message,
+    code,
+  });
+}
+
 function normalizeExerciseCount(value: unknown): number | null {
   if (value === undefined) {
     return 1;
@@ -193,9 +206,12 @@ export async function getExerciseGenerationLimit(req: Request, res: Response) {
     const { afterLessonId, moduleId } = req.body;
 
     if (!afterLessonId && !moduleId) {
-      return res.status(400).json({
-        error: "Provide either afterLessonId or moduleId",
-      });
+      return sendAiError(
+        res,
+        400,
+        "Provide either afterLessonId or moduleId",
+        "AI_TARGET_MISSING"
+      );
     }
 
     const { text, questionCount } = await getContentForAI({
@@ -219,9 +235,12 @@ export async function getExerciseGenerationLimit(req: Request, res: Response) {
   } catch (error) {
     console.error("[AI] Final error (exercise limit):", error);
 
-    return res.status(500).json({
-      error: "Failed to resolve exercise generation limit",
-    });
+    return sendAiError(
+      res,
+      500,
+      "Failed to resolve exercise generation limit",
+      "AI_EXERCISE_LIMIT_FAILED"
+    );
   }
 }
 
@@ -244,9 +263,12 @@ export async function generateTestQuestions(req: Request, res: Response) {
     });
 
     if (!text.trim() || questionCount <= 0) {
-      return res.status(400).json({
-        error: "Content is too short for generating questions",
-      });
+      return sendAiError(
+        res,
+        400,
+        "Content is too short for generating questions",
+        "AI_QUESTION_CONTENT_TOO_SHORT"
+      );
     }
 
     const mode = normalizeGenerationMode(requestedGenerationMode);
@@ -263,9 +285,12 @@ export async function generateTestQuestions(req: Request, res: Response) {
   } catch (error) {
     console.error("[AI] Final error (questions):", error);
 
-    return res.status(500).json({
-      error: "Failed to generate questions",
-    });
+    return sendAiError(
+      res,
+      500,
+      "Failed to generate questions",
+      "AI_QUESTION_GENERATION_FAILED"
+    );
   }
 }
 
@@ -284,21 +309,30 @@ export async function generateExerciseDraft(req: Request, res: Response) {
     const requestedExerciseCount = normalizeExerciseCount(requestedCount);
 
     if (!exerciseType) {
-      return res.status(400).json({
-        error: "Exercise type must be drag_drop_code or write_code",
-      });
+      return sendAiError(
+        res,
+        400,
+        "Exercise type must be drag_drop_code or write_code",
+        "AI_EXERCISE_TYPE_INVALID"
+      );
     }
 
     if (!difficulties) {
-      return res.status(400).json({
-        error: "Difficulties must be a non-empty array of easy, medium, or hard",
-      });
+      return sendAiError(
+        res,
+        400,
+        "Difficulties must be a non-empty array of easy, medium, or hard",
+        "AI_EXERCISE_DIFFICULTIES_INVALID"
+      );
     }
 
     if (!requestedExerciseCount) {
-      return res.status(400).json({
-        error: "Count must be a positive integer",
-      });
+      return sendAiError(
+        res,
+        400,
+        "Count must be a positive integer",
+        "AI_EXERCISE_COUNT_INVALID"
+      );
     }
 
     const { text } = await getContentForAI({
@@ -307,9 +341,12 @@ export async function generateExerciseDraft(req: Request, res: Response) {
     });
 
     if (!text.trim()) {
-      return res.status(400).json({
-        error: "Content is too short for generating exercise",
-      });
+      return sendAiError(
+        res,
+        400,
+        "Content is too short for generating exercise",
+        "AI_EXERCISE_CONTENT_TOO_SHORT"
+      );
     }
 
     const maxDifficulty = detectMaxDifficulty(text);
@@ -342,9 +379,12 @@ export async function generateExerciseDraft(req: Request, res: Response) {
     const firstExercise = exercises[0];
 
     if (!firstExercise) {
-      return res.status(500).json({
-        error: "Failed to generate exercise",
-      });
+      return sendAiError(
+        res,
+        500,
+        "Failed to generate exercise",
+        "AI_EXERCISE_GENERATION_FAILED"
+      );
     }
 
     return res.json({
@@ -355,8 +395,11 @@ export async function generateExerciseDraft(req: Request, res: Response) {
   } catch (error) {
     console.error("[AI] Final error (exercise):", error);
 
-    return res.status(500).json({
-      error: "Failed to generate exercise",
-    });
+    return sendAiError(
+      res,
+      500,
+      "Failed to generate exercise",
+      "AI_EXERCISE_GENERATION_FAILED"
+    );
   }
 }

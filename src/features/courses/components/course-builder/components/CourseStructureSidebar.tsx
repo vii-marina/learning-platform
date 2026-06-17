@@ -1022,12 +1022,12 @@ export function CourseStructureSidebar({
                         <PlayCircle className="h-3.5 w-3.5" />
                       )}
                       {previewExercise
-                        ? "Exercise Preview"
+                        ? "Превʼю вправи"
                         : previewTest
-                          ? "Test Questions"
+                          ? "Запитання тесту"
                           : previewLesson
-                            ? "Lesson Content"
-                            : "Module Content"}
+                            ? "Вміст уроку"
+                            : "Вміст модуля"}
                     </div>
                     <div className="mt-3 max-h-[28rem] overflow-y-auto pr-2">
                       {previewExercise ? (

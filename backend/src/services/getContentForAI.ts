@@ -10,41 +10,55 @@ function decodeHtmlEntities(value: string) {
     .replace(/&#39;/gi, "'");
 }
 
-function extractPlainText(content: unknown) {
-  try {
-    const parsed =
-      typeof content === "string"
-        ? JSON.parse(content)
-        : content;
+function extractHtml(content: unknown) {
+  if (typeof content === "string") {
+    try {
+      const parsed = JSON.parse(content);
 
-    const html =
-      typeof parsed === "object" && parsed !== null ? parsed.html : "";
+      if (typeof parsed === "string") {
+        return parsed;
+      }
 
-    if (typeof html !== "string") {
-      return "";
+      if (parsed && typeof parsed === "object" && "html" in parsed) {
+        return typeof parsed.html === "string" ? parsed.html : "";
+      }
+    } catch {
+      return content;
     }
+  }
 
-    return decodeHtmlEntities(html)
-      .replace(/<br\s*\/?>/gi, "\n")
-      .replace(/<\/(p|div|h\d|ul|ol|pre|blockquote)>/gi, "\n")
-      .replace(/<li\b[^>]*>/gi, "- ")
-      .replace(/<\/li>/gi, "\n")
-      .replace(/<\/?code\b[^>]*>/gi, "")
-      .replace(/<[^>]*>/g, " ")
-      .replace(/[ \t]+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .replace(/[ \t]{2,}/g, " ")
-      .trim();
-  } catch {
+  if (content && typeof content === "object" && "html" in content) {
+    return typeof content.html === "string" ? content.html : "";
+  }
+
+  return "";
+}
+
+function extractPlainText(content: unknown) {
+  const html = extractHtml(content);
+
+  if (!html) {
     return "";
   }
+
+  return decodeHtmlEntities(html)
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|h\d|ul|ol|pre|blockquote)>/gi, "\n")
+    .replace(/<li\b[^>]*>/gi, "- ")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/?code\b[^>]*>/gi, "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
 }
 
 function cleanText(text: string) {
   return text
     .split("\n")
     .map((line) => line.trim())
-    .filter((line) => line.length > 20) // прибираємо шум
+    .filter(Boolean)
     .join("\n");
 }
 
@@ -55,7 +69,9 @@ function splitIntoSections(text: string) {
     .map((s) => s.trim())
     .filter((s) => s.length > 30);
 
-  return sections.map((section, index) => {
+  const usableSections = sections.length > 0 ? sections : [text.trim()].filter(Boolean);
+
+  return usableSections.map((section, index) => {
     return `SECTION ${index + 1}:\n${section}`;
   });
 }
@@ -100,6 +116,20 @@ function resolveQuestionCount(
   return Math.max(1, Math.min(safeRequested, max));
 }
 
+async function getLessonFallbackText(lessonId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("lessons")
+    .select("content")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error("Lesson content not found");
+  }
+
+  return extractPlainText(data?.content);
+}
+
 export async function getContentForAI({
   afterLessonId,
   moduleId,
@@ -129,7 +159,9 @@ export async function getContentForAI({
       .filter(Boolean)
       .join("\n\n");
 
-    const cleaned = cleanText(rawText);
+    const lessonText = rawText || (await getLessonFallbackText(afterLessonId));
+
+    const cleaned = cleanText(lessonText);
     const sections = splitIntoSections(cleaned);
     const finalText = limitTextLength(sections);
 
@@ -148,7 +180,7 @@ export async function getContentForAI({
   if (moduleId) {
     const { data: lessons, error: lessonsError } = await supabaseAdmin
       .from("lessons")
-      .select("id, order")
+      .select("id, content, order")
       .eq("module_id", moduleId)
       .order("order", { ascending: true });
 
@@ -185,7 +217,8 @@ export async function getContentForAI({
 
     const combinedText = lessons
       .map((lesson, index) => {
-        const lessonText = (grouped.get(lesson.id) || []).join("\n\n");
+        const blockText = (grouped.get(lesson.id) || []).join("\n\n");
+        const lessonText = blockText || extractPlainText(lesson.content);
 
         return `LESSON ${index + 1}:\n${lessonText}`;
       })

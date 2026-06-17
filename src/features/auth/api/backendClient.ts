@@ -2,6 +2,7 @@ import { supabase } from "../../../lib/supabase";
 
 type BackendErrorResponse = {
   message?: string;
+  error?: string;
   code?: string;
   details?: unknown;
 };
@@ -82,7 +83,7 @@ function parseErrorPayload(payload: unknown) {
   const errorPayload = payload as BackendErrorResponse;
 
   return {
-    message: errorPayload.message ?? "Request failed.",
+    message: errorPayload.message ?? errorPayload.error ?? "Request failed.",
     code: errorPayload.code,
     details: errorPayload.details,
   };
