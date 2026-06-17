@@ -270,7 +270,7 @@ export function TestCreateModal({
           </span>
           <div className="min-w-0">
             <h4 className="text-base font-semibold text-[#14213d]">
-              Generate with AI
+              Генерувати за допомогою ШІ
             </h4>
           </div>
         </div>
@@ -299,7 +299,7 @@ export function TestCreateModal({
           </span>
           <div className="min-w-0">
             <h4 className="text-base font-semibold text-[#14213d]">
-              Create manually
+              Створити самостійно
             </h4>
           </div>
         </div>
