@@ -80,7 +80,7 @@ export function CoursePreviewSidebarNavigation({
   ];
   return (
     <aside className="flex h-full min-h-0 flex-col border-b border-[#dedcff] bg-white lg:border-b-0 lg:border-r">
-      <div className="shrink-0 border-b border-[#dedcff] px-5 py-4">
+      <div className="shrink-0 border-b border-[#dedcff] px-3 py-3 sm:px-5 sm:py-4">
         <div className="flex rounded-2xl bg-[#e7e4ff] p-1">
           {contentTabs.map((tab) => {
             const Icon = tab.icon;
@@ -92,7 +92,7 @@ export function CoursePreviewSidebarNavigation({
                 type="button"
                 onClick={() => onContentTypeChange(tab.type)}
                 disabled={tab.isDisabled}
-                className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-2 py-2 text-sm font-extrabold transition disabled:cursor-not-allowed disabled:opacity-45 ${
+                className={`flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-extrabold transition disabled:cursor-not-allowed disabled:opacity-45 sm:gap-2 sm:px-2 sm:text-sm ${
                   isActive
                     ? "bg-white text-[#5549f1] shadow-[0_8px_18px_rgba(31,27,77,0.12)]"
                     : "text-[#6d6a9f] hover:bg-white/55 hover:text-[#1f1b4d]"

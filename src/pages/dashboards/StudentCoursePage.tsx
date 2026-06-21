@@ -180,29 +180,21 @@ export function StudentCoursePage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f6f7fb] px-4 py-4 text-slate-900 md:px-8">
-      <div className="mx-auto max-w-[1540px] space-y-4">
-        <header className="grid items-center gap-3 md:grid-cols-[1fr_auto_1fr]">
+    <div className="min-h-screen bg-[#f6f7fb] px-4 pt-2 pb-4 text-slate-900 md:px-8 md:py-4">
+      <div className="mx-auto max-w-[1540px] space-y-3 md:space-y-4">
+        <header className="flex items-center justify-between gap-3">
           <Button
             type="button"
             variant="secondary"
             onClick={() => navigate("/student/dashboard")}
-            className="justify-self-start"
+            className="h-11 shrink-0 rounded-[1rem] px-4 text-sm md:h-12 md:px-5 md:text-base"
           >
             <ArrowLeft className="h-4 w-4" />
             Мої курси
           </Button>
 
           {courseData ? (
-            <h1 className="min-w-0 truncate text-center text-2xl font-extrabold tracking-tight text-[#1f1b4d]">
-              {courseData.course.title}
-            </h1>
-          ) : (
-            <div />
-          )}
-
-          {courseData ? (
-            <p className="justify-self-end text-sm font-bold text-[#6d6a9f]">
+            <p className="min-w-0 text-right text-sm font-bold text-[#6d6a9f] md:text-base">
               {courseData.course.progress_percent}% завершено
             </p>
           ) : null}

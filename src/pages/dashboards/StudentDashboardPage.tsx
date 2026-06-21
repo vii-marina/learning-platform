@@ -354,7 +354,7 @@ export function StudentDashboardPage() {
             </header>
           ) : null}
 
-          <div className="px-4 py-6 md:px-8 md:py-8 xl:px-10">
+          <div className="px-4 pt-6 pb-32 md:px-8 md:pt-8 lg:pb-8 xl:px-10">
           {pageMessage ? (
             <Card
               className={`rounded-[1.75rem] p-6 shadow-none ${

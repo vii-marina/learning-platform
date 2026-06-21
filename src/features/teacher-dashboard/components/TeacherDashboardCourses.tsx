@@ -226,11 +226,6 @@ function TeacherCourseDetailsModal({
                 Останнє редагування: {formatCourseRelativeTime(course.updated_at)}
               </span>
             </div>
-            <div>
-              <h2 className="text-2xl font-semibold tracking-tight text-slate-950 md:text-3xl">
-                {course.title}
-              </h2>
-            </div>
             <div className="flex flex-wrap gap-2 text-sm text-slate-600">
               <span className="rounded-full bg-slate-100 px-3 py-1.5">
                 {course.modulesCount} модулів

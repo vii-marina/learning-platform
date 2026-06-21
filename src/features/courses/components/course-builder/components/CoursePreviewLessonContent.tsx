@@ -250,14 +250,14 @@ export function CoursePreviewLessonContent({
   }
 
   return (
-    <div id="course-preview-main" className="flex min-w-0 flex-1 flex-col bg-[#f1f0ff]">
+    <div id="course-preview-main" className="flex min-w-0 flex-col bg-[#f1f0ff] lg:flex-1">
       <div
-        className={`flex h-full min-h-0 w-full flex-col ${
+        className={`flex w-full flex-col lg:h-full lg:min-h-0 ${
           activeContentType === "exercise" ? "" : ""
         }`}
       >
         <div
-          className={`min-h-0 flex-1 overflow-y-auto px-6 py-5 ${
+          className={`px-4 py-4 md:px-6 md:py-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto ${
             activeContentType === "exercise" ? "" : "mx-auto w-full max-w-[58rem]"
           }`}
         >

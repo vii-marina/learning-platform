@@ -355,8 +355,8 @@ export function TeacherDashboardPage() {
         <main
           className={`min-w-0 flex-1 ${
             isBuilderSection
-              ? "px-0 py-0"
-              : "px-4 py-6 md:px-8 md:py-8 xl:px-10"
+              ? "px-0 pt-0 pb-28 lg:pb-0"
+              : "px-4 pt-6 pb-32 md:px-8 md:pt-8 lg:pb-8 xl:px-10"
           }`}
         >
           {pageMessage ? (

@@ -1,6 +1,6 @@
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Code2, ClipboardList, Layers3, Play } from "lucide-react";
+import { BookOpen, Code2, ClipboardList, Layers3, ListTree, Play, X } from "lucide-react";
 import type { Lesson, Module } from "../../../api/index";
 import { createLocalEntityId } from "../lib/courseBuilderPageUtils";
 import {
@@ -143,6 +143,7 @@ export function CoursePreviewPage({
   const [sidebarWidth, setSidebarWidth] = useState(380);
   const [overviewModalTab, setOverviewModalTab] =
     useState<CoursePreviewOverviewTab | null>(null);
+  const [isMobileNavigationOpen, setIsMobileNavigationOpen] = useState(false);
   const initializedProgressKeyRef = useRef<string | null>(null);
 
   const progressStorageKey = useMemo(
@@ -270,6 +271,7 @@ export function CoursePreviewPage({
     setChatContext(null);
     setChatMessagesByReference({});
     setOverviewModalTab(null);
+    setIsMobileNavigationOpen(false);
     setIsCompletingLesson(false);
     initializedProgressKeyRef.current = null;
   }, [progressStorageKey]);
@@ -498,6 +500,11 @@ export function CoursePreviewPage({
     activateSequenceItem(lessonItem);
   }
 
+  function handleMobileSelectLesson(moduleId: string, lessonId: string) {
+    handleSelectLesson(moduleId, lessonId);
+    setIsMobileNavigationOpen(false);
+  }
+
   function handleSelectExercise(moduleId: string, lessonId: string, exerciseId: string) {
     const exerciseItem =
       previewSequence.find(
@@ -513,6 +520,11 @@ export function CoursePreviewPage({
     }
 
     activateSequenceItem(exerciseItem);
+  }
+
+  function handleMobileSelectExercise(moduleId: string, lessonId: string, exerciseId: string) {
+    handleSelectExercise(moduleId, lessonId, exerciseId);
+    setIsMobileNavigationOpen(false);
   }
 
   function handleSelectTest(moduleId: string, lessonId: string | null, testId: string) {
@@ -537,6 +549,11 @@ export function CoursePreviewPage({
     }
 
     activateSequenceItem(testItem);
+  }
+
+  function handleMobileSelectTest(moduleId: string, lessonId: string | null, testId: string) {
+    handleSelectTest(moduleId, lessonId, testId);
+    setIsMobileNavigationOpen(false);
   }
 
   function handleNavigateToItem(item: CoursePreviewSequenceItem | null) {
@@ -634,8 +651,8 @@ export function CoursePreviewPage({
 
   return (
     <>
-      <section className="mb-5 rounded-[0.75rem] border border-slate-200 bg-white p-5 shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-        <div className="grid gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
+      <section className="mb-4 rounded-[0.75rem] border border-slate-200 bg-white p-3 shadow-[0_18px_40px_rgba(15,23,42,0.06)] sm:p-5">
+        <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[16rem_minmax(0,1fr)] sm:gap-5 lg:grid-cols-[18rem_minmax(0,1fr)] lg:items-start">
           <div className="aspect-video overflow-hidden rounded-[0.75rem] border border-slate-200 bg-slate-950">
             {courseThumbnailUrl ? (
               <img
@@ -651,15 +668,15 @@ export function CoursePreviewPage({
           </div>
 
           <div className="min-w-0">
-            <h2 className="text-2xl font-black tracking-tight text-[#14213d] ">
+            <h2 className="text-base font-black leading-tight tracking-tight text-[#14213d] sm:text-2xl">
               {courseTitle}
             </h2>
             {courseDescription?.trim() ? (
-              <p className="mt-3 max-h-32 overflow-y-auto whitespace-pre-line pr-2 text-sm font-semibold leading-7 text-slate-600">
+              <p className="mt-1.5 max-h-20 overflow-y-auto whitespace-pre-line pr-2 text-xs font-semibold leading-5 text-slate-600 sm:mt-3 sm:max-h-32 sm:text-sm sm:leading-7">
                 {courseDescription}
               </p>
             ) : (
-              <p className="mt-3 text-sm font-semibold leading-7 text-slate-500">
+              <p className="mt-1.5 text-xs font-semibold leading-5 text-slate-500 sm:mt-3 sm:text-sm sm:leading-7">
                 Опис курсу поки не додано.
               </p>
             )}
@@ -704,10 +721,31 @@ export function CoursePreviewPage({
         </div>
       </section>
 
-      <section className="flex h-[calc(100vh-6.5rem)] min-h-[40rem] flex-col overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)]">
-        <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+      <section className="flex flex-col overflow-visible rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_18px_40px_rgba(15,23,42,0.06)] lg:h-[calc(100vh-6.5rem)] lg:min-h-[40rem] lg:overflow-hidden">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#dedcff] bg-white px-4 py-3 lg:hidden">
+          <div className="min-w-0">
+            <p className="text-xs font-bold uppercase text-[#6d6a9f]">
+              Поточний матеріал
+            </p>
+            <p className="mt-0.5 truncate text-sm font-extrabold text-[#1f1b4d]">
+              {activeModule && activeLesson
+                ? `${activeModule.order}.${activeLesson.order} ${activeLesson.title}`
+                : "Оберіть урок"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsMobileNavigationOpen(true)}
+            className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#dedcff] bg-[#f1f0ff] px-3 py-2 text-sm font-extrabold text-[#5549f1]"
+          >
+            <ListTree className="h-4 w-4" />
+            Зміст
+          </button>
+        </div>
+
+        <div className="flex flex-col lg:min-h-0 lg:flex-1 lg:flex-row">
           <div
-            className="relative min-h-0 shrink-0"
+            className="relative hidden min-h-0 shrink-0 lg:block"
             style={{ width: `${sidebarWidth}px` }}
           >
             <CoursePreviewSidebarNavigation
@@ -797,6 +835,71 @@ export function CoursePreviewPage({
           />
         </div>
       </section>
+
+      {isMobileNavigationOpen ? (
+        <div
+          className="fixed inset-0 z-[130] bg-slate-950/45 px-3 py-4 backdrop-blur-sm lg:hidden"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsMobileNavigationOpen(false);
+            }
+          }}
+        >
+          <div className="mx-auto flex h-full max-w-md items-start pt-8">
+            <div className="flex h-[82vh] w-full flex-col overflow-hidden rounded-[1.5rem] border border-[#dedcff] bg-white shadow-2xl">
+              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-[#dedcff] px-4 py-3">
+                <div>
+                  <h3 className="text-lg font-extrabold text-[#1f1b4d]">
+                    Зміст курсу
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMobileNavigationOpen(false)}
+                  className="flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 text-slate-500"
+                  aria-label="Закрити зміст курсу"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <CoursePreviewSidebarNavigation
+                  modules={modules}
+                  lessonsByModule={lessonsByModule}
+                  testsByModule={testsByModule}
+                  exercisesByModule={exercisesByModule}
+                  expandedModuleId={expandedModuleId}
+                  activeLessonId={activeLesson?.id ?? null}
+                  activeExerciseId={activeContentType === "exercise" ? activeExerciseId : null}
+                  activeTestId={activeContentType === "test" ? activeTestId : null}
+                  activeContentType={activeContentType}
+                  completedLessonIds={completedLessonIds}
+                  completedExerciseIds={completedExerciseIds}
+                  completedTestIds={completedTestIds}
+                  onContentTypeChange={handleChangeContentType}
+                  onModuleToggle={(moduleId) => {
+                    setExpandedModuleId((currentModuleId) =>
+                      currentModuleId === moduleId ? null : moduleId
+                    );
+                    setActiveExerciseId(null);
+                    setActiveTestId(null);
+                    setActiveContentType("lesson");
+
+                    const nextLesson = (lessonsByModule[moduleId] ?? [])[0] ?? null;
+
+                    if (nextLesson) {
+                      setActiveLessonId(nextLesson.id);
+                    }
+                  }}
+                  onSelectLesson={handleMobileSelectLesson}
+                  onSelectExercise={handleMobileSelectExercise}
+                  onSelectTest={handleMobileSelectTest}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <CoursePreviewOverviewModal
         isOpen={overviewModalTab !== null}

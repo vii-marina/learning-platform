@@ -74,7 +74,7 @@ export function AdminDashboardLayout() {
       <div className="mx-auto grid min-h-screen max-w-[1720px] lg:grid-cols-[18rem_minmax(0,1fr)]">
         <AdminDashboardSidebar />
 
-        <main className="min-w-0 px-4 py-6 md:px-8 md:py-8 xl:px-10">
+        <main className="min-w-0 px-4 pt-6 pb-32 md:px-8 md:pt-8 lg:pb-8 xl:px-10">
           
 
           {message ? (
