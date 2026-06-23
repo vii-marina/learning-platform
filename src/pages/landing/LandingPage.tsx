@@ -100,6 +100,8 @@ type PublicLandingPreview = {
   exercise: LandingPreviewExercise | null;
 };
 
+type LandingPreviewStatus = "loading" | "ready" | "error";
+
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex justify-center">
@@ -119,7 +121,7 @@ function SectionHeading({
 }) {
   return (
     <div className="mx-auto mt-4 max-w-3xl text-center">
-      <h2 className="text-3xl font-extrabold leading-tight text-[#1f1b4d] md:text-4xl">
+      <h2 className="text-3xl font-extrabold leading-tight text-[#1f1b4d] ">
         {title}
       </h2>
       {subtitle ? (
@@ -416,103 +418,6 @@ function PreviewSidebar({
   );
 }
 
-const arithmeticLessonHtml = `
-<p>An <strong>arithmetic operator</strong> is a symbol that represents an arithmetic computation. For example, the plus sign, <code>+</code>, performs addition.</p>
-<pre data-code-variant="input" class="lesson-code-block lesson-code-block--input"><code>30 + 12</code></pre>
-<pre data-code-variant="output" class="lesson-code-block lesson-code-block--output"><code>42</code></pre>
-<p>The minus sign, <code>-</code>, is the operator that performs subtraction.</p>
-<pre data-code-variant="input" class="lesson-code-block lesson-code-block--input"><code>43 - 1</code></pre>
-<pre data-code-variant="output" class="lesson-code-block lesson-code-block--output"><code>42</code></pre>
-<p>The asterisk, <code>*</code>, performs multiplication.</p>
-<pre data-code-variant="input" class="lesson-code-block lesson-code-block--input"><code>6 * 7</code></pre>
-<pre data-code-variant="output" class="lesson-code-block lesson-code-block--output"><code>42</code></pre>
-<p>And the forward slash, <code>/</code>, performs division:</p>
-<pre data-code-variant="input" class="lesson-code-block lesson-code-block--input"><code>84 / 2</code></pre>
-<pre data-code-variant="output" class="lesson-code-block lesson-code-block--output"><code>42.0</code></pre>
-<p>Notice that the result of the division is <code>42.0</code> rather than <code>42</code>. That is because there are two types of numbers in Python: integers and floating-point numbers.</p>
-`;
-
-const fallbackLandingPreview: PublicLandingPreview = {
-  course: {
-    id: "fallback-course",
-    title: "Python Basics",
-    description: null,
-    slug: "python-basics",
-    thumbnail_path: null,
-  },
-  module: {
-    id: "fallback-module",
-    course_id: "fallback-course",
-    title: "Programming as a way of thinking",
-    order: 1,
-  },
-  lesson: {
-    id: "fallback-lesson",
-    module_id: "fallback-module",
-    title: "Arithmetic operators",
-    content: arithmeticLessonHtml,
-    order: 2,
-  },
-  module_lessons: [
-    {
-      id: "fallback-lesson-1",
-      module_id: "fallback-module",
-      title: "Programming as a way of thinking",
-      content: null,
-      order: 1,
-    },
-    {
-      id: "fallback-lesson",
-      module_id: "fallback-module",
-      title: "Arithmetic operators",
-      content: arithmeticLessonHtml,
-      order: 2,
-    },
-    {
-      id: "fallback-lesson-3",
-      module_id: "fallback-module",
-      title: "Expressions",
-      content: null,
-      order: 3,
-    },
-    {
-      id: "fallback-lesson-4",
-      module_id: "fallback-module",
-      title: "Arithmetic functions",
-      content: null,
-      order: 4,
-    },
-    {
-      id: "fallback-lesson-5",
-      module_id: "fallback-module",
-      title: "Strings",
-      content: null,
-      order: 5,
-    },
-  ],
-  test: {
-    id: "fallback-test",
-    title: "Arithmetic operators",
-    after_lesson_id: "fallback-lesson",
-    module_id: "fallback-module",
-    questions: [],
-  },
-  exercise: {
-    id: "fallback-exercise",
-    module_id: "fallback-module",
-    after_lesson_id: "fallback-lesson",
-    type: "write_code",
-    title: "Написати код",
-    description: null,
-    content: {
-      type: "write_code",
-      question: "Fill in the missing operator to perform addition.",
-      initial_code: "result = 5 {{answer}} 3",
-      expected_answer: "+",
-    },
-  },
-};
-
 function LessonPreviewContent({ preview }: { preview: PublicLandingPreview }) {
   return (
     <div className="min-w-0 overflow-hidden">
@@ -524,48 +429,25 @@ function LessonPreviewContent({ preview }: { preview: PublicLandingPreview }) {
       <h3 className="mt-1.5 text-xl font-bold tracking-tight text-[#1f1b4d] md:text-2xl">
         {preview.lesson.title}
       </h3>
-      <div
-        className="prose prose-slate mt-3 max-w-none overflow-hidden text-slate-700 prose-headings:text-[#1f1b4d] prose-pre:max-w-full prose-pre:overflow-x-auto prose-code:whitespace-pre prose-a:text-[#5549f1]"
-        dangerouslySetInnerHTML={{ __html: preview.lesson.content || arithmeticLessonHtml }}
-      />
+      {preview.lesson.content ? (
+        <div
+          className="prose prose-slate mt-3 max-w-none overflow-hidden text-slate-700 prose-headings:text-[#1f1b4d] prose-pre:max-w-full prose-pre:overflow-x-auto prose-code:whitespace-pre prose-a:text-[#5549f1]"
+          dangerouslySetInnerHTML={{ __html: preview.lesson.content }}
+        />
+      ) : (
+        <div className="mt-5 rounded-xl border border-dashed border-[#dedcff] bg-white px-5 py-8 text-center text-sm font-semibold text-[#6d6a9f]">
+          У цього уроку поки немає контенту для перегляду.
+        </div>
+      )}
     </div>
   );
 }
 
-const arithmeticQuestions = [
+const fallbackPreviewQuestions = [
   {
-    text: "What does the plus sign (+) represent in arithmetic operations?",
-    answers: ["Subtraction", "Addition", "Multiplication", "Division"],
-    correctIndexes: [1],
-    type: "single_choice" as const,
-  },
-  {
-    text: "What type of number is the result of dividing two integers in Python?",
-    answers: ["Integer", "Floating-point number", "String", "Boolean"],
-    correctIndexes: [1],
-    type: "single_choice" as const,
-  },
-  {
-    text: "What is the result of the operation 84 // 2 in Python?",
-    answers: ["42.0", "42", "43", "41"],
-    correctIndexes: [1],
-    type: "single_choice" as const,
-  },
-  {
-    text: "What does the operator ** do in Python?",
-    answers: [
-      "Performs multiplication",
-      "Performs exponentiation",
-      "Performs division",
-      "Performs subtraction",
-    ],
-    correctIndexes: [1],
-    type: "single_choice" as const,
-  },
-  {
-    text: "What is the result of the operation 85 // 2 in Python?",
-    answers: ["42.5", "42", "43", "41"],
-    correctIndexes: [1],
+    text: "Позначте правильну відповідь.",
+    answers: ["Правильна відповідь", "Неправильна відповідь"],
+    correctIndexes: [0],
     type: "single_choice" as const,
   },
 ];
@@ -574,7 +456,7 @@ function getPreviewQuestions(preview: PublicLandingPreview) {
   const backendQuestions = preview.test?.questions ?? [];
 
   if (backendQuestions.length === 0) {
-    return arithmeticQuestions;
+    return fallbackPreviewQuestions;
   }
 
   return backendQuestions.map((question) => ({
@@ -837,7 +719,7 @@ function getExerciseExpectedAnswers(exercise: LandingPreviewExercise | null) {
 }
 
 function ExercisePreviewSession({ preview }: { preview: PublicLandingPreview }) {
-  const exercise = preview.exercise ?? fallbackLandingPreview.exercise;
+  const exercise = preview.exercise;
   const question =
     getExerciseContentString(exercise?.content, "question") ||
     exercise?.description ||
@@ -1186,8 +1068,70 @@ function Hero() {
   );
 }
 
-function CoursePreviewSection({ preview }: { preview: PublicLandingPreview }) {
+function CoursePreviewPlaceholder({ status }: { status: LandingPreviewStatus }) {
+  const isError = status === "error";
+
+  return (
+    <div className="mx-auto mt-12 max-w-6xl overflow-hidden rounded-[1.5rem] border border-[#dedcff] bg-white text-left shadow-[0_24px_70px_rgba(31,27,77,0.08)]">
+      <div className="border-b border-[#dedcff] p-3 sm:p-5 md:p-6">
+        <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[16rem_minmax(0,1fr)] sm:gap-5 md:items-center">
+          <div className="aspect-video rounded-[1rem] border border-[#dedcff] bg-[#f1f0ff]" />
+          <div className="min-w-0 space-y-3">
+            <div className="h-6 max-w-xs rounded-full bg-[#e6e1ff]" />
+            <div className="h-4 max-w-2xl rounded-full bg-[#f1f0ff]" />
+            <div className="h-4 max-w-xl rounded-full bg-[#f1f0ff]" />
+          </div>
+        </div>
+      </div>
+      <div className="grid h-[38rem] md:h-[34rem] md:grid-cols-[320px_minmax(0,1fr)]">
+        <div className="hidden border-r border-[#5549f1]/15 p-5 md:block">
+          <div className="h-16 rounded-[1.4rem] bg-[#e6e1ff]" />
+          <div className="mt-8 space-y-3">
+            <div className="h-5 rounded-full bg-[#f1f0ff]" />
+            <div className="h-5 max-w-[85%] rounded-full bg-[#f1f0ff]" />
+            <div className="mt-8 h-12 rounded-2xl bg-[#e7e2ff]" />
+            <div className="h-12 rounded-2xl bg-[#f1f0ff]" />
+            <div className="h-12 rounded-2xl bg-[#f1f0ff]" />
+          </div>
+        </div>
+        <div className="flex min-h-0 flex-col bg-[#f1f0ff]">
+          <div className="flex flex-1 items-center justify-center px-5 text-center">
+            <div className="max-w-md">
+              {isError ? (
+                <XCircle className="mx-auto h-10 w-10 text-rose-500" />
+              ) : (
+                <RefreshCw className="mx-auto h-10 w-10 animate-spin text-[#5549f1]" />
+              )}
+              <h2 className="mt-5 text-ml font-extrabold text-[#1f1b4d]">
+                {isError ? "Не вдалося завантажити превʼю курсу" : "Завантажуємо превʼю курсу"}
+              </h2>
+              
+            </div>
+          </div>
+          <div className="h-[4.5rem] border-t border-[#dedcff] bg-white" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CoursePreviewSection({
+  preview,
+  status,
+}: {
+  preview: PublicLandingPreview | null;
+  status: LandingPreviewStatus;
+}) {
   const [previewMode, setPreviewMode] = useState<PreviewMode>("lesson");
+
+  if (!preview) {
+    return (
+      <section id="course-preview" className="bg-[#f8f7ff] px-5 pb-16 pt-4 text-center">
+        <CoursePreviewPlaceholder status={status} />
+      </section>
+    );
+  }
+
   const resolvedPreviewMode =
     (previewMode === "test" && !preview.test) ||
     (previewMode === "exercise" && !preview.exercise)
@@ -1546,23 +1490,27 @@ function LandingFooter() {
 
 export function LandingPage() {
   const [landingPreview, setLandingPreview] = useState<PublicLandingPreview | null>(null);
-  const preview = landingPreview ?? fallbackLandingPreview;
+  const [landingPreviewStatus, setLandingPreviewStatus] =
+    useState<LandingPreviewStatus>("loading");
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadLandingPreview() {
       try {
+        setLandingPreviewStatus("loading");
         const loadedPreview = await publicBackendRequest<PublicLandingPreview>(
           "/public/landing-preview"
         );
 
         if (isMounted) {
           setLandingPreview(loadedPreview);
+          setLandingPreviewStatus("ready");
         }
       } catch {
         if (isMounted) {
           setLandingPreview(null);
+          setLandingPreviewStatus("error");
         }
       }
     }
@@ -1580,7 +1528,7 @@ export function LandingPage() {
       <main>
         <Hero />
         <AudienceCards />
-        <CoursePreviewSection preview={preview} />
+        <CoursePreviewSection preview={landingPreview} status={landingPreviewStatus} />
         <FeatureGrid
           id="teachers"
           label="Викладачам"
