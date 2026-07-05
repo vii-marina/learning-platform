@@ -6,18 +6,6 @@ EduCat is a full-stack learning management platform for creating and completing 
 
 https://educat-learning-platform.vercel.app/
 
-## Demo Accounts
-
-Teacher account:
-- Email: `REPLACE_WITH_TEACHER_EMAIL`
-- Password: `REPLACE_WITH_TEACHER_PASSWORD`
-
-Student account:
-- Email: `REPLACE_WITH_STUDENT_EMAIL`
-- Password: `REPLACE_WITH_STUDENT_PASSWORD`
-
-Admin credentials are not shared publicly for security reasons.
-
 ## Project Status
 
 EduCat is an MVP and active development project. The core platform is implemented and deployed, including authentication, role-based dashboards, course creation, student learning flows, admin tools, progress tracking, and backend AI generation. Further product, UX, analytics, and learning-experience improvements are planned.
