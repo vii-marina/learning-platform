@@ -1,102 +1,162 @@
-# Кваліфікаційна робота
+# EduCat — AI-Powered Learning Platform
 
-## Тема
+EduCat is a full-stack learning management platform for creating and completing programming courses. It supports role-based dashboards for students, teachers, and administrators, with tools for course building, structured lessons, tests, coding exercises, progress tracking, teacher analytics, admin management, and AI-assisted generation of tests and exercises.
 
-**Проєктування та реалізація навчальної веб-платформи для вивчення основ програмування**
+## Live Demo
 
-## Опис проєкту
+https://educat-learning-platform.vercel.app/
 
-Цей проєкт є навчальною веб-платформою, призначеною для вивчення основ програмування у зручній, зрозумілій та структурованій формі.
+## Demo Accounts
 
-Платформа реалізована у форматі LMS-системи, де:
+Teacher account:
+- Email: `REPLACE_WITH_TEACHER_EMAIL`
+- Password: `REPLACE_WITH_TEACHER_PASSWORD`
 
-- студенти переглядають і проходять доступні курси;
-- викладачі створюють, редагують і публікують навчальний контент;
-- адміністратори керують користувачами, курсами та загальним вмістом платформи.
+Student account:
+- Email: `REPLACE_WITH_STUDENT_EMAIL`
+- Password: `REPLACE_WITH_STUDENT_PASSWORD`
 
-Основна ідея продукту полягає в тому, що викладачі формують структурований навчальний матеріал, студенти його опановують, а адміністратори контролюють роботу всієї системи.
+Admin credentials are not shared publicly for security reasons.
 
-## Мета роботи
+## Project Status
 
-Метою кваліфікаційної роботи є проєктування та реалізація сучасної навчальної веб-платформи, яка надає можливість:
+EduCat is an MVP and active development project. The core platform is implemented and deployed, including authentication, role-based dashboards, course creation, student learning flows, admin tools, progress tracking, and backend AI generation. Further product, UX, analytics, and learning-experience improvements are planned.
 
-- вивчати основи програмування через послідовно структуровані курси;
-- створювати освітній контент за допомогою зручного інтерфейсу;
-- організовувати взаємодію між студентами, викладачами та адміністраторами;
-- використовувати AI-інструменти для автоматичної генерації тестових завдань та практичних вправ.
+## Key Features
 
-## Технологічний стек
+### Public Landing Page
+
+- Product overview for the learning platform
+- Dedicated sections for students and teachers
+- Dynamic course preview managed from the admin dashboard
+- FAQ section
+- Authentication entry points
+
+### Authentication and Roles
+
+- Supabase Auth
+- Email confirmation
+- Role-based access control
+- Separate dashboards for students, teachers, and super-admin users
+
+### Student Features
+
+- Browse published courses
+- Enroll in courses
+- Continue started courses
+- View enrolled and completed courses
+- Open lessons, tests, and exercises
+- Track total course progress
+- Track progress separately by lessons, tests, and exercises
+- View teacher profiles
+- Edit student profile
+
+### Teacher Features
+
+- Teacher dashboard
+- Create, edit, publish, unpublish, and archive courses
+- Build course structure with modules, lessons, tests, and exercises
+- Add formatted lesson content using a rich text editor
+- Add video links to lessons
+- Upload course thumbnails and media files
+- Create tests manually or with AI
+- Create coding exercises manually or with AI
+- Preview courses before publishing
+- View students grouped by course
+- Track student progress and test results
+- Edit teacher profile
+
+### Admin Features
+
+- Admin dashboard
+- Manage teachers
+- Manage students
+- Edit student and teacher profiles
+- View student enrollments and learning progress
+- Manage published courses
+- Unpublish, archive, or delete courses
+- View course statistics
+- Configure the dynamic landing page preview content
+
+## Tech Stack
 
 ### Frontend
 
-- `React 19`
-- `TypeScript`
-- `Vite`
-- `React Router 7`
-- `Tailwind CSS`
-- `Supabase JS client` для авторизації, доступу до бази даних і файлового сховища
-- `TipTap` для редагування текстового вмісту уроків
-- `Lucide React` для іконок
-- `Lottie` для анімацій
+- React 19
+- TypeScript
+- Vite
+- React Router 7
+- Tailwind CSS
+- Supabase JS Client
+- TipTap
+- Lucide React
+- Lottie
 
 ### Backend
 
-- `Node.js`
-- `TypeScript`
-- `Express 5`
-- `Zod` для валідації запитів і змінних середовища
-- `Supabase service-role client` для захищених серверних операцій
-- `OpenAI SDK` для генерації тестових питань і вправ з програмування
+- Node.js
+- Express 5
+- TypeScript
+- Zod
+- OpenAI SDK
+- Supabase service-role client
 
-## Архітектура проєкту
+### Database and Infrastructure
 
-Проєкт має розділену архітектуру:
+- Supabase Auth
+- Supabase PostgreSQL
+- Supabase Storage
+- Vercel for frontend deployment
+- Render for backend deployment
+- Git and GitHub
 
-- фронтенд розташований у директорії `src`;
-- бекенд API розташований у директорії `backend/src`.
+## Architecture Overview
 
-Фронтенд взаємодіє:
+EduCat uses a full-stack client-server architecture.
 
-- із власним бекендом;
-- безпосередньо з `Supabase` для частини операцій.
+The frontend handles the user interface, routing, dashboards, public landing page, course learning flow, course builder, and admin interface. It uses Supabase Auth for user sessions and communicates with the backend for protected operations.
 
-### Важлива архітектурна особливість
+The backend handles secure business logic, AI generation, request validation, admin operations, progress saving, dashboard statistics, landing preview settings, and secure access to OpenAI and Supabase service-role operations.
 
-У проєкті використовується змішаний підхід до роботи з даними:
+Sensitive keys, including the Supabase service-role key and OpenAI API key, are stored only on the backend and are never exposed in frontend code.
 
-- значна частина CRUD-операцій для курсів виконується напряму з фронтенду через `Supabase`;
-- бекенд переважно відповідає за захищену бізнес-логіку:
-  - синхронізацію авторизації та профілів;
-  - дії, доступні лише адміністратору;
-  - перевірку прав доступу до уроків і вправ;
-  - завантаження списків курсів для студентів;
-  - збереження прогресу проходження уроків, тестів і вправ;
-  - агрегацію статистики для студентського, викладацького та адміністративного dashboard;
-  - керування налаштуваннями демонстраційного контенту на лендінгу;
-  - AI-генерацію навчального контенту.
+## Core User Flows
 
-## Основні ролі користувачів
+### Student
 
-У системі реалізовано такі ролі:
+1. Sign in or create an account.
+2. Browse published courses.
+3. Enroll in a course.
+4. Open lessons, tests, and exercises.
+5. Complete learning activities.
+6. Track progress.
 
-- `student`
-- `teacher`
-- `super-admin`
+### Teacher
 
-Після входу в систему користувач перенаправляється до відповідної панелі керування залежно від своєї ролі.
+1. Sign in as a teacher.
+2. Create a course.
+3. Add course information and thumbnail.
+4. Build modules and lessons.
+5. Add tests and exercises.
+6. Use AI generation if needed.
+7. Preview and publish the course.
+8. Track student progress.
 
-## Основні сценарії роботи
+### Admin
 
-### Авторизація
+1. Sign in as an administrator.
+2. Manage teachers, students, and courses.
+3. Review student progress and course activity.
+4. Configure landing page preview content.
 
-- автентифікація реалізована через `Supabase Auth`;
-- користувач може зареєструватися як студент або викладач;
-- після входу користувач автоматично перенаправляється до відповідного dashboard;
+## Database Overview
 
-### Навчальний контент
+The platform uses Supabase PostgreSQL as the primary database. Main entities include:
 
-Основна модель навчального контенту включає:
-
+- `profiles`
+- `student_profiles`
+- `teacher_profiles`
+- `admins`
 - `courses`
 - `modules`
 - `lessons`
@@ -105,200 +165,60 @@
 - `test_questions`
 - `test_answers`
 - `exercises`
+- `exercise_content`
 - `course_progress`
 - `lesson_progress`
+- `lesson_views`
 - `user_test_results`
 - `user_exercise_results`
+- `user_courses`
+- `course_access_list`
 - `landing_page_settings`
 
-Ця структура дозволяє будувати ієрархічні курси, які складаються з модулів, уроків, текстових блоків, тестів і практичних вправ, а також зберігати детальний прогрес навчання студентів.
+Supabase Storage is used for course thumbnails, lesson media, and user profile assets.
 
-## Реалізований функціонал
+## AI Functionality
 
-На поточному етапі у проєкті реалізовано:
+The AI module is implemented on the backend using the OpenAI SDK. It can generate draft learning content for teachers, including:
 
-- головну сторінку платформи;
-- сторінки входу, реєстрації та підтвердження email;
-- студентський dashboard із каталогом курсів, редагуванням профілю, секцією викладачів і деталізованим прогресом;
-- викладацький dashboard із редагуванням профілю, workspace для побудови курсів, швидким створенням курсу та продовженням чернетки;
-- адміністративний dashboard із керуванням викладачами, студентами та курсами;
-- адміністративне керування демонстраційним контентом головної сторінки;
-- розширене керування студентами в адміністративній панелі;
-- перегляд фактичних записів студентів на курси та прогресу проходження;
-- очищення привʼязки студента до конкретного курсу разом із прогресом уроків;
-- відображення кількості студентів і завершених проходжень у картках курсів;
-- збереження результатів тестів і виконаних вправ студентів;
-- розрахунок прогресу окремо по уроках, тестах і вправах;
-- агреговану аналітику для викладача по курсах і студентах;
-- CRUD-операції для курсів;
-- публікацію, зняття з публікації та архівацію курсів;
-- керування уроками та блоками уроків;
-- завантаження медіафайлів у `Supabase Storage`;
-- AI-генерацію тестових питань і вправ на основі контенту уроку або модуля.
+- Test questions
+- Programming exercises
+- True / false questions
+- Single choice questions
+- Multiple choice questions
+- Fill missing code exercises
+- Write code exercises
 
-## Адміністративне керування студентами та курсами
+Generated AI content is shown as a draft first. Teachers can review, edit, and save generated content manually. AI does not publish content automatically.
 
-В адміністративній частині реалізовано окремий сценарій керування студентами та курсами, до яких вони привʼязані.
-
-### Панель студентів
-
-На сторінці студентів адміністратор може:
-
-- переглядати загальну кількість студентів;
-- бачити кількість записів студентів на курси;
-- бачити кількість завершених проходжень;
-- шукати студентів за іменем, email, місцем навчання або назвою курсу;
-- переглядати картки студентів із короткою інформацією про профіль, записані курси та середній прогрес;
-- переходити до детальної сторінки студента для редагування профілю.
-
-### Детальна сторінка студента
-
-На сторінці конкретного студента реалізовано:
-
-- редагування основної інформації профілю;
-- редагування аватара, місця навчання, біографії та соціальних посилань;
-- окремий повноширинний блок із записаними курсами студента;
-- відображення прогресу по кожному курсу;
-- показ кількості завершених уроків відносно загальної кількості уроків;
-- можливість очистити запис студента на конкретний курс.
-
-Очищення запису студента на курс видаляє:
-
-- запис у `course_progress`;
-- повʼязані записи прогресу уроків у `lesson_progress` для цього курсу.
-
-Після очищення курс зникає зі списку записаних курсів студента, а статистика в адміністративній панелі оновлюється.
-
-### Панель курсів
-
-У картках курсів в адміністративній панелі додано:
-
-- кількість студентів, записаних на курс;
-- кількість студентів, які завершили курс;
-- відображення цих показників разом із кількістю модулів та уроків;
-- показ кількості студентів також на сторінці перегляду конкретного курсу.
-
-Це дозволяє адміністратору швидко оцінювати активність на курсах і контролювати звʼязки між студентами та навчальним контентом.
-
-## Керування лендінгом
-
-В адміністративній панелі додано окремий розділ для керування демонстраційним контентом головної сторінки.
-
-Адміністратор може:
-
-- вибрати курс, який буде показаний на лендінгу;
-- вибрати конкретний урок для демонстрації;
-- переглянути, як цей матеріал виглядатиме в режимі уроку, тесту або вправи;
-- зберегти налаштування, які використовуються на публічній головній сторінці.
-
-Для цього використовується таблиця `landing_page_settings`, у якій зберігається вибраний курс і урок для демонстраційного блоку.
-
-## Кабінет студента
-
-Студентський dashboard було розширено, щоб студент бачив не тільки список курсів, а й повну картину свого навчання.
-
-У кабінеті студента реалізовано:
-
-- каталог доступних публічних курсів;
-- список курсів, на які студент уже записаний;
-- запуск нового курсу та продовження розпочатого навчання;
-- компактні картки курсів із загальним прогресом;
-- окремі показники прогресу по уроках, тестах і вправах;
-- збереження результатів проходження тестів;
-- збереження виконаних практичних вправ;
-- секцію викладачів із профілями, спеціалізацією, досвідом, освітою та посиланнями;
-- відображення статусу запису на курси викладача.
-
-Під час проходження курсу студент може завершувати уроки, проходити тести та виконувати вправи. Backend фіксує ці дії та повертає оновлені показники прогресу.
-
-## Кабінет викладача
-
-Кабінет викладача було доповнено аналітичними та навігаційними можливостями.
-
-У викладацькій панелі реалізовано:
-
-- швидку дію для створення нового курсу;
-- можливість продовжити редагування останньої чернетки;
-- огляд курсів викладача;
-- статистику по студентах, які проходять курси викладача;
-- середній прогрес студентів по курсах;
-- кількість студентів, які завершили проходження;
-- показники результатів тестів;
-- сторінку зі студентами, згрупованими за курсами.
-
-Backend формує агреговані дані на основі `course_progress`, `lesson_progress`, `user_test_results` і `user_exercise_results`, після чого frontend відображає їх у зрозумілому вигляді в dashboard викладача.
-
-## Прогрес навчання
-
-У системі реалізовано деталізоване збереження прогресу студента.
-
-Прогрес складається з кількох частин:
-
-- проходження курсу зберігається в `course_progress`;
-- завершені уроки зберігаються в `lesson_progress`;
-- результати тестів зберігаються в `user_test_results`;
-- виконані вправи зберігаються в `user_exercise_results`.
-
-Для кожного курсу система розраховує:
-
-- загальний відсоток проходження;
-- кількість завершених уроків;
-- відсоток виконання тестів;
-- відсоток виконання вправ;
-- статус завершення курсу.
-
-Ці дані використовуються в студентській панелі, кабінеті викладача та адміністративній панелі.
-
-## Робота з базою даних і сховищем
-
-У проєкті використовується `Supabase`, який виконує роль:
-
-- системи автентифікації;
-- PostgreSQL-бази даних;
-- файлового сховища `Storage`.
-
-Окремо використовуються:
-
-- таблиці профілів користувачів;
-- таблиці курсів, модулів, уроків, тестів і вправ;
-- таблиця `course_progress` для збереження запису студента на курс;
-- таблиця `lesson_progress` для збереження завершених уроків;
-- таблиця `user_test_results` для збереження результатів проходження тестів;
-- таблиця `user_exercise_results` для збереження виконаних практичних вправ;
-- таблиця `landing_page_settings` для налаштування демонстраційного контенту головної сторінки;
-- storage-бакети для зображень курсів, матеріалів уроків та аватарів користувачів.
-
-Для адміністративного керування студентами бекенд отримує реальні дані з таблиць прогресу, обчислює прогрес по кожному курсу й повертає ці дані в адміністративний інтерфейс.
-
-## AI-функціональність
-
-У системі реалізовано окремий AI-модуль, який дозволяє:
-
-- генерувати тестові питання на основі вмісту уроку або модуля;
-- генерувати практичні вправи з програмування;
-- формувати завдання різних типів, зокрема:
-  - `true/false`
-  - `single choice`
-  - `multiple choice`
-  - `drag and drop code`
-  - `write code`
-
-Для цього використовується `OpenAI SDK` на бекенді.
-
-## Структура проєкту
+## Project Structure
 
 ```text
 learning-platform/
-├── src/                # frontend application
+├── src/                 # Frontend application source
+│   ├── app/             # Application entry and routing setup
+│   ├── components/      # Shared UI and layout components
+│   ├── features/        # Feature modules for auth, courses, dashboards, and admin tools
+│   ├── lib/             # Shared frontend clients and helpers
+│   ├── pages/           # Route-level pages
+│   └── styles/          # Global styles
 ├── backend/
-│   ├── src/            # backend API
-│   └── scripts/        # helper SQL/Node scripts
-├── public/             # static assets
-├── package.json        # frontend dependencies and scripts
+│   ├── src/             # Express API source
+│   │   ├── config/      # Environment configuration
+│   │   ├── controllers/ # Request handlers
+│   │   ├── lib/         # Backend clients and shared utilities
+│   │   ├── middleware/  # Auth, role, error, and not-found middleware
+│   │   ├── routes/      # API route definitions
+│   │   ├── services/    # Business logic, AI generation, dashboards, and persistence
+│   │   └── validators/  # Zod schemas
+│   └── scripts/         # Helper SQL and maintenance scripts
+├── public/              # Static public assets
+├── package.json         # Frontend dependencies and scripts
+├── vercel.json          # Frontend deployment configuration
 └── README.md
 ```
 
-## Запуск проєкту
+## Getting Started
 
 ### Frontend
 
@@ -315,8 +235,42 @@ npm install
 npm run dev
 ```
 
-## Висновок
+## Environment Variables
 
-У межах кваліфікаційної роботи реалізовано навчальну веб-платформу для вивчення основ програмування, яка поєднує сучасний frontend, окремий backend API, рольову модель доступу, інтеграцію з `Supabase` та AI-функціональність для підтримки навчального процесу.
+Create local environment files for the frontend and backend. Do not commit real secrets.
 
-Проєкт демонструє практичне застосування сучасних вебтехнологій для створення освітньої системи з керованим контентом, авторизацією, панелями для різних типів користувачів і розширенням функціоналу за допомогою штучного інтелекту.
+### Frontend
+
+```env
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_BACKEND_URL=
+```
+
+### Backend
+
+```env
+SUPABASE_URL=
+SUPABASE_SERVICE_ROLE_KEY=
+OPENAI_API_KEY=
+PORT=
+CORS_ORIGIN=
+```
+
+Do not expose service-role keys or OpenAI API keys in frontend code.
+
+## Roadmap
+
+- Browser-based code runner
+- More coding exercise types
+- Advanced teacher analytics
+- Student notifications
+- Course certificates
+- Better course search and filtering
+- Improved onboarding
+- Expanded AI generation for course content
+- Public product polishing for real users
+
+## Author
+
+Developed by Marina Vilkhovetska.
