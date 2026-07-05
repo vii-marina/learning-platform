@@ -158,13 +158,7 @@ export function LoginPage() {
                   >
                     Пароль
                   </label>
-                  <a
-                    href="#"
-                    onClick={(event) => event.preventDefault()}
-                    className="text-xs font-semibold text-[#5549f1] transition hover:underline"
-                  >
-                    Забули пароль?
-                  </a>
+                  
                 </div>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />

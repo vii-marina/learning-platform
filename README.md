@@ -9,12 +9,12 @@ https://educat-learning-platform.vercel.app/
 ## Demo Accounts
 
 Teacher account:
-- Email: python@gmail.com
-- Password: 111111
+- Email: `REPLACE_WITH_TEACHER_EMAIL`
+- Password: `REPLACE_WITH_TEACHER_PASSWORD`
 
 Student account:
-- Email: student@gmail.com
-- Password: 111111
+- Email: `REPLACE_WITH_STUDENT_EMAIL`
+- Password: `REPLACE_WITH_STUDENT_PASSWORD`
 
 Admin credentials are not shared publicly for security reasons.
 
