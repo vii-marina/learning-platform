@@ -237,7 +237,6 @@ npm run dev
 
 ## Environment Variables
 
-Create local environment files for the frontend and backend. Do not commit real secrets.
 
 ### Frontend
 
@@ -256,8 +255,6 @@ OPENAI_API_KEY=
 PORT=
 CORS_ORIGIN=
 ```
-
-Do not expose service-role keys or OpenAI API keys in frontend code.
 
 ## Roadmap
 
