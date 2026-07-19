@@ -336,9 +336,8 @@ export async function getAdminRecordById(userId: string): Promise<AdminRow | nul
 }
 
 export async function saveProfile(payload: ProfilePayload): Promise<void> {
-  // Upsert (insert-or-update on primary key) avoids the race between the
-  // existence check and the write. created_at is not in the payload, so an
-  // existing row keeps its original value and a new row uses the column default.
+  // Upsert avoids a check-then-write race; created_at stays out of the payload
+  // so existing rows keep theirs.
   const { error } = await supabaseAdmin
     .from("profiles")
     .upsert(

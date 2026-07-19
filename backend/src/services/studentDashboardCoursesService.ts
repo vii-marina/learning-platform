@@ -615,7 +615,6 @@ async function updateCourseProgressAfterLessonCompletion(
   return data as CourseProgressRow;
 }
 
-// ---------------------------------------------------------------------------
 // Server-side test grading (R15): the score is computed here from the student's
 // selected option indexes vs. the stored answers — never trusted from the client.
 // Mirrors the client's scoring rule exactly (CoursePreviewTestModal /
@@ -624,7 +623,6 @@ async function updateCourseProgressAfterLessonCompletion(
 //     student-details endpoint that rendered the options);
 //   - true_false → [0] for the correct "true" answer, [1] for "false";
 //   - a question is correct iff the selected index set equals the correct set.
-// ---------------------------------------------------------------------------
 type GradingQuestionRow = { id: string; type: string };
 type GradingAnswerRow = {
   question_id: string;

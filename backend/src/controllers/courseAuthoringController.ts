@@ -46,7 +46,6 @@ function getAuth(req: Request) {
   return req.auth;
 }
 
-// ---- courses ----
 export async function createCourseHandler(req: Request, res: Response) {
   const input = createCourseSchema.parse(req.body);
   const course = await createCourse(getAuth(req), input);
@@ -66,7 +65,6 @@ export async function deleteCourseHandler(req: Request, res: Response) {
   res.status(204).send();
 }
 
-// ---- modules ----
 export async function createModuleHandler(req: Request, res: Response) {
   const input = createModuleSchema.parse(req.body);
   const module = await createModule(getAuth(req), input);
@@ -86,7 +84,6 @@ export async function deleteModuleHandler(req: Request, res: Response) {
   res.status(204).send();
 }
 
-// ---- tests ----
 export async function createTestHandler(req: Request, res: Response) {
   const input = createTestSchema.parse(req.body);
   const test = await createTestEntity(getAuth(req), input);
@@ -106,7 +103,6 @@ export async function deleteTestHandler(req: Request, res: Response) {
   res.status(204).send();
 }
 
-// ---- questions ----
 export async function createQuestionHandler(req: Request, res: Response) {
   const input = createQuestionSchema.parse(req.body);
   const question = await createTestQuestion(getAuth(req), input);
@@ -126,7 +122,6 @@ export async function deleteQuestionHandler(req: Request, res: Response) {
   res.status(204).send();
 }
 
-// ---- answers ----
 export async function createAnswerHandler(req: Request, res: Response) {
   const input = createAnswerSchema.parse(req.body);
   const answer = await createTestAnswer(getAuth(req), input);
@@ -146,7 +141,6 @@ export async function deleteAnswerHandler(req: Request, res: Response) {
   res.status(204).send();
 }
 
-// ---- reorder ----
 export async function reorderModulesHandler(req: Request, res: Response) {
   const { firstId, secondId } = reorderSchema.parse(req.body);
   await reorderModules(getAuth(req), firstId, secondId);

@@ -10,14 +10,12 @@ const courseStatus = z.enum(["draft", "published", "archived"]);
 const courseAccessType = z.enum(["public", "private", "invite"]);
 const testQuestionType = z.enum(["true_false", "single_choice", "multiple_choice"]);
 
-// ---- params ----
 export const courseIdParams = z.object({ courseId: uuid("Course id") });
 export const moduleIdParams = z.object({ moduleId: uuid("Module id") });
 export const testIdParams = z.object({ testId: uuid("Test id") });
 export const questionIdParams = z.object({ questionId: uuid("Question id") });
 export const answerIdParams = z.object({ answerId: uuid("Answer id") });
 
-// ---- courses ----
 export const createCourseSchema = z.object({
   // teacher_id is intentionally ignored server-side (derived from auth); accepted but not trusted.
   teacher_id: uuid("Teacher id").optional(),
@@ -43,7 +41,6 @@ export const updateCourseSchema = z
   })
   .refine((v) => Object.keys(v).length > 0, { message: "At least one field must be provided." });
 
-// ---- modules ----
 export const createModuleSchema = z.object({
   course_id: uuid("Course id"),
   title: z.string().trim().min(1, "Module title is required.").max(200),
@@ -59,7 +56,6 @@ export const updateModuleSchema = z
     message: "At least one module field must be provided.",
   });
 
-// ---- tests (test_entities) ----
 export const createTestSchema = z.object({
   module_id: uuid("Module id"),
   after_lesson_id: uuid("Lesson id").nullable().optional(),
@@ -78,7 +74,6 @@ export const updateTestSchema = z
     { message: "At least one test field must be provided." }
   );
 
-// ---- test_questions ----
 export const createQuestionSchema = z.object({
   test_id: uuid("Test id"),
   type: testQuestionType,
@@ -96,7 +91,6 @@ export const updateQuestionSchema = z
   })
   .refine((v) => Object.keys(v).length > 0, { message: "At least one question field must be provided." });
 
-// ---- test_answers ----
 export const createAnswerSchema = z.object({
   question_id: uuid("Question id"),
   answer_text: z.string(),
@@ -112,7 +106,6 @@ export const updateAnswerSchema = z
     message: "At least one answer field must be provided.",
   });
 
-// ---- reorder ----
 export const reorderSchema = z.object({
   firstId: uuid("First id"),
   secondId: uuid("Second id"),

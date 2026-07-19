@@ -2,12 +2,10 @@ import { AppError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext } from "../types/auth";
 
-// ============================================================================
 // Course authoring: server-side, ownership-checked CRUD for courses, modules,
 // tests, questions, answers, and reordering. These replace the direct-from-
 // browser writes that used to run against Supabase with the anon key (WP2).
 // Reads stay on the client (RLS-scoped); only writes live here.
-// ============================================================================
 
 type CourseStatus = "draft" | "published" | "archived";
 type CourseAccessType = "public" | "private" | "invite";
@@ -69,9 +67,7 @@ function toServiceError(statusCode: number, code: string, fallbackMessage: strin
   return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
 }
 
-// ---------------------------------------------------------------------------
 // slug / order helpers (ported from the former frontend courseBuilderApi)
-// ---------------------------------------------------------------------------
 function normalizeCourseSlug(value: string) {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -85,9 +81,7 @@ function normalizeCourseStatus(isPublished: boolean | undefined): CourseStatus {
   return isPublished ? "published" : "draft";
 }
 
-// ---------------------------------------------------------------------------
 // ownership authorization
-// ---------------------------------------------------------------------------
 function ensureTeacherOrAdmin(auth: AuthenticatedRequestContext) {
   if (auth.isAdmin) return;
   if (auth.role !== "teacher") {
@@ -200,9 +194,7 @@ async function authorizeAnswerAccess(auth: AuthenticatedRequestContext, answerId
   return answer;
 }
 
-// ---------------------------------------------------------------------------
 // next-order helpers
-// ---------------------------------------------------------------------------
 async function getNextOrder(table: string, column: string, value: string) {
   const { data, error } = await supabaseAdmin
     .from(table)
@@ -215,9 +207,7 @@ async function getNextOrder(table: string, column: string, value: string) {
   return ((data?.order as number | undefined) ?? 0) + 1;
 }
 
-// ============================================================================
 // COURSES
-// ============================================================================
 export async function createCourse(
   auth: AuthenticatedRequestContext,
   input: {
@@ -289,9 +279,7 @@ export async function deleteCourse(auth: AuthenticatedRequestContext, courseId: 
   if (error) throw toServiceError(500, "COURSE_DELETE_FAILED", "Unable to delete course", error);
 }
 
-// ============================================================================
 // MODULES
-// ============================================================================
 export async function createModule(
   auth: AuthenticatedRequestContext,
   input: { course_id: string; title: string; order?: number }
@@ -332,9 +320,7 @@ export async function deleteModule(auth: AuthenticatedRequestContext, moduleId: 
   if (error) throw toServiceError(500, "MODULE_DELETE_FAILED", "Unable to delete module", error);
 }
 
-// ============================================================================
 // TESTS (test_entities)
-// ============================================================================
 export async function createTestEntity(
   auth: AuthenticatedRequestContext,
   input: { module_id: string; after_lesson_id?: string | null; title: string; order?: number }
@@ -424,9 +410,7 @@ export async function deleteTestEntity(auth: AuthenticatedRequestContext, testId
   if (error) throw toServiceError(500, "TEST_DELETE_FAILED", "Unable to delete test", error);
 }
 
-// ============================================================================
 // TEST QUESTIONS
-// ============================================================================
 export async function createTestQuestion(
   auth: AuthenticatedRequestContext,
   input: { test_id: string; type: TestQuestionType; question_text: string; order?: number; hint?: string | null }
@@ -480,9 +464,7 @@ export async function deleteTestQuestion(auth: AuthenticatedRequestContext, ques
   if (error) throw toServiceError(500, "QUESTION_DELETE_FAILED", "Unable to delete question", error);
 }
 
-// ============================================================================
 // TEST ANSWERS
-// ============================================================================
 export async function createTestAnswer(
   auth: AuthenticatedRequestContext,
   input: { question_id: string; answer_text: string; is_correct?: boolean }
@@ -526,9 +508,7 @@ export async function deleteTestAnswer(auth: AuthenticatedRequestContext, answer
   if (error) throw toServiceError(500, "ANSWER_DELETE_FAILED", "Unable to delete answer", error);
 }
 
-// ============================================================================
 // REORDER (swap two rows' order within the same parent)
-// ============================================================================
 async function swapOrder(
   table: "modules" | "lessons" | "lesson_blocks",
   firstId: string,

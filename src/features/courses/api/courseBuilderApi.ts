@@ -1,5 +1,6 @@
 import { supabase } from "../../../lib/supabase";
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
+import { dedupeRequest } from "../../../lib/requestDedup";
 import type {
   AiQuestionGenerationMode,
   Course,
@@ -60,7 +61,7 @@ type ExercisesResponse = {
   exercises: Exercise[];
 };
 
-// ---- WP2: course-authoring write responses (backend-mediated) ----
+// WP2: course-authoring write responses (backend-mediated)
 type CourseResponse = { course: Course };
 type ModuleResponse = { module: Module };
 type TestResponse = { test: TestEntity };
@@ -141,40 +142,42 @@ function buildDuplicateCourseTitle(title: string) {
   return `${normalizedTitle} Copy`;
 }
 
-// ============================================================================
 // COURSES — reads via anon client (RLS-scoped); writes via backend (WP2).
-// ============================================================================
 export async function listCourses(teacherId?: string) {
-  const query = supabase
-    .from("courses")
-    .select("*")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+  return dedupeRequest(`courses:list:${teacherId ?? "all"}`, async () => {
+    const query = supabase
+      .from("courses")
+      .select("*")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false });
 
-  const { data, error } = teacherId
-    ? await query.eq("teacher_id", teacherId)
-    : await query;
+    const { data, error } = teacherId
+      ? await query.eq("teacher_id", teacherId)
+      : await query;
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list courses", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to list courses", error.message));
+    }
 
-  return (data ?? []) as Course[];
+    return (data ?? []) as Course[];
+  });
 }
 
 export async function getCourseById(courseId: string) {
-  const { data, error } = await supabase
-    .from("courses")
-    .select("*")
-    .eq("id", courseId)
-    .is("deleted_at", null)
-    .single();
+  return dedupeRequest(`course:${courseId}`, async () => {
+    const { data, error } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("id", courseId)
+      .is("deleted_at", null)
+      .single();
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to fetch course", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to fetch course", error.message));
+    }
 
-  return data as Course;
+    return data as Course;
+  });
 }
 
 export async function createCourse(input: CreateCourseInput) {
@@ -329,21 +332,21 @@ export async function duplicateCourse(courseId: string) {
   return duplicatedCourse;
 }
 
-// ============================================================================
 // MODULES — read via anon client; writes via backend.
-// ============================================================================
 export async function listModulesByCourse(courseId: string) {
-  const { data, error } = await supabase
-    .from("modules")
-    .select("*")
-    .eq("course_id", courseId)
-    .order("order", { ascending: true });
+  return dedupeRequest(`modules:course:${courseId}`, async () => {
+    const { data, error } = await supabase
+      .from("modules")
+      .select("*")
+      .eq("course_id", courseId)
+      .order("order", { ascending: true });
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list modules", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to list modules", error.message));
+    }
 
-  return (data ?? []) as Module[];
+    return (data ?? []) as Module[];
+  });
 }
 
 export async function createModule(input: CreateModuleInput) {
@@ -375,20 +378,22 @@ export async function swapModuleOrder(first: Module, second: Module) {
   });
 }
 
-// ============================================================================
 // LESSONS — already backend-mediated.
-// ============================================================================
 export async function listLessonsByModule(moduleId: string) {
-  const response = await authorizedBackendRequest<LessonsResponse>(
-    `/auth/course-builder/modules/${moduleId}/lessons`
-  );
+  return dedupeRequest(`lessons:module:${moduleId}`, async () => {
+    const response = await authorizedBackendRequest<LessonsResponse>(
+      `/auth/course-builder/modules/${moduleId}/lessons`
+    );
 
-  return response.lessons;
+    return response.lessons;
+  });
 }
 
 export async function listModuleContent(moduleId: string) {
-  return authorizedBackendRequest<ModuleContentResponse>(
-    `/auth/course-builder/modules/${moduleId}/content`
+  return dedupeRequest(`module-content:${moduleId}`, () =>
+    authorizedBackendRequest<ModuleContentResponse>(
+      `/auth/course-builder/modules/${moduleId}/content`
+    )
   );
 }
 
@@ -443,11 +448,13 @@ export async function swapLessonOrder(first: Lesson, second: Lesson) {
 }
 
 export async function listLessonBlocksByLesson(lessonId: string) {
-  const response = await authorizedBackendRequest<LessonBlocksResponse>(
-    `/auth/course-builder/lessons/${lessonId}/blocks`
-  );
+  return dedupeRequest(`lesson-blocks:${lessonId}`, async () => {
+    const response = await authorizedBackendRequest<LessonBlocksResponse>(
+      `/auth/course-builder/lessons/${lessonId}/blocks`
+    );
 
-  return response.lessonBlocks;
+    return response.lessonBlocks;
+  });
 }
 
 export async function createLessonBlock(input: CreateLessonBlockInput) {
@@ -507,9 +514,7 @@ export async function upsertLessonPrimaryRichTextBlock(lessonId: string, html: s
   });
 }
 
-// ============================================================================
 // AI generation — backend-mediated.
-// ============================================================================
 export async function generateTestQuestionsWithAi(
   input: GenerateTestQuestionsInput
 ) {
@@ -564,15 +569,15 @@ export async function generateExerciseWithAi(input: GenerateExerciseInput) {
   throw new Error("AI did not return any exercises.");
 }
 
-// ============================================================================
 // EXERCISES — already backend-mediated.
-// ============================================================================
 export async function listExercisesByModule(moduleId: string) {
-  const response = await authorizedBackendRequest<ExercisesResponse>(
-    `/api/modules/${moduleId}/exercises`
-  );
+  return dedupeRequest(`exercises:module:${moduleId}`, async () => {
+    const response = await authorizedBackendRequest<ExercisesResponse>(
+      `/api/modules/${moduleId}/exercises`
+    );
 
-  return response.exercises;
+    return response.exercises;
+  });
 }
 
 export async function createExercise(input: CreateExerciseInput) {
@@ -626,35 +631,37 @@ export async function swapLessonBlockOrder(first: LessonBlock, second: LessonBlo
   });
 }
 
-// ============================================================================
 // TESTS / QUESTIONS / ANSWERS — reads via anon client; writes via backend (WP2).
-// ============================================================================
 export async function listTestsByModule(moduleId: string) {
-  const { data, error } = await supabase
-    .from("test_entities")
-    .select("*")
-    .eq("module_id", moduleId)
-    .order("order", { ascending: true });
+  return dedupeRequest(`tests:module:${moduleId}`, async () => {
+    const { data, error } = await supabase
+      .from("test_entities")
+      .select("*")
+      .eq("module_id", moduleId)
+      .order("order", { ascending: true });
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list module tests", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to list module tests", error.message));
+    }
 
-  return (data ?? []) as TestEntity[];
+    return (data ?? []) as TestEntity[];
+  });
 }
 
 export async function listTestsByLesson(lessonId: string) {
-  const { data, error } = await supabase
-    .from("test_entities")
-    .select("*")
-    .eq("after_lesson_id", lessonId)
-    .order("order", { ascending: true });
+  return dedupeRequest(`tests:lesson:${lessonId}`, async () => {
+    const { data, error } = await supabase
+      .from("test_entities")
+      .select("*")
+      .eq("after_lesson_id", lessonId)
+      .order("order", { ascending: true });
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list lesson tests", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to list lesson tests", error.message));
+    }
 
-  return (data ?? []) as TestEntity[];
+    return (data ?? []) as TestEntity[];
+  });
 }
 
 export async function createTestEntity(input: CreateTestEntityInput) {
@@ -681,17 +688,19 @@ export async function deleteTestEntity(testId: string) {
 }
 
 export async function listTestQuestions(testId: string) {
-  const { data, error } = await supabase
-    .from("test_questions")
-    .select("*")
-    .eq("test_id", testId)
-    .order("order", { ascending: true });
+  return dedupeRequest(`test-questions:${testId}`, async () => {
+    const { data, error } = await supabase
+      .from("test_questions")
+      .select("*")
+      .eq("test_id", testId)
+      .order("order", { ascending: true });
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list test questions", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to list test questions", error.message));
+    }
 
-  return (data ?? []) as TestQuestion[];
+    return (data ?? []) as TestQuestion[];
+  });
 }
 
 export async function createTestQuestion(input: CreateTestQuestionInput) {
@@ -721,17 +730,19 @@ export async function deleteTestQuestion(questionId: string) {
 }
 
 export async function listTestAnswers(questionId: string) {
-  const { data, error } = await supabase
-    .from("test_answers")
-    .select("*")
-    .eq("question_id", questionId)
-    .order("created_at", { ascending: true });
+  return dedupeRequest(`test-answers:${questionId}`, async () => {
+    const { data, error } = await supabase
+      .from("test_answers")
+      .select("*")
+      .eq("question_id", questionId)
+      .order("created_at", { ascending: true });
 
-  if (error) {
-    throw new Error(toErrorMessage("Unable to list test answers", error.message));
-  }
+    if (error) {
+      throw new Error(toErrorMessage("Unable to list test answers", error.message));
+    }
 
-  return (data ?? []) as TestAnswer[];
+    return (data ?? []) as TestAnswer[];
+  });
 }
 
 export async function createTestAnswer(input: CreateTestAnswerInput) {

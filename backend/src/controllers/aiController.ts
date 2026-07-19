@@ -170,7 +170,7 @@ function validateQuestions(questions: GeneratedQuestion[]) {
     questions.map((q) => q.question_text.toLowerCase().trim())
   );
 
-  // minimal quality check
+  // reject if >30% of questions are duplicates
   if (uniqueTexts.size < Math.ceil(questions.length * 0.7)) {
     return false;
   }

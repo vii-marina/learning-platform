@@ -140,9 +140,7 @@ export async function getContentForAI({
   questionCount?: number;
 }): Promise<{ text: string; questionCount: number }> {
 
-  // =========================
   // LESSON MODE
-  // =========================
   if (afterLessonId) {
     const { data, error } = await supabaseAdmin
       .from("lesson_blocks")
@@ -174,9 +172,7 @@ export async function getContentForAI({
     };
   }
 
-  // =========================
   // MODULE MODE
-  // =========================
   if (moduleId) {
     const { data: lessons, error: lessonsError } = await supabaseAdmin
       .from("lessons")
