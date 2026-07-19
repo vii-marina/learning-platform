@@ -18,3 +18,12 @@ export function requireSuperAdmin(req: Request, _res: Response, next: NextFuncti
 
   next();
 }
+
+export function requireTeacherOrAdmin(req: Request, _res: Response, next: NextFunction) {
+  if (!req.auth?.isAdmin && req.auth?.role !== "teacher") {
+    next(new AppError(403, "Teacher or admin access is required.", "TEACHER_OR_ADMIN_REQUIRED"));
+    return;
+  }
+
+  next();
+}

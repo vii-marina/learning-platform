@@ -15,6 +15,11 @@ import {
   filterDifficulties,
 } from "../services/exerciseDifficulty";
 import { getContentForAI } from "../services/getContentForAI";
+import {
+  exerciseGenerationLimitSchema,
+  generateExerciseSchema,
+  generateTestQuestionsSchema,
+} from "../validators/aiSchemas";
 
 function normalizeGenerationMode(value: unknown): AiQuestionGenerationMode {
   return value === "true_false" ||
@@ -202,18 +207,9 @@ async function generateExerciseWithRetry(
 }
 
 export async function getExerciseGenerationLimit(req: Request, res: Response) {
+  const { afterLessonId, moduleId } = exerciseGenerationLimitSchema.parse(req.body);
+
   try {
-    const { afterLessonId, moduleId } = req.body;
-
-    if (!afterLessonId && !moduleId) {
-      return sendAiError(
-        res,
-        400,
-        "Provide either afterLessonId or moduleId",
-        "AI_TARGET_MISSING"
-      );
-    }
-
     const { text, questionCount } = await getContentForAI({
       afterLessonId,
       moduleId,
@@ -245,14 +241,14 @@ export async function getExerciseGenerationLimit(req: Request, res: Response) {
 }
 
 export async function generateTestQuestions(req: Request, res: Response) {
-  try {
-    const {
-      afterLessonId,
-      moduleId,
-      questionCount: requestedQuestionCount,
-      generationMode: requestedGenerationMode,
-    } = req.body;
+  const {
+    afterLessonId,
+    moduleId,
+    questionCount: requestedQuestionCount,
+    generationMode: requestedGenerationMode,
+  } = generateTestQuestionsSchema.parse(req.body);
 
+  try {
     const { text, questionCount } = await getContentForAI({
       afterLessonId,
       moduleId,
@@ -295,15 +291,15 @@ export async function generateTestQuestions(req: Request, res: Response) {
 }
 
 export async function generateExerciseDraft(req: Request, res: Response) {
-  try {
-    const {
-      afterLessonId,
-      moduleId,
-      type: requestedType,
-      difficulties: requestedDifficulties,
-      count: requestedCount,
-    } = req.body;
+  const {
+    afterLessonId,
+    moduleId,
+    type: requestedType,
+    difficulties: requestedDifficulties,
+    count: requestedCount,
+  } = generateExerciseSchema.parse(req.body);
 
+  try {
     const exerciseType = normalizeExerciseType(requestedType);
     const difficulties = normalizeExerciseDifficulties(requestedDifficulties);
     const requestedExerciseCount = normalizeExerciseCount(requestedCount);

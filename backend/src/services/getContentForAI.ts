@@ -77,7 +77,7 @@ function splitIntoSections(text: string) {
 }
 
 function limitTextLength(sections: string[], maxChars = 6000) {
-  let result: string[] = [];
+  const result: string[] = [];
   let total = 0;
 
   for (const section of sections) {

@@ -344,7 +344,7 @@ export async function generateExerciseFromLesson(
   );
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
+    model: env.OPENAI_MODEL,
     temperature: 0.75,
     response_format: {
       type: "json_object",

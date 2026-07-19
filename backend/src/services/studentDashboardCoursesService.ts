@@ -39,11 +39,6 @@ type LessonRow = {
   updated_at: string;
 };
 
-type LessonListRow = {
-  id: string;
-  module_id: string;
-};
-
 type CourseProgressRow = {
   id: string;
   user_id: string;
@@ -899,31 +894,6 @@ async function listFullLessons(moduleIds: string[]) {
   return lessons;
 }
 
-async function listTestCountsByModuleIds(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return new Map<string, number>();
-  }
-
-  const counts = new Map<string, number>();
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("test_entities")
-      .select("module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "TEST_COUNTS_FAILED", "Unable to load test counts", error);
-    }
-
-    for (const test of (data ?? []) as Array<{ module_id: string }>) {
-      counts.set(test.module_id, (counts.get(test.module_id) ?? 0) + 1);
-    }
-  }
-
-  return counts;
-}
-
 async function listTestRowsByModuleIds(moduleIds: string[]) {
   if (moduleIds.length === 0) {
     return [] as Array<Pick<StudentCourseTestEntity, "id" | "module_id">>;
@@ -974,36 +944,6 @@ async function listUserTestResults(userId: string | undefined, testIds: string[]
   }
 
   return results;
-}
-
-async function listExerciseCountsByModuleIds(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return new Map<string, number>();
-  }
-
-  const counts = new Map<string, number>();
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("exercises")
-      .select("module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(
-        500,
-        "EXERCISE_COUNTS_FAILED",
-        "Unable to load exercise counts",
-        error
-      );
-    }
-
-    for (const exercise of (data ?? []) as Array<{ module_id: string }>) {
-      counts.set(exercise.module_id, (counts.get(exercise.module_id) ?? 0) + 1);
-    }
-  }
-
-  return counts;
 }
 
 async function listExerciseRowsByModuleIds(moduleIds: string[]) {
