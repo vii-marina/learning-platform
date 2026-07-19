@@ -136,7 +136,7 @@ function validateQuestions(questions: GeneratedQuestion[]) {
     questions.map((q) => q.question_text.toLowerCase().trim())
   );
 
-  // мінімальна перевірка якості
+  // minimal quality check
   if (uniqueTexts.size < Math.ceil(questions.length * 0.7)) {
     return false;
   }

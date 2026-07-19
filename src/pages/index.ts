@@ -16,5 +16,5 @@ export {
   StudentDashboardPage,
   TeacherDashboardPage,
 } from "./dashboards";
-export { AdminPage, CourseBuilderPage } from "./admin";
+export { CourseBuilderPage } from "./admin";
 export { CourseBuilderWorkspacePage } from "./course-builder";
