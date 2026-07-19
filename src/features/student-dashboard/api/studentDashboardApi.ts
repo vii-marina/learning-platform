@@ -130,13 +130,15 @@ export async function completeStudentLesson(courseId: string, lessonId: string) 
 export async function completeStudentTest(
   courseId: string,
   testId: string,
-  scorePercent: number
+  selectedAnswers: Record<string, number[]>
 ) {
+  // Send the student's selected option indexes per question; the backend grades
+  // the score server-side (the client no longer computes the stored score).
   return authorizedBackendRequest<StudentTestCompletionResponse>(
     `/auth/student/courses/${courseId}/tests/${testId}/complete`,
     {
       method: "POST",
-      body: { score_percent: scorePercent },
+      body: { answers: selectedAnswers },
     }
   );
 }

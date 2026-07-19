@@ -5,6 +5,7 @@ import { env } from "./config/env";
 import { AppError } from "./lib/appError";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFound";
+import { globalRateLimiter } from "./middleware/rateLimit";
 import { adminRoutes } from "./routes/adminRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { authoringRoutes } from "./routes/authoringRoutes";
@@ -23,6 +24,9 @@ function isAllowedOrigin(origin: string | undefined): boolean {
 
 export function createApp() {
   const app = express();
+  // Behind Render/Vercel's single proxy — trust the first hop so `req.ip` is the
+  // real client IP (required for correct IP-based rate limiting).
+  app.set("trust proxy", 1);
   const corsOptions: CorsOptions = {
     origin(origin, callback) {
       if (isAllowedOrigin(origin)) {
@@ -43,7 +47,8 @@ export function createApp() {
   app.use(cors(corsOptions));
   app.use(express.json());
 
-  app.use(healthRoutes);
+  app.use(healthRoutes); // health checks stay unthrottled
+  app.use(globalRateLimiter);
   app.use("/public", publicRoutes);
   app.use("/auth", authRoutes);
   app.use("/authoring", authoringRoutes);
