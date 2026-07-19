@@ -336,29 +336,23 @@ export async function getAdminRecordById(userId: string): Promise<AdminRow | nul
 }
 
 export async function saveProfile(payload: ProfilePayload): Promise<void> {
-  const existingProfile = await getProfileById(payload.id);
-
-  if (existingProfile) {
-    const { error } = await supabaseAdmin
-      .from("profiles")
-      .update({
+  // Upsert (insert-or-update on primary key) avoids the race between the
+  // existence check and the write. created_at is not in the payload, so an
+  // existing row keeps its original value and a new row uses the column default.
+  const { error } = await supabaseAdmin
+    .from("profiles")
+    .upsert(
+      {
+        id: payload.id,
         email: payload.email,
         full_name: payload.full_name,
         role: payload.role,
-      })
-      .eq("id", payload.id);
-
-    if (error) {
-      throw toServiceError(500, "PROFILE_UPDATE_FAILED", "Unable to update profile", error);
-    }
-
-    return;
-  }
-
-  const { error } = await supabaseAdmin.from("profiles").insert(payload);
+      },
+      { onConflict: "id" }
+    );
 
   if (error) {
-    throw toServiceError(500, "PROFILE_CREATE_FAILED", "Unable to create profile", error);
+    throw toServiceError(500, "PROFILE_SAVE_FAILED", "Unable to save profile", error);
   }
 }
 

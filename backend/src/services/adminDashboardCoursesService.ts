@@ -738,6 +738,11 @@ export async function permanentlyDeleteAdminDashboardCourse(courseId: string) {
     errorCode: "USER_TEST_RESULTS_DELETE_FAILED",
     errorMessage: "Unable to delete test results",
   });
+  await deleteRowsByValues("user_exercise_results", "exercise_id", exerciseIds, {
+    optional: true,
+    errorCode: "USER_EXERCISE_RESULTS_DELETE_FAILED",
+    errorMessage: "Unable to delete exercise results",
+  });
   await deleteRowsByValues("test_answers", "question_id", questionIds, {
     errorCode: "TEST_ANSWERS_DELETE_FAILED",
     errorMessage: "Unable to delete test answers",
