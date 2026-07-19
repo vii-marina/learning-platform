@@ -3,8 +3,6 @@ import { authorizedBackendRequest } from "../../auth/api/backendClient";
 import type {
   AiQuestionGenerationMode,
   Course,
-  CourseAccessType,
-  CourseStatus,
   CreateCourseInput,
   CreateExerciseInput,
   CreateLessonBlockInput,
@@ -61,6 +59,13 @@ type ExerciseResponse = {
 type ExercisesResponse = {
   exercises: Exercise[];
 };
+
+// ---- WP2: course-authoring write responses (backend-mediated) ----
+type CourseResponse = { course: Course };
+type ModuleResponse = { module: Module };
+type TestResponse = { test: TestEntity };
+type QuestionResponse = { question: TestQuestion };
+type AnswerResponse = { answer: TestAnswer };
 
 type HydratedTestQuestionResponse = TestQuestion & {
   answers: TestAnswer[];
@@ -126,20 +131,6 @@ export type ExerciseGenerationLimitResponse = {
   maxDifficulty?: ExerciseDifficulty;
 };
 
-function normalizeCourseSlug(value: string) {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
-
-function buildDefaultSlug(title: string) {
-  const base = normalizeCourseSlug(title) || "course";
-  const suffix = Date.now().toString(36);
-  return `${base}-${suffix}`;
-}
-
 function buildDuplicateCourseTitle(title: string) {
   const normalizedTitle = title.trim() || "Untitled course";
 
@@ -150,68 +141,9 @@ function buildDuplicateCourseTitle(title: string) {
   return `${normalizedTitle} Copy`;
 }
 
-function normalizeCourseStatus(isPublished: boolean | undefined): CourseStatus {
-  return isPublished ? "published" : "draft";
-}
-
-async function getNextModuleOrder(courseId: string) {
-  const { data, error } = await supabase
-    .from("modules")
-    .select("order")
-    .eq("course_id", courseId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to compute next module order", error.message));
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-async function getNextQuestionOrder(testId: string) {
-  const { data, error } = await supabase
-    .from("test_questions")
-    .select("order")
-    .eq("test_id", testId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to compute next question order", error.message));
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-async function getNextTestOrder(moduleId: string) {
-  const { data, error } = await supabase
-    .from("test_entities")
-    .select("order")
-    .eq("module_id", moduleId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to compute next test order", error.message));
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-function validateTestEntityTarget(input: CreateTestEntityInput) {
-  if (!input.module_id) {
-    throw new Error("Test entity must target a module.");
-  }
-
-  if (!input.title.trim()) {
-    throw new Error("Test entity must include a title.");
-  }
-}
-
+// ============================================================================
+// COURSES — reads via anon client (RLS-scoped); writes via backend (WP2).
+// ============================================================================
 export async function listCourses(teacherId?: string) {
   const query = supabase
     .from("courses")
@@ -246,62 +178,19 @@ export async function getCourseById(courseId: string) {
 }
 
 export async function createCourse(input: CreateCourseInput) {
-  const payload: {
-    title: string;
-    description: string | null;
-    teacher_id: string;
-    status: CourseStatus;
-    slug: string;
-    thumbnail_path: string | null;
-    is_published: boolean;
-    access_type?: CourseAccessType;
-  } = {
-    title: input.title.trim(),
-    description: input.description?.trim() || null,
-    teacher_id: input.teacher_id,
-    status: input.status ?? normalizeCourseStatus(input.is_published),
-    slug: input.slug?.trim() || buildDefaultSlug(input.title),
-    thumbnail_path: input.thumbnail_path ?? null,
-    is_published: input.is_published ?? false,
-  };
-
-  if (input.access_type) {
-    payload.access_type = input.access_type;
-  }
-
-  const { data, error } = await supabase
-    .from("courses")
-    .insert(payload)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create course", error.message));
-  }
-
-  return data as Course;
+  const response = await authorizedBackendRequest<CourseResponse>("/authoring/courses", {
+    method: "POST",
+    body: input,
+  });
+  return response.course;
 }
 
 export async function updateCourse(courseId: string, input: UpdateCourseInput) {
-  const payload: UpdateCourseInput = {
-    ...input,
-    description:
-      typeof input.description === "string" ? input.description.trim() || null : input.description,
-    slug: typeof input.slug === "string" ? normalizeCourseSlug(input.slug) : input.slug,
-  };
-
-  const { data, error } = await supabase
-    .from("courses")
-    .update(payload)
-    .eq("id", courseId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update course", error.message));
-  }
-
-  return data as Course;
+  const response = await authorizedBackendRequest<CourseResponse>(`/authoring/courses/${courseId}`, {
+    method: "PATCH",
+    body: input,
+  });
+  return response.course;
 }
 
 export async function publishCourse(courseId: string) {
@@ -336,11 +225,9 @@ export async function softDeleteCourse(courseId: string) {
 }
 
 export async function deleteCourse(courseId: string) {
-  const { error } = await supabase.from("courses").delete().eq("id", courseId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete course", error.message));
-  }
+  await authorizedBackendRequest<void>(`/authoring/courses/${courseId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function duplicateCourse(courseId: string) {
@@ -442,6 +329,9 @@ export async function duplicateCourse(courseId: string) {
   return duplicatedCourse;
 }
 
+// ============================================================================
+// MODULES — read via anon client; writes via backend.
+// ============================================================================
 export async function listModulesByCourse(courseId: string) {
   const { data, error } = await supabase
     .from("modules")
@@ -457,62 +347,37 @@ export async function listModulesByCourse(courseId: string) {
 }
 
 export async function createModule(input: CreateModuleInput) {
-  const order = input.order ?? (await getNextModuleOrder(input.course_id));
-
-  const { data, error } = await supabase
-    .from("modules")
-    .insert({
-      course_id: input.course_id,
-      title: input.title.trim(),
-      order,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create module", error.message));
-  }
-
-  return data as Module;
+  const response = await authorizedBackendRequest<ModuleResponse>("/authoring/modules", {
+    method: "POST",
+    body: input,
+  });
+  return response.module;
 }
 
 export async function updateModule(moduleId: string, input: UpdateModuleInput) {
-  const { data, error } = await supabase
-    .from("modules")
-    .update({
-      ...input,
-      title: typeof input.title === "string" ? input.title.trim() : input.title,
-    })
-    .eq("id", moduleId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update module", error.message));
-  }
-
-  return data as Module;
+  const response = await authorizedBackendRequest<ModuleResponse>(`/authoring/modules/${moduleId}`, {
+    method: "PATCH",
+    body: input,
+  });
+  return response.module;
 }
 
 export async function deleteModule(moduleId: string) {
-  const { error } = await supabase.from("modules").delete().eq("id", moduleId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete module", error.message));
-  }
+  await authorizedBackendRequest<void>(`/authoring/modules/${moduleId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function swapModuleOrder(first: Module, second: Module) {
-  const { error } = await supabase.from("modules").upsert([
-    { id: first.id, order: second.order },
-    { id: second.id, order: first.order },
-  ]);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to reorder modules", error.message));
-  }
+  await authorizedBackendRequest<void>("/authoring/reorder/modules", {
+    method: "POST",
+    body: { firstId: first.id, secondId: second.id },
+  });
 }
 
+// ============================================================================
+// LESSONS — already backend-mediated.
+// ============================================================================
 export async function listLessonsByModule(moduleId: string) {
   const response = await authorizedBackendRequest<LessonsResponse>(
     `/auth/course-builder/modules/${moduleId}/lessons`
@@ -571,14 +436,10 @@ export async function deleteLesson(lessonId: string) {
 }
 
 export async function swapLessonOrder(first: Lesson, second: Lesson) {
-  const { error } = await supabase.from("lessons").upsert([
-    { id: first.id, order: second.order },
-    { id: second.id, order: first.order },
-  ]);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to reorder lessons", error.message));
-  }
+  await authorizedBackendRequest<void>("/authoring/reorder/lessons", {
+    method: "POST",
+    body: { firstId: first.id, secondId: second.id },
+  });
 }
 
 export async function listLessonBlocksByLesson(lessonId: string) {
@@ -646,6 +507,9 @@ export async function upsertLessonPrimaryRichTextBlock(lessonId: string, html: s
   });
 }
 
+// ============================================================================
+// AI generation — backend-mediated.
+// ============================================================================
 export async function generateTestQuestionsWithAi(
   input: GenerateTestQuestionsInput
 ) {
@@ -700,6 +564,9 @@ export async function generateExerciseWithAi(input: GenerateExerciseInput) {
   throw new Error("AI did not return any exercises.");
 }
 
+// ============================================================================
+// EXERCISES — already backend-mediated.
+// ============================================================================
 export async function listExercisesByModule(moduleId: string) {
   const response = await authorizedBackendRequest<ExercisesResponse>(
     `/api/modules/${moduleId}/exercises`
@@ -753,16 +620,15 @@ export async function deleteExercise(exerciseId: string) {
 }
 
 export async function swapLessonBlockOrder(first: LessonBlock, second: LessonBlock) {
-  const { error } = await supabase.from("lesson_blocks").upsert([
-    { id: first.id, order: second.order },
-    { id: second.id, order: first.order },
-  ]);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to reorder lesson blocks", error.message));
-  }
+  await authorizedBackendRequest<void>("/authoring/reorder/lesson-blocks", {
+    method: "POST",
+    body: { firstId: first.id, secondId: second.id },
+  });
 }
 
+// ============================================================================
+// TESTS / QUESTIONS / ANSWERS — reads via anon client; writes via backend (WP2).
+// ============================================================================
 export async function listTestsByModule(moduleId: string) {
   const { data, error } = await supabase
     .from("test_entities")
@@ -792,70 +658,26 @@ export async function listTestsByLesson(lessonId: string) {
 }
 
 export async function createTestEntity(input: CreateTestEntityInput) {
-  validateTestEntityTarget(input);
-  const order = input.order ?? (await getNextTestOrder(input.module_id));
-
-  const { data, error } = await supabase
-    .from("test_entities")
-    .insert({
-      after_lesson_id: input.after_lesson_id ?? null,
-      module_id: input.module_id,
-      title: input.title.trim(),
-      order,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create test entity", error.message));
-  }
-
-  return data as TestEntity;
+  const response = await authorizedBackendRequest<TestResponse>("/authoring/tests", {
+    method: "POST",
+    body: input,
+  });
+  return response.test;
 }
 
 export async function updateTestEntity(testId: string, input: UpdateTestEntityInput) {
-  const payload: UpdateTestEntityInput = {
-    ...input,
-    title: typeof input.title === "string" ? input.title.trim() : input.title,
-  };
-
-  const { data, error } = await supabase
-    .from("test_entities")
-    .update(payload)
-    .eq("id", testId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update test entity", error.message));
-  }
-
-  return data as TestEntity;
+  const response = await authorizedBackendRequest<TestResponse>(`/authoring/tests/${testId}`, {
+    method: "PATCH",
+    body: input,
+  });
+  return response.test;
 }
 
 export async function deleteTestEntity(testId: string) {
-  const questions = await listTestQuestions(testId);
-
-  for (const question of questions) {
-    await deleteTestQuestion(question.id);
-  }
-
-  const { error: resultDeleteError } = await supabase
-    .from("user_test_results")
-    .delete()
-    .eq("test_id", testId);
-
-  if (resultDeleteError) {
-    throw new Error(
-      toErrorMessage("Unable to delete test results", resultDeleteError.message)
-    );
-  }
-
-  const { error } = await supabase.from("test_entities").delete().eq("id", testId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete test entity", error.message));
-  }
+  // Backend cascades: deletes questions, answers, and user_test_results.
+  await authorizedBackendRequest<void>(`/authoring/tests/${testId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listTestQuestions(testId: string) {
@@ -873,66 +695,29 @@ export async function listTestQuestions(testId: string) {
 }
 
 export async function createTestQuestion(input: CreateTestQuestionInput) {
-  const order = input.order ?? (await getNextQuestionOrder(input.test_id));
-
-  const { data, error } = await supabase
-    .from("test_questions")
-    .insert({
-      test_id: input.test_id,
-      type: input.type,
-      question_text: input.question_text.trim(),
-      order,
-      hint: input.hint?.trim() || null,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create test question", error.message));
-  }
-
-  return data as TestQuestion;
+  const response = await authorizedBackendRequest<QuestionResponse>("/authoring/questions", {
+    method: "POST",
+    body: input,
+  });
+  return response.question;
 }
 
 export async function updateTestQuestion(questionId: string, input: UpdateTestQuestionInput) {
-  const payload: UpdateTestQuestionInput = {
-    ...input,
-    question_text:
-      typeof input.question_text === "string"
-        ? input.question_text.trim()
-        : input.question_text,
-    hint: typeof input.hint === "string" ? input.hint.trim() || null : input.hint,
-  };
-
-  const { data, error } = await supabase
-    .from("test_questions")
-    .update(payload)
-    .eq("id", questionId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update test question", error.message));
-  }
-
-  return data as TestQuestion;
+  const response = await authorizedBackendRequest<QuestionResponse>(
+    `/authoring/questions/${questionId}`,
+    {
+      method: "PATCH",
+      body: input,
+    }
+  );
+  return response.question;
 }
 
 export async function deleteTestQuestion(questionId: string) {
-  const { error: answerDeleteError } = await supabase
-    .from("test_answers")
-    .delete()
-    .eq("question_id", questionId);
-
-  if (answerDeleteError) {
-    throw new Error(toErrorMessage("Unable to delete test answers", answerDeleteError.message));
-  }
-
-  const { error } = await supabase.from("test_questions").delete().eq("id", questionId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete test question", error.message));
-  }
+  // Backend cascades: deletes the question's answers.
+  await authorizedBackendRequest<void>(`/authoring/questions/${questionId}`, {
+    method: "DELETE",
+  });
 }
 
 export async function listTestAnswers(questionId: string) {
@@ -950,42 +735,23 @@ export async function listTestAnswers(questionId: string) {
 }
 
 export async function createTestAnswer(input: CreateTestAnswerInput) {
-  const { data, error } = await supabase
-    .from("test_answers")
-    .insert({
-      question_id: input.question_id,
-      answer_text: input.answer_text,
-      is_correct: input.is_correct ?? false,
-    })
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to create test answer", error.message));
-  }
-
-  return data as TestAnswer;
+  const response = await authorizedBackendRequest<AnswerResponse>("/authoring/answers", {
+    method: "POST",
+    body: input,
+  });
+  return response.answer;
 }
 
 export async function updateTestAnswer(answerId: string, input: UpdateTestAnswerInput) {
-  const { data, error } = await supabase
-    .from("test_answers")
-    .update(input)
-    .eq("id", answerId)
-    .select("*")
-    .single();
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to update test answer", error.message));
-  }
-
-  return data as TestAnswer;
+  const response = await authorizedBackendRequest<AnswerResponse>(`/authoring/answers/${answerId}`, {
+    method: "PATCH",
+    body: input,
+  });
+  return response.answer;
 }
 
 export async function deleteTestAnswer(answerId: string) {
-  const { error } = await supabase.from("test_answers").delete().eq("id", answerId);
-
-  if (error) {
-    throw new Error(toErrorMessage("Unable to delete test answer", error.message));
-  }
+  await authorizedBackendRequest<void>(`/authoring/answers/${answerId}`, {
+    method: "DELETE",
+  });
 }

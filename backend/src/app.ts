@@ -7,6 +7,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFound";
 import { adminRoutes } from "./routes/adminRoutes";
 import { authRoutes } from "./routes/authRoutes";
+import { authoringRoutes } from "./routes/authoringRoutes";
 import { exerciseRoutes } from "./routes/exerciseRoutes";
 import { healthRoutes } from "./routes/healthRoutes";
 import { publicRoutes } from "./routes/publicRoutes";
@@ -45,6 +46,7 @@ export function createApp() {
   app.use(healthRoutes);
   app.use("/public", publicRoutes);
   app.use("/auth", authRoutes);
+  app.use("/authoring", authoringRoutes);
   app.use("/admin", adminRoutes);
   app.use("/api", exerciseRoutes);
   app.use("/api/ai", aiRoutes);
