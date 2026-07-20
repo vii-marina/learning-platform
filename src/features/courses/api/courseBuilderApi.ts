@@ -729,6 +729,24 @@ export async function deleteTestQuestion(questionId: string) {
   });
 }
 
+export type SaveTestQuestionInput = {
+  type: TestQuestionType;
+  question_text: string;
+  order?: number;
+  hint?: string | null;
+  answers: Array<{ answer_text: string; is_correct?: boolean }>;
+};
+
+// Replace a test's entire question/answer set in a single request (bulk save).
+// Backend clears the old content and recreates it in order; collapses the former
+// per-question / per-answer N+1.
+export async function saveTestQuestions(testId: string, questions: SaveTestQuestionInput[]) {
+  await authorizedBackendRequest<void>(`/authoring/tests/${testId}/questions`, {
+    method: "PUT",
+    body: { questions },
+  });
+}
+
 export async function listTestAnswers(questionId: string) {
   return dedupeRequest(`test-answers:${questionId}`, async () => {
     const { data, error } = await supabase

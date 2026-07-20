@@ -478,6 +478,76 @@ export async function deleteTestQuestion(auth: AuthenticatedRequestContext, ques
   if (error) throw toServiceError(500, "QUESTION_DELETE_FAILED", "Unable to delete question", error);
 }
 
+// Bulk replace of a test's whole question/answer set in one call. Collapses the
+// former N+1 (client made one request per question and per answer). The client
+// makes a single request; the backend↔Supabase writes below are in-region.
+// Answers are inserted one at a time per question on purpose: there is no answer
+// `order` column, so option-index order is derived from `created_at asc` (reads +
+// grading rely on this). Sequential inserts give strictly increasing timestamps,
+// exactly as the old per-answer flow did.
+export async function saveTestQuestions(
+  auth: AuthenticatedRequestContext,
+  testId: string,
+  questions: Array<{
+    type: TestQuestionType;
+    question_text: string;
+    order?: number;
+    hint?: string | null;
+    answers: Array<{ answer_text: string; is_correct?: boolean }>;
+  }>
+) {
+  await authorizeTestAccess(auth, testId);
+
+  // Clear the existing content (answers first, then questions).
+  const { data: existing, error: existingError } = await supabaseAdmin
+    .from("test_questions")
+    .select("id")
+    .eq("test_id", testId);
+  if (existingError) throw toServiceError(500, "QUESTIONS_LIST_FAILED", "Unable to load questions", existingError);
+
+  const existingIds = ((existing ?? []) as Array<{ id: string }>).map((q) => q.id);
+  if (existingIds.length > 0) {
+    const { error: answersDeleteError } = await supabaseAdmin
+      .from("test_answers")
+      .delete()
+      .in("question_id", existingIds);
+    if (answersDeleteError) throw toServiceError(500, "ANSWERS_DELETE_FAILED", "Unable to delete answers", answersDeleteError);
+
+    const { error: questionsDeleteError } = await supabaseAdmin
+      .from("test_questions")
+      .delete()
+      .eq("test_id", testId);
+    if (questionsDeleteError)
+      throw toServiceError(500, "QUESTIONS_DELETE_FAILED", "Unable to delete questions", questionsDeleteError);
+  }
+
+  // Recreate in order.
+  for (const [index, question] of questions.entries()) {
+    const { data: createdQuestion, error: questionError } = await supabaseAdmin
+      .from("test_questions")
+      .insert({
+        test_id: testId,
+        type: question.type,
+        question_text: question.question_text.trim(),
+        order: question.order ?? index + 1,
+        hint: question.hint?.trim() || null,
+      })
+      .select("id")
+      .single();
+    if (questionError) throw toServiceError(500, "QUESTION_CREATE_FAILED", "Unable to create question", questionError);
+
+    const questionId = (createdQuestion as { id: string }).id;
+    for (const answer of question.answers) {
+      const { error: answerError } = await supabaseAdmin.from("test_answers").insert({
+        question_id: questionId,
+        answer_text: answer.answer_text,
+        is_correct: answer.is_correct ?? false,
+      });
+      if (answerError) throw toServiceError(500, "ANSWER_CREATE_FAILED", "Unable to create answer", answerError);
+    }
+  }
+}
+
 // TEST ANSWERS
 export async function createTestAnswer(
   auth: AuthenticatedRequestContext,

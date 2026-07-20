@@ -116,3 +116,22 @@ export const reorderSchema = z.object({
   firstId: uuid("First id"),
   secondId: uuid("Second id"),
 });
+
+// Bulk "save a whole test's content" (replace-all): collapses the former
+// per-question / per-answer round-trips into one request.
+const saveAnswerSchema = z.object({
+  answer_text: z.string(),
+  is_correct: z.boolean().optional(),
+});
+
+const saveQuestionSchema = z.object({
+  type: testQuestionType,
+  question_text: z.string().trim().min(1, "Question text is required."),
+  order: z.number().int().positive().optional(),
+  hint: optionalNullableTrimmed,
+  answers: z.array(saveAnswerSchema).max(20, "A question can have at most 20 answers."),
+});
+
+export const saveTestQuestionsSchema = z.object({
+  questions: z.array(saveQuestionSchema).max(100, "A test can have at most 100 questions."),
+});

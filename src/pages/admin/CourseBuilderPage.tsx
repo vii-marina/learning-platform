@@ -14,17 +14,14 @@ import {
   createCourse,
   createLesson,
   createModule,
-  createTestAnswer,
   createTestEntity,
-  createTestQuestion,
-  deleteTestQuestion,
   getCourseById,
   listLessonsByModule,
   type HydratedTestEntityResponse,
   listModuleContent,
   listModulesByCourse,
-  listTestQuestions,
   publishCourse,
+  saveTestQuestions,
   upsertLessonPrimaryRichTextBlock,
   updateCourse,
 } from "../../features/courses/api";
@@ -323,30 +320,17 @@ export const CourseBuilderPage = forwardRef<
   };
 
   const persistTestQuestions = async (testId: string, questions: CourseTestQuestion[]) => {
-    const existingQuestions = await listTestQuestions(testId);
-
-    for (const question of existingQuestions) {
-      await deleteTestQuestion(question.id);
-    }
-
-    for (const [questionIndex, question] of questions.entries()) {
-      const createdQuestion = await createTestQuestion({
-        test_id: testId,
+    // Single bulk request (replace-all); backend clears + recreates in order.
+    await saveTestQuestions(
+      testId,
+      questions.map((question, questionIndex) => ({
         type: question.type,
         question_text: question.questionText.trim(),
         order: questionIndex + 1,
         hint: question.hint ?? null,
-      });
-
-      const answers = buildAnswerPayloads(question);
-      for (const answer of answers) {
-        await createTestAnswer({
-          question_id: createdQuestion.id,
-          answer_text: answer.answer_text,
-          is_correct: answer.is_correct,
-        });
-      }
-    }
+        answers: buildAnswerPayloads(question),
+      }))
+    );
   };
 
   const persistLocalCourseContent = async (courseId: string) => {

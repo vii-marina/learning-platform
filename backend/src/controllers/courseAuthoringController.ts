@@ -14,6 +14,7 @@ import {
   reorderLessonBlocks,
   reorderLessons,
   reorderModules,
+  saveTestQuestions,
   updateCourse,
   updateModule,
   updateTestAnswer,
@@ -31,6 +32,7 @@ import {
   moduleIdParams,
   questionIdParams,
   reorderSchema,
+  saveTestQuestionsSchema,
   testIdParams,
   updateAnswerSchema,
   updateCourseSchema,
@@ -100,6 +102,13 @@ export async function updateTestHandler(req: Request, res: Response) {
 export async function deleteTestHandler(req: Request, res: Response) {
   const { testId } = testIdParams.parse(req.params);
   await deleteTestEntity(getAuth(req), testId);
+  res.status(204).send();
+}
+
+export async function saveTestQuestionsHandler(req: Request, res: Response) {
+  const { testId } = testIdParams.parse(req.params);
+  const { questions } = saveTestQuestionsSchema.parse(req.body);
+  await saveTestQuestions(getAuth(req), testId, questions);
   res.status(204).send();
 }
 

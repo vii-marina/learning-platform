@@ -13,6 +13,7 @@ import {
   reorderLessonBlocksHandler,
   reorderLessonsHandler,
   reorderModulesHandler,
+  saveTestQuestionsHandler,
   updateAnswerHandler,
   updateCourseHandler,
   updateModuleHandler,
@@ -39,6 +40,7 @@ router.delete("/modules/:moduleId", deleteModuleHandler);
 router.post("/tests", createTestHandler);
 router.patch("/tests/:testId", updateTestHandler);
 router.delete("/tests/:testId", deleteTestHandler);
+router.put("/tests/:testId/questions", saveTestQuestionsHandler);
 
 // questions
 router.post("/questions", createQuestionHandler);
