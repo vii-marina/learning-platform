@@ -30,14 +30,16 @@ export function CoursePreviewExerciseModal({
   onResolveExercise,
 }: CoursePreviewExerciseModalProps) {
   const [showSourceLesson, setShowSourceLesson] = useState(false);
+  const [prevSourceLessonKey, setPrevSourceLessonKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
+  // Collapse the source-lesson panel when the modal (re)opens or the lesson changes.
+  const sourceLessonKey = isOpen ? lesson?.id ?? "" : null;
+  if (sourceLessonKey !== prevSourceLessonKey) {
+    setPrevSourceLessonKey(sourceLessonKey);
+    if (sourceLessonKey !== null) {
+      setShowSourceLesson(false);
     }
-
-    setShowSourceLesson(false);
-  }, [isOpen, lesson?.id]);
+  }
 
   useEffect(() => {
     if (!isOpen || !selectedExerciseId) {

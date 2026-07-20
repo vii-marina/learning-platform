@@ -167,6 +167,7 @@ export function useCourseBuilderReviewState({
     }
 
     if (!resolvedReviewSelection) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clear the review selection when there's nothing to show
       setExpandedReviewModuleId(null);
       return;
     }

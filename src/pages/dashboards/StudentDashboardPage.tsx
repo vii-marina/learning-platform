@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { useAppToast } from "../../components/ui/AppToastProvider";
+import { useAppToast } from "../../components/ui/appToastContext";
 import { Card } from "../../components/ui/Card";
 import { LoadingState } from "../../components/ui/LoadingState";
 import {

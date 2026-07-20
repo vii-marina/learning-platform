@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppToast } from "../../components/ui/AppToastProvider";
+import { useAppToast } from "../../components/ui/appToastContext";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { supabase } from "../../lib/supabase";
 import {
@@ -91,6 +91,7 @@ function mapHydratedTestsToCourseTests(tests: HydratedTestEntityResponse[]): Cou
     title: test.title,
     afterLessonId: test.after_lesson_id,
     order: test.order,
+    isGraded: test.is_graded,
     questions: test.questions.map((question) =>
       mapQuestionToCourseTestQuestion(question, question.answers)
     ),
@@ -526,6 +527,8 @@ export const CourseBuilderPage = forwardRef<
     isSavingTest,
     isGeneratingAiQuestions,
     testAfterLessonId,
+    testIsGraded,
+    setTestIsGraded,
     testQuestions,
     testAiGenerationMode,
     testAiQuestionCount,
@@ -1364,6 +1367,8 @@ export const CourseBuilderPage = forwardRef<
         onAiGenerationModeChange={setTestAiGenerationMode}
         onAiQuestionCountChange={setTestAiQuestionCount}
         onAfterLessonChange={setTestAfterLessonId}
+        isGraded={testIsGraded}
+        onIsGradedChange={setTestIsGraded}
         onAddQuestion={handleAddTestQuestion}
         onQuestionChange={handleChangeTestQuestion}
         onDeleteQuestion={handleDeleteTestQuestion}

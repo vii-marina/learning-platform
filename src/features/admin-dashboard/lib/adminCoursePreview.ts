@@ -17,6 +17,7 @@ function mapAdminTestToCourseTest(test: AdminDashboardTest): CourseTest {
     title: test.title,
     afterLessonId: test.after_lesson_id,
     order: test.order,
+    isGraded: test.is_graded,
     questions: test.questions.map((question) =>
       mapQuestionToCourseTestQuestion(question, question.answers)
     ),

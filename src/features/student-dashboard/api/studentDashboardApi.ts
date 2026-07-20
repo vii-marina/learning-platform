@@ -79,6 +79,9 @@ export type StudentTestCompletionResponse = {
     passed: boolean;
     updated_at: string;
   };
+  correct_count: number;
+  total_questions: number;
+  per_question: Record<string, boolean>;
 };
 
 export type StudentExerciseCompletionResponse = {

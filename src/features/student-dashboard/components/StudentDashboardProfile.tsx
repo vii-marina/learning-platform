@@ -316,24 +316,28 @@ export function StudentDashboardProfile({
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [avatarPreviewUrl, setAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarError, setAvatarError] = useState("");
+  const [prevStudent, setPrevStudent] = useState(student);
 
-  useEffect(() => {
+  // Reset the form when a different student is loaded.
+  if (student !== prevStudent) {
+    setPrevStudent(student);
     setFormState(toFormState(student));
     setAvatarFile(null);
     setAvatarError("");
-  }, [student]);
+  }
 
   useEffect(() => {
     if (!avatarFile) {
-      setAvatarPreviewUrl(null);
       return;
     }
 
     const nextPreviewUrl = URL.createObjectURL(avatarFile);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- publish the object-URL preview (revoked on cleanup)
     setAvatarPreviewUrl(nextPreviewUrl);
 
     return () => {
       URL.revokeObjectURL(nextPreviewUrl);
+      setAvatarPreviewUrl(null);
     };
   }, [avatarFile]);
 

@@ -21,6 +21,7 @@ export type CourseTest = {
   title: string;
   afterLessonId: string | null;
   order: number;
+  isGraded: boolean;
   questions: CourseTestQuestion[];
 };
 

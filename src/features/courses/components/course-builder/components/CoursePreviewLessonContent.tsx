@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -48,7 +48,7 @@ type CoursePreviewLessonContentProps = {
   onCompleteTest: (
     testId: string,
     selectedAnswers: Record<string, number[]>
-  ) => Promise<void> | void;
+  ) => Promise<TestCompletionSummary | void> | TestCompletionSummary | void;
   isCurrentLessonCompleted?: boolean;
   isCompletingLesson?: boolean;
   onCompleteLesson?: () => void;
@@ -93,6 +93,15 @@ function getAnswerModeHint(question: CourseTest["questions"][number]) {
     : "Оберіть один варіант";
 }
 
+// Graded-test results shown after submission. per_question is right/wrong only —
+// never the correct answer — so a graded test still hides the answer key.
+export type TestCompletionSummary = {
+  scorePercent: number;
+  correctCount: number;
+  totalQuestions: number;
+  perQuestion: Record<string, boolean>;
+};
+
 export function CoursePreviewLessonContent({
   module,
   lesson,
@@ -123,10 +132,20 @@ export function CoursePreviewLessonContent({
   >({});
   const [revealedCorrectAnswers, setRevealedCorrectAnswers] = useState<Record<string, boolean>>({});
   const [isTestSubmitted, setIsTestSubmitted] = useState(false);
+  // Graded tests: server-graded (or locally-computed for the teacher preview) summary,
+  // shown on the results screen after the test is submitted.
+  const [gradedResult, setGradedResult] = useState<TestCompletionSummary | null>(null);
+  const [prevSourceKey, setPrevSourceKey] = useState(
+    `${activeContentType}|${activeExerciseId}|${activeTestId}|${lesson?.id}`
+  );
+  const [prevResetTestId, setPrevResetTestId] = useState<string | null>(null);
 
-  useEffect(() => {
+  // Collapse the source-lesson panel when the active item changes.
+  const sourceKey = `${activeContentType}|${activeExerciseId}|${activeTestId}|${lesson?.id}`;
+  if (sourceKey !== prevSourceKey) {
+    setPrevSourceKey(sourceKey);
     setShowSourceLesson(false);
-  }, [activeContentType, activeExerciseId, activeTestId, lesson?.id]);
+  }
 
   const hasGeneratedPractice =
     exercises.some((exercise) => isGeneratedCoursePreviewItem(exercise.id)) ||
@@ -145,8 +164,9 @@ export function CoursePreviewLessonContent({
       : "";
   const currentQuestion = currentTest?.questions[currentQuestionIndex] ?? null;
   const totalAnswered = currentTest
-    ? currentTest.questions.filter((question) => checkedQuestionResults[question.id] !== undefined)
-        .length
+    ? currentTest.questions.filter(
+        (question) => (selectedAnswers[question.id] ?? []).length > 0
+      ).length
     : 0;
   const score =
     currentTest
@@ -160,14 +180,19 @@ export function CoursePreviewLessonContent({
   const isCurrentCorrectAnswerRevealed = currentQuestion
     ? Boolean(revealedCorrectAnswers[currentQuestion.id])
     : false;
+  const isGradedTest = currentTest?.isGraded ?? false;
 
-  useEffect(() => {
+  // Reset the attempt when the active test changes.
+  const resetTestId = currentTest?.id ?? null;
+  if (resetTestId !== prevResetTestId) {
+    setPrevResetTestId(resetTestId);
     setCurrentQuestionIndex(0);
     setSelectedAnswers({});
     setCheckedQuestionResults({});
     setRevealedCorrectAnswers({});
+    setGradedResult(null);
     setIsTestSubmitted(false);
-  }, [currentTest?.id]);
+  }
 
   if (!module || !lesson) {
     return (
@@ -181,6 +206,7 @@ export function CoursePreviewLessonContent({
 
   const lessonEmbedUrl = getYouTubeEmbedUrl(lesson.video_url);
 
+  // Practice tests only: the client has the answer key, so it checks locally.
   function handleCheckCurrentQuestion() {
     if (!currentQuestion) {
       return;
@@ -234,6 +260,28 @@ export function CoursePreviewLessonContent({
     }));
   }
 
+  function computeLocalGradedResult(test: CourseTest): TestCompletionSummary {
+    const perQuestion: Record<string, boolean> = {};
+    let correct = 0;
+    for (const question of test.questions) {
+      const selected = selectedAnswers[question.id] ?? [];
+      const isCorrect =
+        selected.length === question.correctOptionIndexes.length &&
+        selected.every((index) => question.correctOptionIndexes.includes(index));
+      perQuestion[question.id] = isCorrect;
+      if (isCorrect) {
+        correct += 1;
+      }
+    }
+    const total = test.questions.length;
+    return {
+      scorePercent: total > 0 ? Math.round((correct / total) * 100) : 0,
+      correctCount: correct,
+      totalQuestions: total,
+      perQuestion,
+    };
+  }
+
   async function handleGoToNextQuestion() {
     if (!currentTest) {
       return;
@@ -245,8 +293,12 @@ export function CoursePreviewLessonContent({
     }
 
     setIsTestSubmitted(true);
-    // Server grades from the raw selections; local `score` is display-only.
-    await onCompleteTest(currentTest.id, selectedAnswers);
+    // Server grades from the raw selections; the returned summary drives the graded
+    // results screen (teacher preview has no server call → compute the summary locally).
+    const summary = await onCompleteTest(currentTest.id, selectedAnswers);
+    if (currentTest.isGraded) {
+      setGradedResult(summary ? summary : computeLocalGradedResult(currentTest));
+    }
   }
 
   return (
@@ -391,6 +443,7 @@ export function CoursePreviewLessonContent({
                   {currentTest.questions.map((question, index) => {
                     const questionResult = checkedQuestionResults[question.id] ?? null;
                     const isActive = index === currentQuestionIndex;
+                    const isAnswered = (selectedAnswers[question.id] ?? []).length > 0;
 
                     return (
                       <button
@@ -398,13 +451,15 @@ export function CoursePreviewLessonContent({
                         type="button"
                         onClick={() => setCurrentQuestionIndex(index)}
                         className={`flex h-9 min-w-0 flex-1 items-center justify-center border-r border-white/70 text-sm font-bold transition last:border-r-0 ${
-                          questionResult === "correct"
+                          !isGradedTest && questionResult === "correct"
                             ? "bg-emerald-500 text-white"
-                            : questionResult === "incorrect"
+                            : !isGradedTest && questionResult === "incorrect"
                               ? "bg-rose-500 text-white"
                               : isActive
                                 ? "bg-[#5549f1] text-white"
-                                : "text-[#6d6a9f] hover:bg-white/50"
+                                : isGradedTest && isAnswered
+                                  ? "bg-[#c7c2ff] text-[#1f1b4d]"
+                                  : "text-[#6d6a9f] hover:bg-white/50"
                         }`}
                       >
                         {index + 1}
@@ -417,16 +472,53 @@ export function CoursePreviewLessonContent({
               {isTestSubmitted ? (
                 <div className="rounded-[1.5rem] border border-[#dedcff] bg-white p-8 text-center shadow-[0_20px_48px_rgba(31,27,77,0.08)]">
                   <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-emerald-100 text-3xl font-extrabold text-emerald-700">
-                    {currentTest.questions.length > 0
-                      ? `${Math.round((score / currentTest.questions.length) * 100)}%`
-                      : "0%"}
+                    {gradedResult
+                      ? `${gradedResult.scorePercent}%`
+                      : currentTest.questions.length > 0
+                        ? `${Math.round((score / currentTest.questions.length) * 100)}%`
+                        : "0%"}
                   </div>
                   <h3 className="mt-5 text-2xl font-extrabold text-[#1f1b4d]">
                     Тест завершено
                   </h3>
                   <p className="mt-2 text-sm font-semibold text-[#6d6a9f]">
-                    {`Правильних відповідей: ${score} з ${currentTest.questions.length}`}
+                    {`Правильних відповідей: ${
+                      gradedResult ? gradedResult.correctCount : score
+                    } з ${
+                      gradedResult ? gradedResult.totalQuestions : currentTest.questions.length
+                    }`}
                   </p>
+
+                  {gradedResult ? (
+                    <div className="mt-6 space-y-2 text-left">
+                      {currentTest.questions.map((question, index) => {
+                        const isCorrect = gradedResult.perQuestion[question.id] ?? false;
+
+                        return (
+                          <div
+                            key={question.id}
+                            className="flex items-center justify-between gap-3 rounded-xl border border-[#dedcff] bg-[#f8f7ff] px-4 py-2.5"
+                          >
+                            <span className="text-sm font-semibold text-[#1f1b4d]">
+                              {`Запитання ${index + 1}`}
+                            </span>
+                            {isCorrect ? (
+                              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-emerald-700">
+                                <CheckCircle2 className="h-4 w-4" />
+                                Правильно
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 text-sm font-bold text-rose-700">
+                                <XCircle className="h-4 w-4" />
+                                Неправильно
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+
                   <Button
                     type="button"
                     variant="secondary"
@@ -436,6 +528,7 @@ export function CoursePreviewLessonContent({
                       setSelectedAnswers({});
                       setCheckedQuestionResults({});
                       setRevealedCorrectAnswers({});
+                      setGradedResult(null);
                       setIsTestSubmitted(false);
                     }}
                   >
@@ -590,7 +683,24 @@ export function CoursePreviewLessonContent({
                     })}
                   </div>
 
-                  {!currentQuestionResult ? (
+                  {isGradedTest ? (
+                    <div className="mt-4 flex justify-end">
+                      <Button
+                        type="button"
+                        variant="primary"
+                        onClick={handleGoToNextQuestion}
+                        disabled={(selectedAnswers[currentQuestion.id] ?? []).length === 0}
+                        className="bg-[#5549f1] hover:bg-[#4035d6]"
+                      >
+                        <span>
+                          {currentQuestionIndex < currentTest.questions.length - 1
+                            ? "Наступне запитання"
+                            : "Завершити тест"}
+                        </span>
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ) : !currentQuestionResult ? (
                     <div className="mt-4 flex justify-end">
                       <Button
                         type="button"

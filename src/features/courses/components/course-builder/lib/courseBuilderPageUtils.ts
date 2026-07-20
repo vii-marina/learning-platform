@@ -22,6 +22,7 @@ export type SavedCourseSnapshot = {
 
 export type TestEditorDraft = {
   afterLessonId: string | null;
+  isGraded: boolean;
   questions: CourseTestQuestion[];
 };
 
@@ -65,6 +66,7 @@ export const createEmptyTestQuestion = (): CourseTestQuestion => ({
 
 export const createEmptyTestEditorDraft = (): TestEditorDraft => ({
   afterLessonId: null,
+  isGraded: false,
   questions: [createEmptyTestQuestion()],
 });
 
@@ -232,6 +234,7 @@ export const areTestDraftsEqual = (
   rightDraft: TestEditorDraft
 ) =>
   leftDraft.afterLessonId === rightDraft.afterLessonId &&
+  leftDraft.isGraded === rightDraft.isGraded &&
   areQuestionArraysEqual(leftDraft.questions, rightDraft.questions);
 
 const hasMeaningfulQuestionDraft = (question: CourseTestQuestion) => {

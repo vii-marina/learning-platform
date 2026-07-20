@@ -44,6 +44,7 @@ function mapStudentCourseData(courseData: StudentCourseDetailsResponse) {
           title: test.title,
           afterLessonId: test.after_lesson_id,
           order: test.order,
+          isGraded: test.is_graded,
           questions: test.questions.map((question) =>
             mapQuestionToCourseTestQuestion(question, question.answers)
           ),
@@ -151,7 +152,14 @@ export function StudentCoursePage() {
 
     try {
       setMessage(null);
-      await completeStudentTest(courseId, testId, selectedAnswers);
+      const result = await completeStudentTest(courseId, testId, selectedAnswers);
+      // Feed the graded results screen (score + per-question right/wrong).
+      return {
+        scorePercent: result.test_result.score,
+        correctCount: result.correct_count,
+        totalQuestions: result.total_questions,
+        perQuestion: result.per_question,
+      };
     } catch (error) {
       setMessage(getErrorMessage(error, "Не вдалося зберегти результат тесту."));
     }

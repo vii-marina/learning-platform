@@ -8,7 +8,10 @@ import {
   type CoursePreviewChatContext,
   type CoursePreviewChatMessage,
 } from "./CoursePreviewAskTeacherModal";
-import { CoursePreviewLessonContent } from "./CoursePreviewLessonContent";
+import {
+  CoursePreviewLessonContent,
+  type TestCompletionSummary,
+} from "./CoursePreviewLessonContent";
 import {
   CoursePreviewOverviewModal,
   type CoursePreviewOverviewTab,
@@ -41,7 +44,7 @@ type CoursePreviewPageProps = {
   onCompleteTest?: (
     testId: string,
     selectedAnswers: Record<string, number[]>
-  ) => Promise<void> | void;
+  ) => Promise<TestCompletionSummary | void> | TestCompletionSummary | void;
   showCourseOverviewActions?: boolean;
 };
 
@@ -614,7 +617,8 @@ export function CoursePreviewPage({
       [testId]: true,
     }));
 
-    await onCompleteTest?.(testId, selectedAnswers);
+    // Return the completion summary so the graded results screen can render it.
+    return onCompleteTest?.(testId, selectedAnswers);
   }
 
   async function handleCompleteExercise(exerciseId: string) {

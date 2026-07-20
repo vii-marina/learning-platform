@@ -41,6 +41,8 @@ type TestCreateModalProps = {
   onAiGenerationModeChange: (value: AiQuestionGenerationMode) => void;
   onAiQuestionCountChange: (value: number) => void;
   onAfterLessonChange: (lessonId: string | null) => void;
+  isGraded: boolean;
+  onIsGradedChange: (value: boolean) => void;
   onAddQuestion: () => void;
   onQuestionChange: (questionId: string, nextQuestion: CourseTestQuestion) => void;
   onDeleteQuestion: (questionId: string) => void;
@@ -74,6 +76,8 @@ export function TestCreateModal({
   onAiGenerationModeChange,
   onAiQuestionCountChange,
   onAfterLessonChange,
+  isGraded,
+  onIsGradedChange,
   onAddQuestion,
   onQuestionChange,
   onDeleteQuestion,
@@ -194,39 +198,57 @@ export function TestCreateModal({
   };
 
   const placementControls = (
-    <div className="mt-5 grid gap-3 md:grid-cols-2">
-      <button
-        type="button"
-        onClick={() => handlePlacementChange(null)}
-        className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
-          selectedAfterLessonId === null
-            ? "border-violet-200 bg-violet-50 text-violet-700"
-            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-        }`}
-        disabled={controlsDisabled}
-      >
-        This Module
-      </button>
+    <div className="mt-5 space-y-3">
+      <div className="grid gap-3 md:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => handlePlacementChange(null)}
+          className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
+            selectedAfterLessonId === null
+              ? "border-violet-200 bg-violet-50 text-violet-700"
+              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+          }`}
+          disabled={controlsDisabled}
+        >
+          This Module
+        </button>
 
-      <select
-        value={selectedAfterLessonId ?? ""}
-        onChange={(event) => handlePlacementChange(event.target.value || null)}
-        disabled={lessons.length === 0 || controlsDisabled}
-        className={`${surfaceControlClassName} px-4 ${
-          selectedAfterLessonId !== null
-            ? "border-violet-200 bg-violet-50 text-violet-700"
-            : "text-slate-700"
-        }`}
-      >
-        <option value="" disabled>
-          {lessons.length === 0 ? "Немає доступних уроків" : "Оберіть урок"}
-        </option>
-        {lessons.map((lesson) => (
-          <option key={lesson.id} value={lesson.id}>
-            {`${lesson.order}. ${lesson.title}`}
+        <select
+          value={selectedAfterLessonId ?? ""}
+          onChange={(event) => handlePlacementChange(event.target.value || null)}
+          disabled={lessons.length === 0 || controlsDisabled}
+          className={`${surfaceControlClassName} px-4 ${
+            selectedAfterLessonId !== null
+              ? "border-violet-200 bg-violet-50 text-violet-700"
+              : "text-slate-700"
+          }`}
+        >
+          <option value="" disabled>
+            {lessons.length === 0 ? "Немає доступних уроків" : "Оберіть урок"}
           </option>
-        ))}
-      </select>
+          {lessons.map((lesson) => (
+            <option key={lesson.id} value={lesson.id}>
+              {`${lesson.order}. ${lesson.title}`}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+        <span>
+          <span className="block text-sm font-semibold text-slate-800">Оцінюваний тест</span>
+          <span className="mt-0.5 block text-xs text-slate-500">
+            Студент не бачить правильних відповідей під час проходження — лише результат наприкінці.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={isGraded}
+          onChange={(event) => onIsGradedChange(event.target.checked)}
+          disabled={controlsDisabled}
+          className="h-5 w-5 shrink-0 accent-violet-600"
+        />
+      </label>
     </div>
   );
 

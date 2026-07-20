@@ -67,6 +67,7 @@ export function useCourseBuilderTestEditor({
   const [isSavingTest, setIsSavingTest] = useState(false);
   const [isGeneratingAiQuestions, setIsGeneratingAiQuestions] = useState(false);
   const [testAfterLessonId, setTestAfterLessonId] = useState<string | null>(null);
+  const [testIsGraded, setTestIsGraded] = useState(false);
   const [testQuestions, setTestQuestions] = useState<CourseTestQuestion[]>([]);
   const [testInitialDraft, setTestInitialDraft] = useState<TestEditorDraft | null>(null);
   const [testAiGenerationMode, setTestAiGenerationMode] =
@@ -109,9 +110,10 @@ export function useCourseBuilderTestEditor({
 
     return !areTestDraftsEqual(testInitialDraft, {
       afterLessonId: testAfterLessonId,
+      isGraded: testIsGraded,
       questions: testQuestions,
     });
-  }, [testAfterLessonId, testEditorModuleId, testInitialDraft, testQuestions]);
+  }, [testAfterLessonId, testEditorModuleId, testInitialDraft, testIsGraded, testQuestions]);
 
   useEffect(() => {
     setTestAiQuestionCount((previousCount) => {
@@ -131,6 +133,7 @@ export function useCourseBuilderTestEditor({
     setTestEditorModuleId(null);
     setEditingTestId(null);
     setTestAfterLessonId(null);
+    setTestIsGraded(false);
     setTestQuestions([]);
     setTestInitialDraft(null);
     setTestCreateInitialMode(null);
@@ -157,11 +160,13 @@ export function useCourseBuilderTestEditor({
     setTestCreateInitialMode(options?.initialMode ?? null);
     setEditingTestId(null);
     setTestAfterLessonId(nextAfterLessonId);
+    setTestIsGraded(nextDraft.isGraded);
     setTestQuestions(nextDraft.questions);
     setTestAiGenerationMode("single_choice");
     setTestAiQuestionCount(getDefaultAiQuestionCount(Math.max(nextAiQuestionLimit, 1)));
     setTestInitialDraft({
       afterLessonId: nextAfterLessonId,
+      isGraded: nextDraft.isGraded,
       questions: nextDraft.questions.map(cloneTestQuestion),
     });
   };
@@ -179,11 +184,13 @@ export function useCourseBuilderTestEditor({
     setTestCreateInitialMode("manual");
     setEditingTestId(test.id);
     setTestAfterLessonId(test.afterLessonId);
+    setTestIsGraded(test.isGraded);
     setTestQuestions(nextQuestions);
     setTestAiGenerationMode("single_choice");
     setTestAiQuestionCount(getDefaultAiQuestionCount(Math.max(nextAiQuestionLimit, 1)));
     setTestInitialDraft({
       afterLessonId: test.afterLessonId,
+      isGraded: test.isGraded,
       questions: nextQuestions.map(cloneTestQuestion),
     });
   };
@@ -297,6 +304,7 @@ export function useCourseBuilderTestEditor({
                   ...test,
                   title: nextTestTitle,
                   afterLessonId: testAfterLessonId,
+                  isGraded: testIsGraded,
                   questions: testQuestions.map(cloneTestQuestion),
                 }
               : test
@@ -311,6 +319,7 @@ export function useCourseBuilderTestEditor({
               id: createLocalEntityId("test"),
               title: nextTestTitle,
               afterLessonId: testAfterLessonId,
+              isGraded: testIsGraded,
               order:
                 existingTests.reduce(
                   (maxOrder, test) => Math.max(maxOrder, test.order),
@@ -335,6 +344,7 @@ export function useCourseBuilderTestEditor({
         ? await updateTestEntity(editingTestId, {
             title: nextTestTitle,
             after_lesson_id: testAfterLessonId,
+            is_graded: testIsGraded,
             order:
               existingTests.find((test) => test.id === editingTestId)?.order ??
               existingTests.length + 1,
@@ -343,6 +353,7 @@ export function useCourseBuilderTestEditor({
             module_id: moduleId,
             title: nextTestTitle,
             after_lesson_id: testAfterLessonId,
+            is_graded: testIsGraded,
             order: (existingTests.at(-1)?.order ?? 0) + 1,
           });
 
@@ -408,6 +419,8 @@ export function useCourseBuilderTestEditor({
     isSavingTest,
     isGeneratingAiQuestions,
     testAfterLessonId,
+    testIsGraded,
+    setTestIsGraded,
     testQuestions,
     testAiGenerationMode,
     testAiQuestionCount,

@@ -41,6 +41,7 @@ type TestEntityRow = {
   module_id: string;
   title: string;
   order: number;
+  is_graded: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -323,7 +324,13 @@ export async function deleteModule(auth: AuthenticatedRequestContext, moduleId: 
 // TESTS (test_entities)
 export async function createTestEntity(
   auth: AuthenticatedRequestContext,
-  input: { module_id: string; after_lesson_id?: string | null; title: string; order?: number }
+  input: {
+    module_id: string;
+    after_lesson_id?: string | null;
+    title: string;
+    order?: number;
+    is_graded?: boolean;
+  }
 ) {
   const module = await authorizeModuleAccess(auth, input.module_id);
   if (input.after_lesson_id) {
@@ -340,6 +347,7 @@ export async function createTestEntity(
       module_id: input.module_id,
       title: input.title.trim(),
       order,
+      is_graded: input.is_graded ?? false,
     })
     .select("*")
     .single();
@@ -350,12 +358,18 @@ export async function createTestEntity(
 export async function updateTestEntity(
   auth: AuthenticatedRequestContext,
   testId: string,
-  input: { title?: string; after_lesson_id?: string | null; order?: number }
+  input: {
+    title?: string;
+    after_lesson_id?: string | null;
+    order?: number;
+    is_graded?: boolean;
+  }
 ) {
   const test = await authorizeTestAccess(auth, testId);
   const payload: Record<string, unknown> = {};
   if (input.title !== undefined) payload.title = input.title.trim();
   if (input.order !== undefined) payload.order = input.order;
+  if (input.is_graded !== undefined) payload.is_graded = input.is_graded;
   if (input.after_lesson_id !== undefined) {
     if (input.after_lesson_id) {
       const lesson = await authorizeLessonAccess(auth, input.after_lesson_id);

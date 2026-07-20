@@ -61,6 +61,7 @@ export const createTestSchema = z.object({
   after_lesson_id: uuid("Lesson id").nullable().optional(),
   title: z.string().trim().min(1, "Test title is required.").max(200),
   order: z.number().int().positive().optional(),
+  is_graded: z.boolean().optional(),
 });
 
 export const updateTestSchema = z
@@ -68,9 +69,14 @@ export const updateTestSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     after_lesson_id: uuid("Lesson id").nullable().optional(),
     order: z.number().int().positive().optional(),
+    is_graded: z.boolean().optional(),
   })
   .refine(
-    (v) => v.title !== undefined || v.after_lesson_id !== undefined || v.order !== undefined,
+    (v) =>
+      v.title !== undefined ||
+      v.after_lesson_id !== undefined ||
+      v.order !== undefined ||
+      v.is_graded !== undefined,
     { message: "At least one test field must be provided." }
   );
 

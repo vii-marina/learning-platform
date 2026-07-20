@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { BadgeCheck, Lightbulb, X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
@@ -52,16 +52,18 @@ export function CoursePreviewTestModal({
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number[]>>({});
   const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [prevOpenTestId, setPrevOpenTestId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen || !test) {
-      return;
+  // Reset the attempt when the modal (re)opens or the test changes.
+  const openTestId = isOpen && test ? test.id : null;
+  if (openTestId !== prevOpenTestId) {
+    setPrevOpenTestId(openTestId);
+    if (openTestId !== null) {
+      setSelectedAnswers({});
+      setRevealedHints({});
+      setIsSubmitted(false);
     }
-
-    setSelectedAnswers({});
-    setRevealedHints({});
-    setIsSubmitted(false);
-  }, [isOpen, test]);
+  }
 
   const title =
     module && test

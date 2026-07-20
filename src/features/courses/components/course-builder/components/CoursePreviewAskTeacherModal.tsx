@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {  X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 
@@ -28,14 +28,16 @@ export function CoursePreviewAskTeacherModal({
   onSend,
 }: CoursePreviewAskTeacherModalProps) {
   const [draft, setDraft] = useState("");
+  const [prevOpenKey, setPrevOpenKey] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!isOpen) {
-      return;
+  // Clear the draft when the modal (re)opens or its reference changes.
+  const openKey = isOpen ? context?.reference ?? "" : null;
+  if (openKey !== prevOpenKey) {
+    setPrevOpenKey(openKey);
+    if (openKey !== null) {
+      setDraft("");
     }
-
-    setDraft("");
-  }, [context?.reference, isOpen]);
+  }
 
   if (!isOpen || !context) {
     return null;

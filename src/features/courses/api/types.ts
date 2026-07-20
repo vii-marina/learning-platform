@@ -58,6 +58,7 @@ export type TestEntity = {
   module_id: string;
   title: string;
   order: number;
+  is_graded: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -173,10 +174,11 @@ export type CreateTestEntityInput = {
   after_lesson_id?: string | null;
   title: string;
   order?: number;
+  is_graded?: boolean;
 };
 
 export type UpdateTestEntityInput = Partial<
-  Pick<TestEntity, "after_lesson_id" | "title" | "order">
+  Pick<TestEntity, "after_lesson_id" | "title" | "order" | "is_graded">
 >;
 
 export type CreateTestQuestionInput = {
