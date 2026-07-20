@@ -49,6 +49,7 @@ type CoursePreviewLessonContentProps = {
     testId: string,
     selectedAnswers: Record<string, number[]>
   ) => Promise<TestCompletionSummary | void> | TestCompletionSummary | void;
+  gradeLocally?: boolean;
   isCurrentLessonCompleted?: boolean;
   isCompletingLesson?: boolean;
   onCompleteLesson?: () => void;
@@ -123,6 +124,7 @@ export function CoursePreviewLessonContent({
   onSelectExercise,
   onResolveExercise,
   onCompleteTest,
+  gradeLocally = false,
 }: CoursePreviewLessonContentProps) {
   const [showSourceLesson, setShowSourceLesson] = useState(false);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -135,6 +137,7 @@ export function CoursePreviewLessonContent({
   // Graded tests: server-graded (or locally-computed for the teacher preview) summary,
   // shown on the results screen after the test is submitted.
   const [gradedResult, setGradedResult] = useState<TestCompletionSummary | null>(null);
+  const [isSubmittingTest, setIsSubmittingTest] = useState(false);
   const [prevSourceKey, setPrevSourceKey] = useState(
     `${activeContentType}|${activeExerciseId}|${activeTestId}|${lesson?.id}`
   );
@@ -192,6 +195,7 @@ export function CoursePreviewLessonContent({
     setRevealedCorrectAnswers({});
     setGradedResult(null);
     setIsTestSubmitted(false);
+    setIsSubmittingTest(false);
   }
 
   if (!module || !lesson) {
@@ -291,13 +295,28 @@ export function CoursePreviewLessonContent({
       setCurrentQuestionIndex((currentValue) => currentValue + 1);
       return;
     }
+if (!currentTest.isGraded) {
+      setIsTestSubmitted(true);
+      await onCompleteTest(currentTest.id, selectedAnswers);
+      return;
+    }
 
-    setIsTestSubmitted(true);
-    // Server grades from the raw selections; the returned summary drives the graded
-    // results screen (teacher preview has no server call → compute the summary locally).
-    const summary = await onCompleteTest(currentTest.id, selectedAnswers);
-    if (currentTest.isGraded) {
-      setGradedResult(summary ? summary : computeLocalGradedResult(currentTest));
+    if (gradeLocally) {
+      setGradedResult(computeLocalGradedResult(currentTest));
+      setIsTestSubmitted(true);
+      await onCompleteTest(currentTest.id, selectedAnswers);
+      return;
+    }
+
+    setIsSubmittingTest(true);
+    try {
+      const summary = await onCompleteTest(currentTest.id, selectedAnswers);
+      if (summary) {
+        setGradedResult(summary);
+        setIsTestSubmitted(true);
+      }
+    } finally {
+      setIsSubmittingTest(false);
     }
   }
 
@@ -689,13 +708,18 @@ export function CoursePreviewLessonContent({
                         type="button"
                         variant="primary"
                         onClick={handleGoToNextQuestion}
-                        disabled={(selectedAnswers[currentQuestion.id] ?? []).length === 0}
+                        disabled={
+                          (selectedAnswers[currentQuestion.id] ?? []).length === 0 ||
+                          isSubmittingTest
+                        }
                         className="bg-[#5549f1] hover:bg-[#4035d6]"
                       >
                         <span>
                           {currentQuestionIndex < currentTest.questions.length - 1
                             ? "Наступне запитання"
-                            : "Завершити тест"}
+                            : isSubmittingTest
+                              ? "Надсилання…"
+                              : "Завершити тест"}
                         </span>
                         <ArrowRight className="h-4 w-4" />
                       </Button>

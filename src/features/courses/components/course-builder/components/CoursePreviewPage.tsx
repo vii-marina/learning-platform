@@ -842,6 +842,7 @@ export function CoursePreviewPage({
               void handleCompleteExercise(exerciseId);
             }}
             onCompleteTest={handleCompleteModalTest}
+            gradeLocally={!onCompleteTest}
           />
         </div>
       </section>
