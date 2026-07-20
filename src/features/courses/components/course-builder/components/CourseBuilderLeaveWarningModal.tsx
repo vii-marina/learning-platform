@@ -1,4 +1,5 @@
 import { AlertTriangle, Save, X } from "lucide-react";
+import { Modal } from "../../../../../components/ui/Modal";
 
 type CourseBuilderLeaveWarningModalProps = {
   isOpen: boolean;
@@ -19,15 +20,16 @@ export function CourseBuilderLeaveWarningModal({
   onSaveDraft,
   onLeaveWithoutSaving,
 }: CourseBuilderLeaveWarningModalProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div className="fixed inset-0 z-[130] bg-slate-950/55 px-4 py-6 backdrop-blur-sm">
-      <div className="mx-auto flex min-h-full max-w-2xl items-center justify-center">
-        <div className="w-full rounded-[1.75rem] border border-amber-100 bg-white p-6 shadow-[0_28px_60px_rgba(15,23,42,0.22)] md:p-7">
-          <div className="flex items-start justify-between gap-4">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      overlayClassName="z-[130]"
+      dismissDisabled={isSavingDraft}
+      ariaLabel="Незбережені зміни"
+      panelClassName="w-full max-w-2xl rounded-[1.75rem] border border-amber-100 bg-white p-6 shadow-[0_28px_60px_rgba(15,23,42,0.22)] md:p-7"
+    >
+      <div className="flex items-start justify-between gap-4">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl bg-amber-50 p-3 text-amber-600">
                 <AlertTriangle className="h-5 w-5" />
@@ -79,8 +81,6 @@ export function CourseBuilderLeaveWarningModal({
               <span>{isSavingDraft ? "Збереження чернетки..." : "Зберегти чернетку"}</span>
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }
