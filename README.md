@@ -156,7 +156,6 @@ The platform uses Supabase PostgreSQL as the primary database. Main entities inc
 - `exercise_content`
 - `course_progress`
 - `lesson_progress`
-- `lesson_views`
 - `user_test_results`
 - `user_exercise_results`
 - `user_courses`
