@@ -9,6 +9,7 @@ import {
   listStudentDashboardPublicCourses,
   startStudentCourse,
 } from "../services/studentDashboardCoursesService";
+import { completeTestSchema } from "../validators/authSchemas";
 
 function getStringRouteParam(value: string | string[] | undefined, paramName: string) {
   if (typeof value === "string" && value.trim()) {
@@ -50,11 +51,8 @@ export async function completeStudentCourseLessonHandler(req: Request, res: Resp
 export async function completeStudentCourseTestHandler(req: Request, res: Response) {
   const courseId = getStringRouteParam(req.params.courseId, "courseId");
   const testId = getStringRouteParam(req.params.testId, "testId");
-  const rawScorePercent =
-    typeof req.body === "object" && req.body !== null
-      ? (req.body as Record<string, unknown>).score_percent
-      : undefined;
-  const result = await completeStudentCourseTest(req.auth!, courseId, testId, rawScorePercent);
+  const { answers } = completeTestSchema.parse(req.body ?? {});
+  const result = await completeStudentCourseTest(req.auth!, courseId, testId, answers);
 
   res.status(200).json(result);
 }

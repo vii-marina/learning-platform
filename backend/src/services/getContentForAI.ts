@@ -77,7 +77,7 @@ function splitIntoSections(text: string) {
 }
 
 function limitTextLength(sections: string[], maxChars = 6000) {
-  let result: string[] = [];
+  const result: string[] = [];
   let total = 0;
 
   for (const section of sections) {
@@ -140,9 +140,7 @@ export async function getContentForAI({
   questionCount?: number;
 }): Promise<{ text: string; questionCount: number }> {
 
-  // =========================
   // LESSON MODE
-  // =========================
   if (afterLessonId) {
     const { data, error } = await supabaseAdmin
       .from("lesson_blocks")
@@ -174,9 +172,7 @@ export async function getContentForAI({
     };
   }
 
-  // =========================
   // MODULE MODE
-  // =========================
   if (moduleId) {
     const { data: lessons, error: lessonsError } = await supabaseAdmin
       .from("lessons")

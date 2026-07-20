@@ -141,14 +141,17 @@ export function StudentCoursePage() {
     }
   }
 
-  async function handleCompleteTest(testId: string, scorePercent: number) {
+  async function handleCompleteTest(
+    testId: string,
+    selectedAnswers: Record<string, number[]>
+  ) {
     if (!courseId) {
       return;
     }
 
     try {
       setMessage(null);
-      await completeStudentTest(courseId, testId, scorePercent);
+      await completeStudentTest(courseId, testId, selectedAnswers);
     } catch (error) {
       setMessage(getErrorMessage(error, "Не вдалося зберегти результат тесту."));
     }

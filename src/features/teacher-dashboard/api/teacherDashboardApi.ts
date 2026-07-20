@@ -1,4 +1,5 @@
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
+import { dedupeRequest } from "../../../lib/requestDedup";
 import type { TeacherCourseSummary } from "../components/teacherCourseDashboard.types";
 
 type TeacherDashboardCoursesResponse = {
@@ -66,15 +67,19 @@ export type TeacherDashboardStudentsSummary = {
 };
 
 export async function listTeacherDashboardCourses() {
-  const response = await authorizedBackendRequest<TeacherDashboardCoursesResponse>(
-    "/auth/teacher/dashboard/courses"
-  );
+  return dedupeRequest("teacher:dashboard:courses", async () => {
+    const response = await authorizedBackendRequest<TeacherDashboardCoursesResponse>(
+      "/auth/teacher/dashboard/courses"
+    );
 
-  return response.courses;
+    return response.courses;
+  });
 }
 
 export async function listTeacherDashboardStudents() {
-  return authorizedBackendRequest<TeacherDashboardStudentsSummary>(
-    "/auth/teacher/dashboard/students"
+  return dedupeRequest("teacher:dashboard:students", () =>
+    authorizedBackendRequest<TeacherDashboardStudentsSummary>(
+      "/auth/teacher/dashboard/students"
+    )
   );
 }

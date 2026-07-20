@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { AppError } from "../lib/appError";
 import {
   type ExerciseDifficulty,
   generateExerciseFromLesson,
@@ -11,10 +12,48 @@ import {
   type GeneratedQuestion,
 } from "../services/aiQuestionGenerator";
 import {
+  authorizeLessonAccess,
+  authorizeModuleAccess,
+} from "../services/courseAuthoringService";
+import {
   detectMaxDifficulty,
   filterDifficulties,
 } from "../services/exerciseDifficulty";
 import { getContentForAI } from "../services/getContentForAI";
+import type { AuthenticatedRequestContext } from "../types/auth";
+import {
+  exerciseGenerationLimitSchema,
+  generateExerciseSchema,
+  generateTestQuestionsSchema,
+} from "../validators/aiSchemas";
+
+function getAuth(req: Request): AuthenticatedRequestContext {
+  if (!req.auth) {
+    throw new AppError(401, "Authentication is required.", "AUTH_REQUIRED");
+  }
+  return req.auth;
+}
+
+// R11: a teacher may only generate from content they own (admins bypass).
+// Mirrors getContentForAI's target priority: afterLessonId first, then moduleId.
+async function authorizeAiTarget(
+  auth: AuthenticatedRequestContext,
+  target: { afterLessonId?: string; moduleId?: string }
+) {
+  if (target.afterLessonId) {
+    await authorizeLessonAccess(auth, target.afterLessonId);
+    return;
+  }
+  if (target.moduleId) {
+    await authorizeModuleAccess(auth, target.moduleId);
+    return;
+  }
+  throw new AppError(
+    400,
+    "Provide either afterLessonId or moduleId.",
+    "AI_TARGET_MISSING"
+  );
+}
 
 function normalizeGenerationMode(value: unknown): AiQuestionGenerationMode {
   return value === "true_false" ||
@@ -131,7 +170,7 @@ function validateQuestions(questions: GeneratedQuestion[]) {
     questions.map((q) => q.question_text.toLowerCase().trim())
   );
 
-  // мінімальна перевірка якості
+  // reject if >30% of questions are duplicates
   if (uniqueTexts.size < Math.ceil(questions.length * 0.7)) {
     return false;
   }
@@ -202,18 +241,11 @@ async function generateExerciseWithRetry(
 }
 
 export async function getExerciseGenerationLimit(req: Request, res: Response) {
+  const { afterLessonId, moduleId } = exerciseGenerationLimitSchema.parse(req.body);
+
+  await authorizeAiTarget(getAuth(req), { afterLessonId, moduleId });
+
   try {
-    const { afterLessonId, moduleId } = req.body;
-
-    if (!afterLessonId && !moduleId) {
-      return sendAiError(
-        res,
-        400,
-        "Provide either afterLessonId or moduleId",
-        "AI_TARGET_MISSING"
-      );
-    }
-
     const { text, questionCount } = await getContentForAI({
       afterLessonId,
       moduleId,
@@ -245,14 +277,16 @@ export async function getExerciseGenerationLimit(req: Request, res: Response) {
 }
 
 export async function generateTestQuestions(req: Request, res: Response) {
-  try {
-    const {
-      afterLessonId,
-      moduleId,
-      questionCount: requestedQuestionCount,
-      generationMode: requestedGenerationMode,
-    } = req.body;
+  const {
+    afterLessonId,
+    moduleId,
+    questionCount: requestedQuestionCount,
+    generationMode: requestedGenerationMode,
+  } = generateTestQuestionsSchema.parse(req.body);
 
+  await authorizeAiTarget(getAuth(req), { afterLessonId, moduleId });
+
+  try {
     const { text, questionCount } = await getContentForAI({
       afterLessonId,
       moduleId,
@@ -295,15 +329,17 @@ export async function generateTestQuestions(req: Request, res: Response) {
 }
 
 export async function generateExerciseDraft(req: Request, res: Response) {
-  try {
-    const {
-      afterLessonId,
-      moduleId,
-      type: requestedType,
-      difficulties: requestedDifficulties,
-      count: requestedCount,
-    } = req.body;
+  const {
+    afterLessonId,
+    moduleId,
+    type: requestedType,
+    difficulties: requestedDifficulties,
+    count: requestedCount,
+  } = generateExerciseSchema.parse(req.body);
 
+  await authorizeAiTarget(getAuth(req), { afterLessonId, moduleId });
+
+  try {
     const exerciseType = normalizeExerciseType(requestedType);
     const difficulties = normalizeExerciseDifficulties(requestedDifficulties);
     const requestedExerciseCount = normalizeExerciseCount(requestedCount);

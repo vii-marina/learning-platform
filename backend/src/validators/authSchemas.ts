@@ -5,6 +5,14 @@ export const registerProfileSchema = z.object({
   role: z.enum(["student", "teacher"]),
 });
 
+// Test completion: the client submits the student's selected option indexes per
+// question id; the backend grades it (R15). Any legacy `score_percent` is ignored.
+export const completeTestSchema = z.object({
+  answers: z
+    .record(z.string(), z.array(z.number().int().min(0).max(999)).max(64))
+    .default({}),
+});
+
 const optionalTrimmedString = (max: number) =>
   z.string().trim().max(max).nullable().optional();
 

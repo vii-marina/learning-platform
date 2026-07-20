@@ -39,11 +39,6 @@ type LessonRow = {
   updated_at: string;
 };
 
-type LessonListRow = {
-  id: string;
-  module_id: string;
-};
-
 type CourseProgressRow = {
   id: string;
   user_id: string;
@@ -620,19 +615,103 @@ async function updateCourseProgressAfterLessonCompletion(
   return data as CourseProgressRow;
 }
 
-function normalizeScorePercent(rawScorePercent: unknown) {
-  const scorePercent =
-    typeof rawScorePercent === "number"
-      ? rawScorePercent
-      : typeof rawScorePercent === "string" && rawScorePercent.trim()
-        ? Number(rawScorePercent)
-        : NaN;
+// Server-side test grading (R15): the score is computed here from the student's
+// selected option indexes vs. the stored answers — never trusted from the client.
+// Mirrors the client's scoring rule exactly (CoursePreviewTestModal /
+// CoursePreviewLessonContent) so a submission grades identically:
+//   - option index order = answers sorted by created_at asc (same as the
+//     student-details endpoint that rendered the options);
+//   - true_false → [0] for the correct "true" answer, [1] for "false";
+//   - a question is correct iff the selected index set equals the correct set.
+type GradingQuestionRow = { id: string; type: string };
+type GradingAnswerRow = {
+  question_id: string;
+  answer_text: string;
+  is_correct: boolean;
+};
 
-  if (!Number.isFinite(scorePercent)) {
-    throw new AppError(400, "Missing or invalid score_percent.", "INVALID_TEST_SCORE");
+function computeCorrectIndexes(type: string, answers: GradingAnswerRow[]): number[] {
+  if (type === "true_false") {
+    const correctAnswer = answers.find((answer) => answer.is_correct);
+    if (!correctAnswer) {
+      return [];
+    }
+    return correctAnswer.answer_text.trim().toLowerCase() === "false" ? [1] : [0];
   }
 
-  return Math.min(100, Math.max(0, Math.round(scorePercent)));
+  return answers.reduce<number[]>((indexes, answer, index) => {
+    if (answer.is_correct) {
+      indexes.push(index);
+    }
+    return indexes;
+  }, []);
+}
+
+function isQuestionAnsweredCorrectly(correctIndexes: number[], selectedRaw: number[]): boolean {
+  const selected = Array.from(new Set(selectedRaw));
+  return (
+    selected.length === correctIndexes.length &&
+    selected.every((index) => correctIndexes.includes(index))
+  );
+}
+
+async function gradeTestSubmission(
+  testId: string,
+  submittedAnswers: Record<string, number[]>
+): Promise<number> {
+  const { data: questions, error: questionsError } = await supabaseAdmin
+    .from("test_questions")
+    .select("id,type")
+    .eq("test_id", testId)
+    .order("order", { ascending: true });
+
+  if (questionsError) {
+    throw toServiceError(
+      500,
+      "TEST_QUESTIONS_FETCH_FAILED",
+      "Unable to load test questions",
+      questionsError
+    );
+  }
+
+  const questionRows = (questions ?? []) as GradingQuestionRow[];
+  if (questionRows.length === 0) {
+    return 0;
+  }
+
+  const questionIds = questionRows.map((question) => question.id);
+  const { data: answers, error: answersError } = await supabaseAdmin
+    .from("test_answers")
+    .select("question_id,answer_text,is_correct")
+    .in("question_id", questionIds)
+    .order("created_at", { ascending: true });
+
+  if (answersError) {
+    throw toServiceError(
+      500,
+      "TEST_ANSWERS_FETCH_FAILED",
+      "Unable to load test answers",
+      answersError
+    );
+  }
+
+  const answersByQuestionId = new Map<string, GradingAnswerRow[]>();
+  for (const answer of (answers ?? []) as GradingAnswerRow[]) {
+    const list = answersByQuestionId.get(answer.question_id) ?? [];
+    list.push(answer);
+    answersByQuestionId.set(answer.question_id, list);
+  }
+
+  const correctCount = questionRows.reduce((count, question) => {
+    const correctIndexes = computeCorrectIndexes(
+      question.type,
+      answersByQuestionId.get(question.id) ?? []
+    );
+    const selected = submittedAnswers[question.id] ?? [];
+    return isQuestionAnsweredCorrectly(correctIndexes, selected) ? count + 1 : count;
+  }, 0);
+
+  return Math.round((correctCount / questionRows.length) * 100);
 }
 
 async function upsertUserTestResult(
@@ -899,31 +978,6 @@ async function listFullLessons(moduleIds: string[]) {
   return lessons;
 }
 
-async function listTestCountsByModuleIds(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return new Map<string, number>();
-  }
-
-  const counts = new Map<string, number>();
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("test_entities")
-      .select("module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "TEST_COUNTS_FAILED", "Unable to load test counts", error);
-    }
-
-    for (const test of (data ?? []) as Array<{ module_id: string }>) {
-      counts.set(test.module_id, (counts.get(test.module_id) ?? 0) + 1);
-    }
-  }
-
-  return counts;
-}
-
 async function listTestRowsByModuleIds(moduleIds: string[]) {
   if (moduleIds.length === 0) {
     return [] as Array<Pick<StudentCourseTestEntity, "id" | "module_id">>;
@@ -974,36 +1028,6 @@ async function listUserTestResults(userId: string | undefined, testIds: string[]
   }
 
   return results;
-}
-
-async function listExerciseCountsByModuleIds(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return new Map<string, number>();
-  }
-
-  const counts = new Map<string, number>();
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("exercises")
-      .select("module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(
-        500,
-        "EXERCISE_COUNTS_FAILED",
-        "Unable to load exercise counts",
-        error
-      );
-    }
-
-    for (const exercise of (data ?? []) as Array<{ module_id: string }>) {
-      counts.set(exercise.module_id, (counts.get(exercise.module_id) ?? 0) + 1);
-    }
-  }
-
-  return counts;
 }
 
 async function listExerciseRowsByModuleIds(moduleIds: string[]) {
@@ -1810,11 +1834,10 @@ export async function completeStudentCourseTest(
   auth: AuthenticatedRequestContext,
   courseId: string,
   testId: string,
-  rawScorePercent: unknown
+  submittedAnswers: Record<string, number[]>
 ): Promise<StudentTestCompletionResult> {
   ensureStudentRole(auth);
 
-  const scorePercent = normalizeScorePercent(rawScorePercent);
   const course = await getPublishedCourse(courseId);
   const courseProgress = await getCourseProgressByUserAndCourse(auth.userId, course.id);
 
@@ -1834,6 +1857,8 @@ export async function completeStudentCourseTest(
     throw new AppError(404, "Test was not found in this course.", "TEST_NOT_FOUND");
   }
 
+  // Grade server-side from the submitted answers — the client no longer sends a score.
+  const scorePercent = await gradeTestSubmission(testId, submittedAnswers);
   const testResult = await upsertUserTestResult(auth.userId, testId, scorePercent);
   await updateCourseProgressAfterLessonCompletion(courseProgress, false);
 

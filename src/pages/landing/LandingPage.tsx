@@ -25,6 +25,7 @@ import {
   FileUser,
 } from "lucide-react";
 import { publicBackendRequest } from "../../features/auth/api/backendClient";
+import { dedupeRequest } from "../../lib/requestDedup";
 import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
 
 const COLORS = {
@@ -1499,8 +1500,8 @@ export function LandingPage() {
     async function loadLandingPreview() {
       try {
         setLandingPreviewStatus("loading");
-        const loadedPreview = await publicBackendRequest<PublicLandingPreview>(
-          "/public/landing-preview"
+        const loadedPreview = await dedupeRequest("public:landing-preview", () =>
+          publicBackendRequest<PublicLandingPreview>("/public/landing-preview")
         );
 
         if (isMounted) {

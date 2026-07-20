@@ -38,7 +38,10 @@ type CoursePreviewPageProps = {
   initialCompletedExerciseIds?: string[];
   onCompleteLesson?: (lessonId: string) => Promise<string[] | void>;
   onCompleteExercise?: (exerciseId: string) => Promise<string[] | void>;
-  onCompleteTest?: (testId: string, scorePercent: number) => Promise<void> | void;
+  onCompleteTest?: (
+    testId: string,
+    selectedAnswers: Record<string, number[]>
+  ) => Promise<void> | void;
   showCourseOverviewActions?: boolean;
 };
 
@@ -602,13 +605,16 @@ export function CoursePreviewPage({
     setActiveExerciseId(null);
   }
 
-  async function handleCompleteModalTest(testId: string, scorePercent: number) {
+  async function handleCompleteModalTest(
+    testId: string,
+    selectedAnswers: Record<string, number[]>
+  ) {
     setCompletedTestIds((currentMap) => ({
       ...currentMap,
       [testId]: true,
     }));
 
-    await onCompleteTest?.(testId, scorePercent);
+    await onCompleteTest?.(testId, selectedAnswers);
   }
 
   async function handleCompleteExercise(exerciseId: string) {

@@ -1,4 +1,5 @@
 import { authorizedBackendRequest } from "../../auth/api/backendClient";
+import { dedupeRequest } from "../../../lib/requestDedup";
 import type {
   CourseAccessType,
   CourseStatus,
@@ -86,19 +87,23 @@ export type StudentExerciseCompletionResponse = {
 };
 
 export async function loadStudentDashboardCourses() {
-  const response = await authorizedBackendRequest<StudentDashboardCoursesResponse>(
-    "/auth/student/dashboard/courses"
-  );
+  return dedupeRequest("student:dashboard:courses", async () => {
+    const response = await authorizedBackendRequest<StudentDashboardCoursesResponse>(
+      "/auth/student/dashboard/courses"
+    );
 
-  return response.courses;
+    return response.courses;
+  });
 }
 
 export async function loadStudentDashboardPublicCourses() {
-  const response = await authorizedBackendRequest<StudentDashboardCoursesResponse>(
-    "/auth/student/dashboard/public-courses"
-  );
+  return dedupeRequest("student:dashboard:public-courses", async () => {
+    const response = await authorizedBackendRequest<StudentDashboardCoursesResponse>(
+      "/auth/student/dashboard/public-courses"
+    );
 
-  return response.courses;
+    return response.courses;
+  });
 }
 
 export async function startStudentCourse(courseId: string) {
@@ -113,8 +118,10 @@ export async function startStudentCourse(courseId: string) {
 }
 
 export async function loadStudentCourse(courseId: string) {
-  return authorizedBackendRequest<StudentCourseDetailsResponse>(
-    `/auth/student/courses/${courseId}`
+  return dedupeRequest(`student:course:${courseId}`, () =>
+    authorizedBackendRequest<StudentCourseDetailsResponse>(
+      `/auth/student/courses/${courseId}`
+    )
   );
 }
 
@@ -130,13 +137,14 @@ export async function completeStudentLesson(courseId: string, lessonId: string) 
 export async function completeStudentTest(
   courseId: string,
   testId: string,
-  scorePercent: number
+  selectedAnswers: Record<string, number[]>
 ) {
+  // Backend grades server-side from these selections; no client-computed score.
   return authorizedBackendRequest<StudentTestCompletionResponse>(
     `/auth/student/courses/${courseId}/tests/${testId}/complete`,
     {
       method: "POST",
-      body: { score_percent: scorePercent },
+      body: { answers: selectedAnswers },
     }
   );
 }

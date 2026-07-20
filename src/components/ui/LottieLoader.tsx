@@ -5,7 +5,32 @@ import type {
   LoadErrorEvent,
   RenderErrorEvent,
 } from "@lottiefiles/dotlottie-web";
-import loaderCatAnimation from "../../assets/animations/loader-cat.lottie";
+import loaderCatAnimationUrl from "../../assets/animations/loader-cat.lottie";
+
+// Fetch the animation once and share it via `data`, so N on-screen loaders
+// don't each re-fetch the same asset (StrictMode would double that again).
+let loaderAnimationBufferPromise: Promise<ArrayBuffer> | null = null;
+
+function getLoaderAnimationBuffer(): Promise<ArrayBuffer> {
+  if (!loaderAnimationBufferPromise) {
+    loaderAnimationBufferPromise = fetch(loaderCatAnimationUrl)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load loader animation (${response.status}).`);
+        }
+
+        return response.arrayBuffer();
+      })
+      .catch((error) => {
+        loaderAnimationBufferPromise = null; // allow retry
+        throw error;
+      });
+  }
+
+  return loaderAnimationBufferPromise;
+}
+
+void getLoaderAnimationBuffer().catch(() => {});
 
 type LottieLoaderProps = {
   label?: string;
@@ -22,6 +47,28 @@ export function LottieLoader({
 }: LottieLoaderProps) {
   const [dotLottie, setDotLottie] = useState<DotLottie | null>(null);
   const [hasAnimationError, setHasAnimationError] = useState(false);
+  const [animationData, setAnimationData] = useState<ArrayBuffer | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    getLoaderAnimationBuffer()
+      .then((buffer) => {
+        if (isMounted) {
+          // own copy — the renderer may detach the buffer it's given
+          setAnimationData(buffer.slice(0));
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setHasAnimationError(true);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!dotLottie) {
@@ -52,7 +99,7 @@ export function LottieLoader({
       role="status"
       aria-live="polite"
     >
-      {hasAnimationError ? (
+      {hasAnimationError || !animationData ? (
         <div
           aria-hidden="true"
           className="rounded-full border-4 border-slate-200 border-t-orange-400 animate-spin"
@@ -60,7 +107,7 @@ export function LottieLoader({
         />
       ) : (
         <DotLottieReact
-          src={loaderCatAnimation}
+          data={animationData}
           autoplay
           loop
           dotLottieRefCallback={setDotLottie}

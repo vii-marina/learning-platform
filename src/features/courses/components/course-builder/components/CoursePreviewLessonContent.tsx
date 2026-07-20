@@ -45,7 +45,10 @@ type CoursePreviewLessonContentProps = {
   onAskTeacher: (context: CoursePreviewChatContext) => void;
   onSelectExercise: (exerciseId: string) => void;
   onResolveExercise: (exerciseId: string) => Promise<void> | void;
-  onCompleteTest: (testId: string, scorePercent: number) => Promise<void> | void;
+  onCompleteTest: (
+    testId: string,
+    selectedAnswers: Record<string, number[]>
+  ) => Promise<void> | void;
   isCurrentLessonCompleted?: boolean;
   isCompletingLesson?: boolean;
   onCompleteLesson?: () => void;
@@ -242,11 +245,8 @@ export function CoursePreviewLessonContent({
     }
 
     setIsTestSubmitted(true);
-    const scorePercent =
-      currentTest.questions.length > 0
-        ? Math.round((score / currentTest.questions.length) * 100)
-        : 0;
-    await onCompleteTest(currentTest.id, scorePercent);
+    // Server grades from the raw selections; local `score` is display-only.
+    await onCompleteTest(currentTest.id, selectedAnswers);
   }
 
   return (
