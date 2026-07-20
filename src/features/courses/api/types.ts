@@ -77,7 +77,7 @@ export type TestAnswer = {
   id: string;
   question_id: string;
   answer_text: string;
-  is_correct: boolean;
+  is_correct?: boolean;
   created_at: string;
 };
 

@@ -704,7 +704,17 @@ export const CourseBuilderPage = forwardRef<
     return () => {
       isCancelled = true;
     };
-  }, [initialCourseId]);
+  }, [
+    initialCourseId,
+    setExercisesByModule,
+    setExpandedModuleId,
+    setHasFetchedModules,
+    setLessonsByModule,
+    setModuleContentLoadStateByModule,
+    setModules,
+    setModulesLoadState,
+    setTestsByModule,
+  ]);
 
   useEffect(() => {
     if (!hasUnsavedChanges) {
@@ -729,7 +739,7 @@ export const CourseBuilderPage = forwardRef<
       hasUnsavedChanges,
       canSaveDraft,
       isSavingDraft: isPersistingCourse,
-      saveDraft: handleSaveDraft,
+      saveDraft: () => handleSaveDraftRef.current(),
     }),
     [canSaveDraft, hasUnsavedChanges, isPersistingCourse]
   );
@@ -750,6 +760,7 @@ export const CourseBuilderPage = forwardRef<
     queueMicrotask(() => {
       void fetchModules(currentCourseId);
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch modules once per course; fetchModules is recreated each render and must not re-trigger this
   }, [currentCourseId, hasFetchedModules]);
 
   useEffect(() => {
@@ -765,6 +776,7 @@ export const CourseBuilderPage = forwardRef<
 
     openNewModuleComposer();
     setExpandedModuleId(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openNewModuleComposer is recreated each render; this should only react to the step/module state below
   }, [
     activeStep,
     currentCourseId,
@@ -850,6 +862,9 @@ export const CourseBuilderPage = forwardRef<
     lessonsByModule,
     modules,
     testsByModule,
+    setExercisesByModule,
+    setLessonsByModule,
+    setTestsByModule,
   ]);
 
   // Course actions.
@@ -857,6 +872,8 @@ export const CourseBuilderPage = forwardRef<
     const courseId = await persistCourseAtFinalStep("draft");
     return Boolean(courseId);
   };
+    const handleSaveDraftRef = useRef(handleSaveDraft);
+  handleSaveDraftRef.current = handleSaveDraft;
 
   // Global keyboard shortcut.
   useEffect(() => {
@@ -874,7 +891,7 @@ export const CourseBuilderPage = forwardRef<
         return;
       }
 
-      void handleSaveDraft();
+      void handleSaveDraftRef.current();
     };
 
     window.addEventListener("keydown", handleSaveDraftShortcut);
@@ -882,7 +899,7 @@ export const CourseBuilderPage = forwardRef<
     return () => {
       window.removeEventListener("keydown", handleSaveDraftShortcut);
     };
-  }, [canSaveDraft, handleSaveDraft, isPersistingCourse]);
+  }, [canSaveDraft, isPersistingCourse]);
 
   const uploadCourseMediaFile = async (file: File) => {
     const mediaScopeId = currentCourseId ?? draftCourseSessionId;
