@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, UserProfileRow } from "../types/auth";
@@ -96,10 +96,6 @@ export type AdminCourseAction = "publish" | "unpublish" | "archive";
 const profileSelect = "id,email,full_name,role,created_at";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: { message: string }) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function toNormalizedUser(profile: UserProfileRow): NormalizedUser {
   return {

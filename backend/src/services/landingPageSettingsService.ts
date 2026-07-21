@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 
 export type LandingPageSettingsRow = {
@@ -22,15 +22,6 @@ function isMissingLandingSettingsTable(error: { code?: string; message: string }
     (message.includes("landing_page_settings") &&
       (message.includes("does not exist") || message.includes("could not find the table")))
   );
-}
-
-function toServiceError(
-  statusCode: number,
-  code: string,
-  fallbackMessage: string,
-  error: { message: string }
-) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
 }
 
 export async function getLandingPageSettings() {

@@ -1,5 +1,5 @@
 import type { User } from "@supabase/supabase-js";
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { isAdminRole, normalizeUserRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import type {
@@ -24,10 +24,6 @@ type BackendError = {
   message: string;
   code?: string;
 };
-
-function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: { message: string }) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function isMissingOptionalRelationError(error: BackendError, relationName: string) {
   const message = error.message.toLowerCase();
@@ -266,11 +262,7 @@ async function deleteAuthUserIfExists(userId: string) {
   const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
 
   if (error && !isAuthUserNotFoundError(error)) {
-    throw new AppError(
-      500,
-      `Unable to remove auth user: ${error.message}`,
-      "AUTH_USER_DELETE_FAILED"
-    );
+    throw toServiceError(500, "AUTH_USER_DELETE_FAILED", "Unable to remove auth user", error);
   }
 }
 
@@ -600,7 +592,7 @@ async function listAllAuthUsers(): Promise<Map<string, { email: string | null }>
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
 
     if (error) {
-      throw new AppError(500, `Unable to list auth users: ${error.message}`, "AUTH_USERS_LIST_FAILED");
+      throw toServiceError(500, "AUTH_USERS_LIST_FAILED", "Unable to list auth users", error);
     }
 
     for (const authUser of data.users) {

@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext } from "../types/auth";
 
@@ -63,10 +63,6 @@ type TestAnswerRow = {
   is_correct: boolean;
   created_at: string;
 };
-
-function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: { message: string }) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 // slug / order helpers (ported from the former frontend courseBuilderApi)
 function normalizeCourseSlug(value: string) {

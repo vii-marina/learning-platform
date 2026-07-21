@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext, UserProfileRow } from "../types/auth";
 import { getLandingPageSettings } from "./landingPageSettingsService";
@@ -262,15 +262,6 @@ export type StudentExerciseCompletionResult = {
 const profileSelect = "id,full_name,email";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function toServiceError(
-  statusCode: number,
-  code: string,
-  fallbackMessage: string,
-  error: { message: string }
-) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function chunkValues<TValue>(values: TValue[], size = 50) {
   const chunks: TValue[][] = [];
