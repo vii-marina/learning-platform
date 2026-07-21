@@ -184,6 +184,14 @@ export async function getCourseById(courseId: string) {
   });
 }
 
+export async function getCurrentTeacherId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    throw new Error("Не вдалося знайти поточного викладача.");
+  }
+  return data.user.id;
+}
+
 export async function createCourse(input: CreateCourseInput) {
   const response = await authorizedBackendRequest<CourseResponse>("/authoring/courses", {
     method: "POST",

@@ -16,9 +16,10 @@ import type {
   AdminDashboardCourseSummary,
 } from "../../features/admin-dashboard/types";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
-import { listExercisesByModule, type Exercise } from "../../features/courses/api";
+import { listExercisesByModule } from "../../features/courses/api";
 import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
 import { CoursePreviewPage } from "../../features/courses/components/course-builder/components/CoursePreviewPage";
+import { mapExerciseToCourseExercise } from "../../features/courses/components/course-builder/lib/courseBuilderPageUtils";
 import type { CourseExercise } from "../../features/courses/components/course-builder/types/courseBuilderUiTypes";
 
 type CoursePreviewLocationState = {
@@ -47,19 +48,6 @@ function getStatusTone(course: AdminDashboardCourseSummary) {
   }
 
   return "bg-amber-100 text-amber-800";
-}
-
-function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
-  return {
-    id: exercise.id,
-    title: exercise.title,
-    description: exercise.description,
-    afterLessonId: exercise.after_lesson_id,
-    type: exercise.type,
-    content: exercise.content,
-    createdAt: exercise.created_at,
-    updatedAt: exercise.updated_at,
-  };
 }
 
 export function AdminCoursePreviewPage() {

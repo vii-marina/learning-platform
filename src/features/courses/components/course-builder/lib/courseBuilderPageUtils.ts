@@ -1,5 +1,7 @@
 import type {
+  Exercise,
   GeneratedTestQuestion,
+  HydratedTestEntityResponse,
   Lesson,
   Module,
   TestAnswer,
@@ -7,6 +9,7 @@ import type {
   TestQuestionType,
 } from "../../../api/index";
 import type {
+  CourseExercise,
   CourseTest,
   CourseTestQuestion,
   ExerciseEditorDraft,
@@ -306,6 +309,32 @@ export const mapQuestionToCourseTestQuestion = (
   correctOptionIndexes: buildCorrectOptionIndexes(question, answers),
   hint: question.hint,
 });
+
+// Persisted models → editor drafts (shared by the builder, dashboards, and previews).
+export const mapExerciseToCourseExercise = (exercise: Exercise): CourseExercise => ({
+  id: exercise.id,
+  title: exercise.title,
+  description: exercise.description,
+  afterLessonId: exercise.after_lesson_id,
+  type: exercise.type,
+  content: exercise.content,
+  createdAt: exercise.created_at,
+  updatedAt: exercise.updated_at,
+});
+
+export const mapHydratedTestsToCourseTests = (
+  tests: HydratedTestEntityResponse[]
+): CourseTest[] =>
+  tests.map((test) => ({
+    id: test.id,
+    title: test.title,
+    afterLessonId: test.after_lesson_id,
+    order: test.order,
+    isGraded: test.is_graded,
+    questions: test.questions.map((question) =>
+      mapQuestionToCourseTestQuestion(question, question.answers)
+    ),
+  }));
 
 export const buildAnswerPayloads = (question: CourseTestQuestion) => {
   const options =

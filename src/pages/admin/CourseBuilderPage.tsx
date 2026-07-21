@@ -9,31 +9,6 @@ import {
 import { useNavigate } from "react-router-dom";
 import { useAppToast } from "../../components/ui/appToastContext";
 import { LoadingState } from "../../components/ui/LoadingState";
-import { supabase } from "../../lib/supabase";
-import {
-  createCourse,
-  createLesson,
-  createModule,
-  createTestEntity,
-  getCourseById,
-  listLessonsByModule,
-  type HydratedTestEntityResponse,
-  listModuleContent,
-  listModulesByCourse,
-  publishCourse,
-  saveTestQuestions,
-  upsertLessonPrimaryRichTextBlock,
-  updateCourse,
-} from "../../features/courses/api";
-import {
-  deleteCourseMedia,
-  getCourseMediaPublicUrl,
-  isAllowedCourseThumbnailFile,
-  uploadCourseMedia,
-} from "../../features/courses/api/courseMediaStorage";
-import type {
-  Exercise,
-} from "../../features/courses/api";
 import { CourseBuilderContentStep } from "../../features/courses/components/course-builder/components/CourseBuilderContentStep";
 import { CourseBuilderCourseInfoStep } from "../../features/courses/components/course-builder/components/CourseBuilderCourseInfoStep";
 import { CourseBuilderHeader } from "../../features/courses/components/course-builder/components/CourseBuilderHeader";
@@ -45,19 +20,14 @@ import { TestCreateModal } from "../../features/courses/components/course-builde
 import { useCourseBuilderContentData } from "../../features/courses/components/course-builder/hooks/useCourseBuilderContentData";
 import { useCourseBuilderExerciseEditor } from "../../features/courses/components/course-builder/hooks/useCourseBuilderExerciseEditor";
 import { useCourseBuilderLessonEditor } from "../../features/courses/components/course-builder/hooks/useCourseBuilderLessonEditor";
+import { useCourseBuilderLifecycle } from "../../features/courses/components/course-builder/hooks/useCourseBuilderLifecycle";
+import { useCourseBuilderMedia } from "../../features/courses/components/course-builder/hooks/useCourseBuilderMedia";
+import { useCourseBuilderPersistence } from "../../features/courses/components/course-builder/hooks/useCourseBuilderPersistence";
 import { useCourseBuilderTestEditor } from "../../features/courses/components/course-builder/hooks/useCourseBuilderTestEditor";
-import type {
-  CourseExercise,
-  CourseTest,
-  CourseTestQuestion,
-} from "../../features/courses/components/course-builder/types/courseBuilderUiTypes";
 import {
   courseBuilderSteps,
   type BuilderStep,
-  buildAnswerPayloads,
   createLocalEntityId,
-  getGeneratedCourseTestTitle,
-  mapQuestionToCourseTestQuestion,
   type SavedCourseSnapshot,
 } from "../../features/courses/components/course-builder/lib/courseBuilderPageUtils";
 
@@ -68,32 +38,6 @@ export type CourseBuilderPageHandle = {
   saveDraft: () => Promise<boolean>;
 };
 
-// Local mapping helpers keep persisted models separate from editor drafts.
-function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
-  return {
-    id: exercise.id,
-    title: exercise.title,
-    description: exercise.description,
-    afterLessonId: exercise.after_lesson_id,
-    type: exercise.type,
-    content: exercise.content,
-    createdAt: exercise.created_at,
-    updatedAt: exercise.updated_at,
-  };
-}
-
-function mapHydratedTestsToCourseTests(tests: HydratedTestEntityResponse[]): CourseTest[] {
-  return tests.map((test) => ({
-    id: test.id,
-    title: test.title,
-    afterLessonId: test.after_lesson_id,
-    order: test.order,
-    isGraded: test.is_graded,
-    questions: test.questions.map((question) =>
-      mapQuestionToCourseTestQuestion(question, question.answers)
-    ),
-  }));
-}
 export const CourseBuilderPage = forwardRef<
   CourseBuilderPageHandle,
   {
@@ -132,9 +76,25 @@ export const CourseBuilderPage = forwardRef<
   // Course basics state.
   const [courseTitle, setCourseTitle] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
-  const [courseThumbnailPath, setCourseThumbnailPath] = useState<string | null>(null);
-  const [pendingThumbnailCropFile, setPendingThumbnailCropFile] = useState<File | null>(null);
-  const [isUploadingCourseMedia, setIsUploadingCourseMedia] = useState(false);
+
+  const {
+    courseThumbnailPath,
+    setCourseThumbnailPath,
+    courseThumbnailUrl,
+    pendingThumbnailCropFile,
+    isUploadingCourseMedia,
+    handleCourseMediaSelect,
+    handleCourseThumbnailCropClose,
+    handleCourseThumbnailCropConfirm,
+    handleCourseMediaRemove,
+  } = useCourseBuilderMedia({
+    currentCourseId,
+    draftCourseSessionId,
+    courseTitle,
+    courseDescription,
+    setMessage,
+    setSavedCourseSnapshot,
+  });
 
   const {
     modules,
@@ -180,10 +140,6 @@ export const CourseBuilderPage = forwardRef<
   });
 
   // Derived state.
-  const courseThumbnailUrl = useMemo(
-    () => getCourseMediaPublicUrl(courseThumbnailPath),
-    [courseThumbnailPath]
-  );
   const isBasicsComplete =
     courseTitle.trim().length > 0 && courseDescription.trim().length > 0;
   const currentCourseSnapshot = useMemo<SavedCourseSnapshot>(
@@ -262,207 +218,36 @@ export const CourseBuilderPage = forwardRef<
     return issues;
   }, [isReviewContentLoading, modules.length, totalLessons]);
 
-  // Persistence helpers.
-  const hydratePersistedCourse = async (
-    courseId: string,
-    courseSnapshot?: SavedCourseSnapshot
-  ) => {
-    setHasFetchedModules(false);
-    setModulesLoadState("loading");
-
-    try {
-      const persistedModules = await listModulesByCourse(courseId);
-      const moduleContent = await Promise.all(
-        persistedModules.map(async (module) => {
-          const content = await listModuleContent(module.id);
-
-          return {
-            moduleId: module.id,
-            lessons: content.lessons,
-            tests: mapHydratedTestsToCourseTests(content.tests),
-            exercises: content.exercises.map(mapExerciseToCourseExercise),
-          };
-        })
-      );
-
-      setModules(persistedModules);
-      setLessonsByModule(
-        Object.fromEntries(
-          moduleContent.map(({ moduleId, lessons }) => [moduleId, lessons])
-        )
-      );
-      setTestsByModule(
-        Object.fromEntries(moduleContent.map(({ moduleId, tests }) => [moduleId, tests]))
-      );
-      setExercisesByModule(
-        Object.fromEntries(moduleContent.map(({ moduleId, exercises }) => [moduleId, exercises]))
-      );
-      setHasFetchedModules(true);
-      setModulesLoadState("ready");
-      setModuleContentLoadStateByModule(
-        Object.fromEntries(
-          persistedModules.map((module) => [module.id, "ready" as const])
-        )
-      );
-      setCurrentCourseId(courseId);
-      setSavedCourseSnapshot(courseSnapshot ?? currentCourseSnapshot);
-      setMessage("");
-    } catch (error) {
-      setModulesLoadState("error");
-
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-        return;
-      }
-
-      setMessage("Не вдалося перезавантажити збережений курс.");
-    }
-  };
-
-  const persistTestQuestions = async (testId: string, questions: CourseTestQuestion[]) => {
-    // Single bulk request (replace-all); backend clears + recreates in order.
-    await saveTestQuestions(
-      testId,
-      questions.map((question, questionIndex) => ({
-        type: question.type,
-        question_text: question.questionText.trim(),
-        order: questionIndex + 1,
-        hint: question.hint ?? null,
-        answers: buildAnswerPayloads(question),
-      }))
-    );
-  };
-
-  const persistLocalCourseContent = async (courseId: string) => {
-    const sortedModules = [...modules].sort((left, right) => left.order - right.order);
-    const lessonIdMap = new Map<string, string>();
-
-    for (const module of sortedModules) {
-      const createdModule = await createModule({
-        course_id: courseId,
-        title: module.title,
-        order: module.order,
-      });
-      const moduleLessons = [...(lessonsByModule[module.id] || [])].sort(
-        (left, right) => left.order - right.order
-      );
-
-      for (const lesson of moduleLessons) {
-        const createdLesson = await createLesson({
-          module_id: createdModule.id,
-          title: lesson.title,
-          content: lesson.content,
-          video_url: lesson.video_url,
-          content_type: lesson.content_type ?? "rich_text",
-          order: lesson.order,
-        });
-
-        lessonIdMap.set(lesson.id, createdLesson.id);
-        await upsertLessonPrimaryRichTextBlock(createdLesson.id, lesson.content ?? "");
-      }
-
-      const moduleTests = [...(testsByModule[module.id] || [])].sort(
-        (left, right) => left.order - right.order
-      );
-
-      for (const test of moduleTests) {
-        const persistedTest = await createTestEntity({
-          module_id: createdModule.id,
-          title: getGeneratedCourseTestTitle({
-            moduleOrder: module.order,
-            lessons: moduleLessons,
-            afterLessonId: test.afterLessonId,
-            fallbackTitle: test.title,
-          }),
-          after_lesson_id: test.afterLessonId
-            ? lessonIdMap.get(test.afterLessonId) ?? null
-            : null,
-          order: test.order,
-        });
-
-        await persistTestQuestions(persistedTest.id, test.questions);
-      }
-    }
-  };
-
-  const persistCourseAtFinalStep = async (action: "draft" | "publish") => {
-    if (isPersistingCourse) {
-      return null;
-    }
-
-    if (action === "publish" && !isBasicsComplete) {
-      return null;
-    }
-
-    if (action === "draft" && !canSaveDraft) {
-      return null;
-    }
-
-    setIsPersistingCourse(true);
-
-    try {
-      const normalizedDraftTitle = courseTitle.trim() || "Курс без назви";
-      const normalizedDescription = courseDescription.trim() || null;
-
-      if (currentCourseId) {
-        await updateCourse(currentCourseId, {
-          title: action === "draft" ? normalizedDraftTitle : courseTitle.trim(),
-          description: normalizedDescription,
-          thumbnail_path: courseThumbnailPath,
-        });
-
-        if (action === "publish") {
-          await publishCourse(currentCourseId);
-        }
-
-        setSavedCourseSnapshot(currentCourseSnapshot);
-        setMessage("");
-        showSuccessToast(action === "publish" ? "Курс опубліковано." : "Чернетка збережена.");
-        return currentCourseId;
-      }
-
-      const teacherId = await getCurrentTeacherId();
-      const createdCourse = await createCourse({
-        teacher_id: teacherId,
-        title: action === "draft" ? normalizedDraftTitle : courseTitle.trim(),
-        description: normalizedDescription,
-        thumbnail_path: courseThumbnailPath,
-        is_published: false,
-      });
-
-      await persistLocalCourseContent(createdCourse.id);
-
-      if (action === "publish") {
-        await publishCourse(createdCourse.id);
-      }
-
-      await hydratePersistedCourse(createdCourse.id);
-      setSavedCourseSnapshot(currentCourseSnapshot);
-      setMessage("");
-      showSuccessToast(action === "publish" ? "Курс опубліковано." : "Чернетка збережена.");
-      return createdCourse.id;
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-        return null;
-      }
-
-      setMessage(
-        action === "publish" ? "Не вдалося опублікувати курс." : "Не вдалося зберегти чернетку."
-      );
-      return null;
-    } finally {
-      setIsPersistingCourse(false);
-    }
-  };
-
-  const getCurrentTeacherId = async () => {
-    const { data, error } = await supabase.auth.getUser();
-    if (error || !data.user) {
-      throw new Error("Не вдалося знайти поточного викладача.");
-    }
-    return data.user.id;
-  };
+  const {
+    persistTestQuestions,
+    persistCourseAtFinalStep,
+    resolveAiGenerationTarget,
+    resolveExerciseEditorModuleId,
+  } = useCourseBuilderPersistence({
+    currentCourseId,
+    setCurrentCourseId,
+    isPersistingCourse,
+    setIsPersistingCourse,
+    courseTitle,
+    courseDescription,
+    courseThumbnailPath,
+    currentCourseSnapshot,
+    setSavedCourseSnapshot,
+    isBasicsComplete,
+    canSaveDraft,
+    modules,
+    lessonsByModule,
+    testsByModule,
+    setModules,
+    setLessonsByModule,
+    setTestsByModule,
+    setExercisesByModule,
+    setHasFetchedModules,
+    setModulesLoadState,
+    setModuleContentLoadStateByModule,
+    setMessage,
+    showSuccessToast,
+  });
 
   const {
     lessonEditorModuleId,
@@ -627,96 +412,6 @@ export const CourseBuilderPage = forwardRef<
     shouldGuardLessonDraft ||
     isTestDirty;
 
-  // Lifecycle effects.
-  useEffect(() => {
-    if (!initialCourseId) {
-      setIsHydratingCourse(false);
-      return;
-    }
-
-    let isCancelled = false;
-    const courseSnapshotFromDb = async () => {
-      setIsHydratingCourse(true);
-      setMessage("");
-      setActiveStep(1);
-      setHasFetchedModules(false);
-      setModulesLoadState("idle");
-      setModules([]);
-      setLessonsByModule({});
-      setTestsByModule({});
-      setExercisesByModule({});
-      setModuleContentLoadStateByModule({});
-      setExpandedModuleId(null);
-      setCurrentCourseId(null);
-
-      try {
-        const course = await getCourseById(initialCourseId);
-        const snapshot: SavedCourseSnapshot = {
-          title: course.title ?? "",
-          description: course.description ?? "",
-          thumbnailPath: course.thumbnail_path,
-        };
-
-        if (isCancelled) {
-          return;
-        }
-
-        setCourseTitle(snapshot.title);
-        setCourseDescription(snapshot.description);
-        setCourseThumbnailPath(snapshot.thumbnailPath);
-        setCurrentCourseId(initialCourseId);
-        setSavedCourseSnapshot(snapshot);
-      } catch (error) {
-        if (isCancelled) {
-          return;
-        }
-
-        if (error instanceof Error && error.message.trim()) {
-          setMessage(error.message);
-        } else {
-          setMessage("Не вдалося завантажити вибраний курс.");
-        }
-      } finally {
-        if (!isCancelled) {
-          setIsHydratingCourse(false);
-        }
-      }
-    };
-
-    void courseSnapshotFromDb();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [
-    initialCourseId,
-    setExercisesByModule,
-    setExpandedModuleId,
-    setHasFetchedModules,
-    setLessonsByModule,
-    setModuleContentLoadStateByModule,
-    setModules,
-    setModulesLoadState,
-    setTestsByModule,
-  ]);
-
-  useEffect(() => {
-    if (!hasUnsavedChanges) {
-      return undefined;
-    }
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue = "";
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges]);
-
   useImperativeHandle(
     ref,
     () => ({
@@ -728,136 +423,46 @@ export const CourseBuilderPage = forwardRef<
     [canSaveDraft, hasUnsavedChanges, isPersistingCourse]
   );
 
-  useEffect(() => {
-    if (!currentCourseId) {
-      queueMicrotask(() => {
-        setHasFetchedModules(false);
-        setModulesLoadState("idle");
-      });
-      return;
-    }
-
-    if (hasFetchedModules) {
-      return;
-    }
-
-    queueMicrotask(() => {
-      void fetchModules(currentCourseId);
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch modules once per course; fetchModules is recreated each render and must not re-trigger this
-  }, [currentCourseId, hasFetchedModules]);
-
-  useEffect(() => {
-    if (
-      activeStep !== 2 ||
-      (currentCourseId ? modulesLoadState !== "ready" : false) ||
-      (currentCourseId ? !hasFetchedModules : false) ||
-      modules.length > 0 ||
-      isNewModuleComposerOpen
-    ) {
-      return;
-    }
-
-    openNewModuleComposer();
-    setExpandedModuleId(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- openNewModuleComposer is recreated each render; this should only react to the step/module state below
-  }, [
-    activeStep,
-    currentCourseId,
-    hasFetchedModules,
-    isNewModuleComposerOpen,
-    modulesLoadState,
-    modules.length,
-  ]);
-
-  useEffect(() => {
-    if (activeStep !== 3 || !currentCourseId || !hasFetchedModules) {
-      return;
-    }
-
-    const missingModuleIds = modules
-      .filter(
-        (module) =>
-          lessonsByModule[module.id] === undefined ||
-          testsByModule[module.id] === undefined ||
-          exercisesByModule[module.id] === undefined
-      )
-      .map((module) => module.id);
-
-    if (missingModuleIds.length === 0) {
-      return;
-    }
-
-    let isCancelled = false;
-
-    void Promise.all(
-      missingModuleIds.map(async (moduleId) => ({
-        moduleId,
-        content: await listModuleContent(moduleId),
-      }))
-    )
-      .then((results) => {
-        if (isCancelled) {
-          return;
-        }
-
-        const lessonsEntries = results.map(({ moduleId, content }) => [moduleId, content.lessons]);
-        const testsEntries = results.map(({ moduleId, content }) => [
-          moduleId,
-          mapHydratedTestsToCourseTests(content.tests),
-        ]);
-        const exercisesEntries = results.map(({ moduleId, content }) => [
-          moduleId,
-          content.exercises.map(mapExerciseToCourseExercise),
-        ]);
-
-        setLessonsByModule((prev) => ({
-          ...prev,
-          ...Object.fromEntries(lessonsEntries),
-        }));
-        setTestsByModule((prev) => ({
-          ...prev,
-          ...Object.fromEntries(testsEntries),
-        }));
-        setExercisesByModule((prev) => ({
-          ...prev,
-          ...Object.fromEntries(exercisesEntries),
-        }));
-        setMessage("");
-      })
-      .catch((error) => {
-        if (!isCancelled) {
-          if (error instanceof Error && error.message.trim()) {
-            setMessage(error.message);
-          } else {
-            setMessage("Не вдалося завантажити вміст модуля.");
-          }
-        }
-      });
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [
-    activeStep,
-    currentCourseId,
-    exercisesByModule,
-    hasFetchedModules,
-    lessonsByModule,
-    modules,
-    testsByModule,
-    setExercisesByModule,
-    setLessonsByModule,
-    setTestsByModule,
-  ]);
-
   // Course actions.
   const handleSaveDraft = async () => {
     const courseId = await persistCourseAtFinalStep("draft");
     return Boolean(courseId);
   };
-    const handleSaveDraftRef = useRef(handleSaveDraft);
+  const handleSaveDraftRef = useRef(handleSaveDraft);
+  // eslint-disable-next-line react-hooks/immutability -- latest-ref pattern (pre-existing): the closure now captures hook-returned persistCourseAtFinalStep, which the rule treats as frozen; behavior is unchanged
   handleSaveDraftRef.current = handleSaveDraft;
+
+  useCourseBuilderLifecycle({
+    initialCourseId,
+    activeStep,
+    currentCourseId,
+    hasFetchedModules,
+    modulesLoadState,
+    modules,
+    lessonsByModule,
+    testsByModule,
+    exercisesByModule,
+    isNewModuleComposerOpen,
+    hasUnsavedChanges,
+    setActiveStep,
+    setIsHydratingCourse,
+    setCurrentCourseId,
+    setSavedCourseSnapshot,
+    setCourseTitle,
+    setCourseDescription,
+    setCourseThumbnailPath,
+    setMessage,
+    setModules,
+    setLessonsByModule,
+    setTestsByModule,
+    setExercisesByModule,
+    setHasFetchedModules,
+    setModulesLoadState,
+    setModuleContentLoadStateByModule,
+    setExpandedModuleId,
+    fetchModules,
+    openNewModuleComposer,
+  });
 
   // Global keyboard shortcut.
   useEffect(() => {
@@ -884,218 +489,6 @@ export const CourseBuilderPage = forwardRef<
       window.removeEventListener("keydown", handleSaveDraftShortcut);
     };
   }, [canSaveDraft, isPersistingCourse]);
-
-  const uploadCourseMediaFile = async (file: File) => {
-    const mediaScopeId = currentCourseId ?? draftCourseSessionId;
-
-    try {
-      setIsUploadingCourseMedia(true);
-      const uploadedPath = await uploadCourseMedia(mediaScopeId, file);
-      setCourseThumbnailPath(uploadedPath);
-
-      if (currentCourseId) {
-        await updateCourse(currentCourseId, {
-          thumbnail_path: uploadedPath,
-        });
-        setSavedCourseSnapshot((previousSnapshot) =>
-          previousSnapshot
-            ? {
-                ...previousSnapshot,
-                thumbnailPath: uploadedPath,
-              }
-            : {
-                ...currentCourseSnapshot,
-                thumbnailPath: uploadedPath,
-              }
-        );
-      }
-
-      setMessage("");
-      return true;
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Не вдалося завантажити медіа курсів.");
-      }
-
-      return false;
-    } finally {
-      setIsUploadingCourseMedia(false);
-    }
-  };
-
-  const handleCourseMediaSelect = (file: File) => {
-    if (!isAllowedCourseThumbnailFile(file)) {
-      setMessage("Головне фото курсу повинно бути зображенням у форматі PNG, JPG або JPEG.");
-      return;
-    }
-
-    setPendingThumbnailCropFile(file);
-  };
-
-  const handleCourseThumbnailCropClose = () => {
-    if (isUploadingCourseMedia) {
-      return;
-    }
-
-    setPendingThumbnailCropFile(null);
-  };
-
-  const handleCourseThumbnailCropConfirm = async (file: File) => {
-    const didUploadSucceed = await uploadCourseMediaFile(file);
-
-    if (didUploadSucceed) {
-      setPendingThumbnailCropFile(null);
-    }
-  };
-
-  const handleCourseMediaRemove = async () => {
-    if (!courseThumbnailPath || isUploadingCourseMedia) {
-      return;
-    }
-
-    const mediaPathToRemove = courseThumbnailPath;
-
-    try {
-      setIsUploadingCourseMedia(true);
-
-      if (currentCourseId) {
-        await updateCourse(currentCourseId, {
-          thumbnail_path: null,
-        });
-      }
-
-      let storageCleanupMessage = "";
-
-      try {
-        await deleteCourseMedia(mediaPathToRemove);
-      } catch (error) {
-        storageCleanupMessage =
-          error instanceof Error && error.message.trim()
-            ? `${error.message} Головне фото курсу було видалено, але старий файл не вдалося видалити.`
-            : "Головне фото курсу було видалено, але старий файл не вдалося видалити.";
-      }
-
-      setCourseThumbnailPath(null);
-
-      if (currentCourseId) {
-        setSavedCourseSnapshot((previousSnapshot) =>
-          previousSnapshot
-            ? {
-                ...previousSnapshot,
-                thumbnailPath: null,
-              }
-            : {
-                ...currentCourseSnapshot,
-                thumbnailPath: null,
-              }
-        );
-      }
-
-      setMessage(storageCleanupMessage);
-    } catch (error) {
-      if (error instanceof Error && error.message.trim()) {
-        setMessage(error.message);
-      } else {
-        setMessage("Не вдалося видалити медіа курсу.");
-      }
-    } finally {
-      setIsUploadingCourseMedia(false);
-    }
-  };
-
-  // Shared persisted-target resolution for AI and exercise flows.
-  async function resolveAiGenerationTarget({
-    moduleId,
-    afterLessonId,
-  }: {
-    moduleId: string;
-    afterLessonId: string | null;
-  }) {
-    const activeModule = modules.find((module) => module.id === moduleId);
-
-    if (!activeModule) {
-      throw new Error("Не вдалося знайти вибраний модуль.");
-    }
-
-    const selectedLesson = afterLessonId
-      ? (lessonsByModule[moduleId] || []).find((lesson) => lesson.id === afterLessonId) ?? null
-      : null;
-
-    if (afterLessonId && !selectedLesson) {
-      throw new Error("Не вдалося знайти вибраний урок.");
-    }
-
-    if (currentCourseId) {
-      return {
-        moduleId,
-        afterLessonId,
-      };
-    }
-
-    const persistedCourseId = await persistCourseAtFinalStep("draft");
-
-    if (!persistedCourseId) {
-      throw new Error("Не вдалося зберегти чернетку перед створенням AI контенту.");
-    }
-
-    const persistedModules = await listModulesByCourse(persistedCourseId);
-    const persistedModule =
-      persistedModules.find((module) => module.order === activeModule.order) ?? null;
-
-    if (!persistedModule) {
-      throw new Error("Не вдалося знайти збережений модуль.");
-    }
-
-    if (!selectedLesson) {
-      return {
-        moduleId: persistedModule.id,
-        afterLessonId: null,
-      };
-    }
-
-    const persistedLessons = await listLessonsByModule(persistedModule.id);
-    const persistedLesson =
-      persistedLessons.find((lesson) => lesson.order === selectedLesson.order) ?? null;
-
-    if (!persistedLesson) {
-      throw new Error("Не вдалося знайти збережений урок.");
-    }
-
-    return {
-      moduleId: persistedModule.id,
-      afterLessonId: persistedLesson.id,
-    };
-  }
-
-  async function resolveExerciseEditorModuleId(moduleId: string) {
-    const activeModule = modules.find((module) => module.id === moduleId);
-
-    if (!activeModule) {
-      throw new Error("Не вдалося знайти вибраний модуль.");
-    }
-
-    if (currentCourseId) {
-      return moduleId;
-    }
-
-    const persistedCourseId = await persistCourseAtFinalStep("draft");
-
-    if (!persistedCourseId) {
-      throw new Error("Не вдалося зберегти чернетку перед створенням вправи.");
-    }
-
-    const persistedModules = await listModulesByCourse(persistedCourseId);
-    const persistedModule =
-      persistedModules.find((module) => module.order === activeModule.order) ?? null;
-
-    if (!persistedModule) {
-      throw new Error("Не вдалося знайти збережений модуль.");
-    }
-
-    return persistedModule.id;
-  }
 
   // View model and final actions.
   const handlePublishCourse = async () => {

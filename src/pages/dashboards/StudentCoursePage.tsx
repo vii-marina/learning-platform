@@ -12,27 +12,16 @@ import {
   type StudentCourseDetailsResponse,
 } from "../../features/student-dashboard/api/studentDashboardApi";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
-import type { Exercise } from "../../features/courses/api";
 import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
 import { CoursePreviewPage } from "../../features/courses/components/course-builder/components/CoursePreviewPage";
-import { mapQuestionToCourseTestQuestion } from "../../features/courses/components/course-builder/lib/courseBuilderPageUtils";
+import {
+  mapExerciseToCourseExercise,
+  mapQuestionToCourseTestQuestion,
+} from "../../features/courses/components/course-builder/lib/courseBuilderPageUtils";
 import type {
   CourseExercise,
   CourseTest,
 } from "../../features/courses/components/course-builder/types/courseBuilderUiTypes";
-
-function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
-  return {
-    id: exercise.id,
-    title: exercise.title,
-    description: exercise.description,
-    afterLessonId: exercise.after_lesson_id,
-    type: exercise.type,
-    content: exercise.content,
-    createdAt: exercise.created_at,
-    updatedAt: exercise.updated_at,
-  };
-}
 
 function mapStudentCourseData(courseData: StudentCourseDetailsResponse) {
   return {
