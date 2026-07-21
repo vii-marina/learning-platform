@@ -45,6 +45,7 @@ export const CourseBuilderPage = forwardRef<
     initialCourseId?: string | null;
     initialStep?: BuilderStep;
     onBackToCourses?: () => void;
+    onCoursePublished?: () => void;
   }
 >(function CourseBuilderPage(
   {
@@ -52,11 +53,13 @@ export const CourseBuilderPage = forwardRef<
     initialCourseId = null,
     initialStep = 1,
     onBackToCourses,
+    onCoursePublished,
   }: {
     embedded?: boolean;
     initialCourseId?: string | null;
     initialStep?: BuilderStep;
     onBackToCourses?: () => void;
+    onCoursePublished?: () => void;
   },
   ref
 ) {
@@ -497,7 +500,18 @@ export const CourseBuilderPage = forwardRef<
       return;
     }
 
-    void persistCourseAtFinalStep("publish");
+    const publishedCourseId = await persistCourseAtFinalStep("publish");
+
+    if (!publishedCourseId) {
+      return;
+    }
+
+    if (onCoursePublished) {
+      onCoursePublished();
+      return;
+    }
+
+    navigate("/teacher/dashboard", { state: { section: "courses" } });
   };
 
   const currentCourseName = courseTitle.trim() || "Untitled course";
