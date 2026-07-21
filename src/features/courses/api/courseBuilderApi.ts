@@ -95,6 +95,8 @@ export type GeneratedTestQuestion = {
 
 type GenerateTestQuestionsResponse = {
   questions: GeneratedTestQuestion[];
+  requestedCount?: number;
+  generatedCount?: number;
 };
 
 type GenerateTestQuestionsInput = {
@@ -112,6 +114,8 @@ export type GenerateExerciseResponse = {
   content?: ExerciseContent;
   exercises?: GeneratedExerciseWithDifficulty[];
   maxDifficulty?: ExerciseDifficulty;
+  requestedCount?: number;
+  generatedCount?: number;
 };
 
 export type GenerateExerciseInput = {

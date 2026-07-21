@@ -636,6 +636,7 @@ type GradingAnswerRow = {
   answer_text: string;
   is_correct: boolean;
 };
+const FALSE_ANSWER_LABELS = new Set(["false", "неправда"]);
 
 function computeCorrectIndexes(type: string, answers: GradingAnswerRow[]): number[] {
   if (type === "true_false") {
@@ -643,7 +644,9 @@ function computeCorrectIndexes(type: string, answers: GradingAnswerRow[]): numbe
     if (!correctAnswer) {
       return [];
     }
-    return correctAnswer.answer_text.trim().toLowerCase() === "false" ? [1] : [0];
+    return FALSE_ANSWER_LABELS.has(correctAnswer.answer_text.trim().toLowerCase())
+      ? [1]
+      : [0];
   }
 
   return answers.reduce<number[]>((indexes, answer, index) => {

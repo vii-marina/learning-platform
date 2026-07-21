@@ -1,9 +1,16 @@
-import OpenAI from "openai";
+import { z } from "zod";
 import { env } from "../config/env";
-
-const openai = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-});
+import { openai } from "../lib/openai";
+import {
+  AiQualityError,
+  fillLessonText,
+  isTooSimilarToLesson,
+  LANGUAGE_RULE,
+  LESSON_TEXT_PLACEHOLDER,
+  logAiUsage,
+  normalizeForComparison,
+  UNTRUSTED_LESSON_NOTE,
+} from "./aiShared";
 
 export type GeneratedOption = {
   text: string;
@@ -19,73 +26,75 @@ export type GeneratedQuestion = {
   options: GeneratedOption[];
 };
 
-const lessonTextPlaceholder = "__LESSON_TEXT__";
+// Wire shape, enforced twice: by the strict Structured Outputs schema below
+// (API-level guarantee) and by this Zod parse (defense in depth). Semantic
+// rules (correct-answer counts, option counts) are checked in the normalizers.
+const rawQuestionSchema = z.object({
+  type: z.enum(["true_false", "single_choice", "multiple_choice"]),
+  question_text: z.string(),
+  options: z.array(
+    z.object({
+      text: z.string(),
+      correct: z.boolean(),
+    })
+  ),
+});
 
-function normalizeJsonResponse(response: string) {
-  const trimmedResponse = response.trim();
+const questionsResponseSchema = z.object({
+  questions: z.array(rawQuestionSchema),
+});
 
-  if (!trimmedResponse.startsWith("```")) {
-    return trimmedResponse;
-  }
+type RawQuestion = z.infer<typeof rawQuestionSchema>;
 
-  return trimmedResponse
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/, "")
-    .trim();
-}
+// Strict-mode Structured Outputs schema. Uses only the core keyword subset
+// (types, enum, required, additionalProperties) so it works across models;
+// requires a model with Structured Outputs support (default gpt-4o-mini has it).
+const questionsJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["questions"],
+  properties: {
+    questions: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["type", "question_text", "options"],
+        properties: {
+          type: {
+            type: "string",
+            enum: ["true_false", "single_choice", "multiple_choice"],
+          },
+          question_text: { type: "string" },
+          options: {
+            type: "array",
+            items: {
+              type: "object",
+              additionalProperties: false,
+              required: ["text", "correct"],
+              properties: {
+                text: { type: "string" },
+                correct: { type: "boolean" },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
 
-function isGeneratedQuestionType(value: unknown): value is GeneratedQuestionType {
-  return (
-    value === "true_false" ||
-    value === "single_choice" ||
-    value === "multiple_choice"
-  );
-}
-
-function normalizeOption(option: unknown): GeneratedOption | null {
-  if (!option || typeof option !== "object") {
-    return null;
-  }
-
-  const text =
-    "text" in option && typeof option.text === "string"
-      ? option.text.trim()
-      : "";
-
-  if (!text) {
-    return null;
-  }
-
-  return {
-    text,
-    correct: Boolean("correct" in option && option.correct),
-  };
-}
-
-function normalizeTrueFalseQuestion(rawQuestion: unknown): GeneratedQuestion | null {
-  if (!rawQuestion || typeof rawQuestion !== "object") {
-    return null;
-  }
-
-  const rawOptions = "options" in rawQuestion ? rawQuestion.options : undefined;
-  const questionText =
-    "question_text" in rawQuestion && typeof rawQuestion.question_text === "string"
-      ? rawQuestion.question_text.trim()
-      : "";
+function normalizeTrueFalseQuestion(raw: RawQuestion): GeneratedQuestion | null {
+  const questionText = raw.question_text.trim();
 
   if (!questionText) {
     return null;
   }
 
-  const normalizedOptions = (Array.isArray(rawOptions) ? rawOptions : [])
-    .map(normalizeOption)
-    .filter((option): option is GeneratedOption => option !== null);
-
-  const trueOption = normalizedOptions.find(
+  const trueOption = raw.options.find(
     (option) => option.text.trim().toLowerCase() === "true"
   );
-  const falseOption = normalizedOptions.find(
+  const falseOption = raw.options.find(
     (option) => option.text.trim().toLowerCase() === "false"
   );
 
@@ -99,6 +108,8 @@ function normalizeTrueFalseQuestion(rawQuestion: unknown): GeneratedQuestion | n
     return null;
   }
 
+  // Literal "True"/"False" is the platform convention — the course builder
+  // matches on these strings and renders localized labels itself.
   return {
     type: "true_false",
     question_text: questionText,
@@ -110,66 +121,39 @@ function normalizeTrueFalseQuestion(rawQuestion: unknown): GeneratedQuestion | n
 }
 
 function normalizeChoiceQuestion(
-  rawQuestion: unknown,
-  fallbackType: "single_choice" | "multiple_choice"
+  raw: RawQuestion,
+  type: "single_choice" | "multiple_choice"
 ): GeneratedQuestion | null {
-  if (!rawQuestion || typeof rawQuestion !== "object") {
-    return null;
-  }
-
-  const rawOptions = "options" in rawQuestion ? rawQuestion.options : undefined;
-  const questionText =
-    "question_text" in rawQuestion && typeof rawQuestion.question_text === "string"
-      ? rawQuestion.question_text.trim()
-      : "";
+  const questionText = raw.question_text.trim();
 
   if (!questionText) {
     return null;
   }
 
-  const normalizedOptions = (Array.isArray(rawOptions) ? rawOptions : [])
-    .map(normalizeOption)
-    .filter((option): option is GeneratedOption => option !== null)
+  const options = raw.options
+    .map((option) => ({ text: option.text.trim(), correct: option.correct }))
+    .filter((option) => option.text)
     .slice(0, 4);
 
-  if (normalizedOptions.length < 2) {
+  if (options.length < 2) {
     return null;
   }
 
-  const correctCount = normalizedOptions.filter((option) => option.correct).length;
+  const correctCount = options.filter((option) => option.correct).length;
 
-  if (fallbackType === "single_choice" && correctCount !== 1) {
+  if (type === "single_choice" && correctCount !== 1) {
     return null;
   }
 
-  if (fallbackType === "multiple_choice" && correctCount < 2) {
+  if (type === "multiple_choice" && correctCount < 2) {
     return null;
   }
 
   return {
-    type: fallbackType,
+    type,
     question_text: questionText,
-    options: normalizedOptions,
+    options,
   };
-}
-
-function normalizeWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function normalizeForComparison(value: string) {
-  return normalizeWhitespace(value).toLowerCase();
-}
-
-function questionLooksTooSimilarToLesson(questionText: string, lessonText: string) {
-  const normalizedQuestion = normalizeForComparison(questionText);
-  const normalizedLesson = normalizeForComparison(lessonText);
-
-  if (!normalizedQuestion || !normalizedLesson) {
-    return false;
-  }
-
-  return normalizedLesson.includes(normalizedQuestion);
 }
 
 function deduplicateQuestions(questions: GeneratedQuestion[]) {
@@ -209,7 +193,7 @@ function filterLowQualityQuestions(
       return false;
     }
 
-    if (questionLooksTooSimilarToLesson(questionText, lessonText)) {
+    if (isTooSimilarToLesson(questionText, lessonText)) {
       return false;
     }
 
@@ -226,67 +210,34 @@ function filterLowQualityQuestions(
 }
 
 function normalizeGeneratedQuestions(
-  parsed: unknown,
+  rawQuestions: RawQuestion[],
   generationMode: AiQuestionGenerationMode,
   lessonText: string
 ): GeneratedQuestion[] {
-  if (!Array.isArray(parsed)) {
-    throw new Error("AI returned an invalid question list");
-  }
+  const normalizedQuestions = rawQuestions.reduce<GeneratedQuestion[]>(
+    (questions, rawQuestion) => {
+      // In fixed modes the requested type wins over whatever the model labeled.
+      const type = generationMode === "mixed" ? rawQuestion.type : generationMode;
 
-  const normalizedQuestions = parsed.reduce<GeneratedQuestion[]>((questions, rawQuestion) => {
-    if (!rawQuestion || typeof rawQuestion !== "object") {
+      const normalized =
+        type === "true_false"
+          ? normalizeTrueFalseQuestion(rawQuestion)
+          : normalizeChoiceQuestion(rawQuestion, type);
+
+      if (normalized) {
+        questions.push(normalized);
+      }
+
       return questions;
-    }
-
-    const rawType = "type" in rawQuestion ? rawQuestion.type : undefined;
-    const rawOptions = "options" in rawQuestion ? rawQuestion.options : undefined;
-    const normalizedOptions = (Array.isArray(rawOptions) ? rawOptions : [])
-      .map(normalizeOption)
-      .filter((option): option is GeneratedOption => option !== null);
-
-    const correctCount = normalizedOptions.filter((option) => option.correct).length;
-
-    const hasTrueFalseOptions =
-      normalizedOptions.length === 2 &&
-      normalizedOptions.every((option) =>
-        ["true", "false"].includes(option.text.trim().toLowerCase())
-      );
-
-    const requestedType =
-      generationMode === "mixed"
-        ? isGeneratedQuestionType(rawType)
-          ? rawType
-          : null
-        : generationMode;
-
-    const inferredType =
-      requestedType ??
-      (hasTrueFalseOptions
-        ? "true_false"
-        : correctCount > 1
-          ? "multiple_choice"
-          : "single_choice");
-
-    const resolvedType = inferredType ?? "single_choice";
-
-    const normalizedQuestion =
-      resolvedType === "true_false"
-        ? normalizeTrueFalseQuestion(rawQuestion)
-        : normalizeChoiceQuestion(rawQuestion, resolvedType);
-
-    if (normalizedQuestion) {
-      questions.push(normalizedQuestion);
-    }
-
-    return questions;
-  }, []);
+    },
+    []
+  );
 
   const qualityFiltered = filterLowQualityQuestions(normalizedQuestions, lessonText);
   const deduplicated = deduplicateQuestions(qualityFiltered);
 
   if (deduplicated.length === 0) {
-    throw new Error("AI did not return valid questions");
+    throw new AiQualityError("AI did not return valid questions");
   }
 
   return deduplicated;
@@ -314,7 +265,7 @@ Strict content rules:
 - Avoid asking the same idea in different wording
 - Each question must test a different point when possible
 - Prefer practical understanding over definition recall
-
+${LANGUAGE_RULE}
 Question design rules:
 - Prefer questions about:
   - understanding code
@@ -333,14 +284,6 @@ Anti-copy rules:
 - Do NOT copy whole phrases from the lesson into question_text
 - Do NOT turn a lesson sentence into a question with only 1-2 words changed
 - Rewrite naturally and test understanding from another angle
-
-Output rules:
-- Return ONLY valid JSON
-- Do not use markdown
-- Every question must include:
-  - "type"
-  - "question_text"
-  - "options"
 
 Allowed types:
 - "true_false"
@@ -384,52 +327,6 @@ Type rules:
 ${baseRules}
 ${modeRules}
 
-Return format:
-[
-  {
-    "type": "single_choice",
-    "question_text": "Question here",
-    "options": [
-      { "text": "Option A", "correct": false },
-      { "text": "Option B", "correct": true },
-      { "text": "Option C", "correct": false },
-      { "text": "Option D", "correct": false }
-    ]
-  }
-]
-
-Lesson content:
-"""
-${lessonTextPlaceholder}
-"""
-`;
-}
-
-export async function generateQuestionsFromLesson(
-  lessonText: string,
-  questionCount: number = 5,
-  generationMode: AiQuestionGenerationMode = "single_choice"
-): Promise<GeneratedQuestion[]> {
-  const prompt = buildPrompt(questionCount, generationMode).replace(
-    lessonTextPlaceholder,
-    lessonText
-  );
-
-  const completion = await openai.chat.completions.create({
-    model: env.OPENAI_MODEL,
-    temperature: 0.7,
-    response_format: {
-      type: "json_object",
-    },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You generate high-quality quiz questions for beginner programming courses. Your questions should be clear, slightly thought-provoking, not copied from the lesson, and grounded only in the provided content.",
-      },
-      {
-        role: "user",
-        content: `
 Return this exact JSON object shape:
 {
   "questions": [
@@ -446,41 +343,80 @@ Return this exact JSON object shape:
   ]
 }
 
-${prompt}
-`,
+${UNTRUSTED_LESSON_NOTE}
+
+Lesson content:
+"""
+${LESSON_TEXT_PLACEHOLDER}
+"""
+`;
+}
+
+export async function generateQuestionsFromLesson(
+  lessonText: string,
+  questionCount: number = 5,
+  generationMode: AiQuestionGenerationMode = "single_choice"
+): Promise<GeneratedQuestion[]> {
+  const prompt = fillLessonText(buildPrompt(questionCount, generationMode), lessonText);
+
+  const completion = await openai.chat.completions.create({
+    model: env.OPENAI_MODEL,
+    temperature: 0.7,
+    max_completion_tokens: 4096,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "quiz_questions",
+        strict: true,
+        schema: questionsJsonSchema,
+      },
+    },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You generate high-quality quiz questions for beginner programming courses. Your questions should be clear, slightly thought-provoking, not copied from the lesson, and grounded only in the provided content.",
+      },
+      {
+        role: "user",
+        content: prompt,
       },
     ],
   });
 
-  const response = completion.choices[0].message.content;
+  logAiUsage("questions", completion);
+
+  const message = completion.choices[0]?.message;
+
+  if (message?.refusal) {
+    throw new AiQualityError(`AI refused to generate questions: ${message.refusal}`);
+  }
+
+  const response = message?.content;
 
   if (!response) {
-    throw new Error("AI returned empty response");
+    throw new AiQualityError("AI returned empty response");
   }
+
+  let parsedJson: unknown;
 
   try {
-    const parsed = JSON.parse(normalizeJsonResponse(response));
-    const rawQuestions =
-      parsed && typeof parsed === "object" && Array.isArray(parsed.questions)
-        ? parsed.questions
-        : null;
-
-    if (!rawQuestions) {
-      throw new Error("AI returned invalid response format");
-    }
-
-    const normalized = normalizeGeneratedQuestions(
-      rawQuestions,
-      generationMode,
-      lessonText
-    );
-
-    return normalized.slice(0, questionCount);
-  } catch (error) {
-    if (error instanceof Error && error.message.trim()) {
-      throw error;
-    }
-
-    throw new Error("Failed to parse AI response");
+    parsedJson = JSON.parse(response);
+  } catch {
+    throw new AiQualityError("AI returned invalid JSON");
   }
+
+  const parsed = questionsResponseSchema.safeParse(parsedJson);
+
+  if (!parsed.success) {
+    throw new AiQualityError("AI returned invalid response format");
+  }
+
+  const normalized = normalizeGeneratedQuestions(
+    parsed.data.questions,
+    generationMode,
+    lessonText
+  );
+
+  return normalized.slice(0, questionCount);
 }

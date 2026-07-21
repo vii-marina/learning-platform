@@ -48,6 +48,8 @@ export const EMPTY_LESSON_EDITOR_DRAFT: LessonEditorDraft = {
 
 const TRUE_FALSE_OPTIONS = ["Правда", "Неправда"] as const;
 
+const FALSE_ANSWER_LABELS = new Set(["false", "неправда"]);
+
 const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -279,7 +281,9 @@ const buildCorrectOptionIndexes = (
       return [];
     }
 
-    return correctAnswer.answer_text.trim().toLowerCase() === "false" ? [1] : [0];
+    return FALSE_ANSWER_LABELS.has(correctAnswer.answer_text.trim().toLowerCase())
+      ? [1]
+      : [0];
   }
 
   return answers.reduce<number[]>((indexes, answer, index) => {
