@@ -110,6 +110,7 @@ export function useCourseBuilderLessonEditor({
     return () => {
       isCancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- trigger-flag effect; persistDraftCourse is recreated each render and must not re-run it
   }, [currentCourseId, isPersistingCourse, shouldPersistDraftAfterLessonSave]);
 
   const applyLessonDraft = (

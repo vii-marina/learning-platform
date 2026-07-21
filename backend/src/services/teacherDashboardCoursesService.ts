@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext, UserProfileRow } from "../types/auth";
 
@@ -113,15 +113,6 @@ export type TeacherDashboardStudentsSummary = {
   total_course_views_count: number;
   completed_course_views_count: number;
 };
-
-function toServiceError(
-  statusCode: number,
-  code: string,
-  fallbackMessage: string,
-  error: { message: string }
-) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function ensureTeacherAccess(auth: AuthenticatedRequestContext) {
   if (auth.isAdmin || auth.role === "teacher") {

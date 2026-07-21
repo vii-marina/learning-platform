@@ -61,6 +61,7 @@ export const createTestSchema = z.object({
   after_lesson_id: uuid("Lesson id").nullable().optional(),
   title: z.string().trim().min(1, "Test title is required.").max(200),
   order: z.number().int().positive().optional(),
+  is_graded: z.boolean().optional(),
 });
 
 export const updateTestSchema = z
@@ -68,9 +69,14 @@ export const updateTestSchema = z
     title: z.string().trim().min(1).max(200).optional(),
     after_lesson_id: uuid("Lesson id").nullable().optional(),
     order: z.number().int().positive().optional(),
+    is_graded: z.boolean().optional(),
   })
   .refine(
-    (v) => v.title !== undefined || v.after_lesson_id !== undefined || v.order !== undefined,
+    (v) =>
+      v.title !== undefined ||
+      v.after_lesson_id !== undefined ||
+      v.order !== undefined ||
+      v.is_graded !== undefined,
     { message: "At least one test field must be provided." }
   );
 
@@ -109,4 +115,23 @@ export const updateAnswerSchema = z
 export const reorderSchema = z.object({
   firstId: uuid("First id"),
   secondId: uuid("Second id"),
+});
+
+// Bulk "save a whole test's content" (replace-all): collapses the former
+// per-question / per-answer round-trips into one request.
+const saveAnswerSchema = z.object({
+  answer_text: z.string(),
+  is_correct: z.boolean().optional(),
+});
+
+const saveQuestionSchema = z.object({
+  type: testQuestionType,
+  question_text: z.string().trim().min(1, "Question text is required."),
+  order: z.number().int().positive().optional(),
+  hint: optionalNullableTrimmed,
+  answers: z.array(saveAnswerSchema).max(20, "A question can have at most 20 answers."),
+});
+
+export const saveTestQuestionsSchema = z.object({
+  questions: z.array(saveQuestionSchema).max(100, "A test can have at most 100 questions."),
 });

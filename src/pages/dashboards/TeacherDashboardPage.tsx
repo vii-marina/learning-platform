@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
-import { useAppToast } from "../../components/ui/AppToastProvider";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useAppToast } from "../../components/ui/appToastContext";
 import { Card } from "../../components/ui/Card";
 import { LoadingState } from "../../components/ui/LoadingState";
 import { supabase } from "../../lib/supabase";
@@ -51,6 +51,7 @@ type PendingBuilderExitAction =
 
 export function TeacherDashboardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { showSuccessToast } = useAppToast();
   const builderRef = useRef<CourseBuilderPageHandle | null>(null);
   const [hasAccess, setHasAccess] = useState(false);
@@ -66,8 +67,11 @@ export function TeacherDashboardPage() {
     text: string;
     details?: unknown;
   } | null>(null);
-  const [activeSection, setActiveSection] =
-    useState<TeacherDashboardSectionId>("overview");
+  const [activeSection, setActiveSection] = useState<TeacherDashboardSectionId>(() => {
+    const requestedSection = (location.state as { section?: TeacherDashboardSectionId } | null)
+      ?.section;
+    return requestedSection === "courses" ? "courses" : "overview";
+  });
   const [builderCourseId, setBuilderCourseId] = useState<string | null>(null);
   const [builderInitialStep, setBuilderInitialStep] = useState<BuilderStep>(1);
   const [pendingBuilderExit, setPendingBuilderExit] =
@@ -317,6 +321,7 @@ export function TeacherDashboardPage() {
                 section: "courses",
               })
             }
+            onCoursePublished={() => setActiveSection("courses")}
           />
         );
       case "students":

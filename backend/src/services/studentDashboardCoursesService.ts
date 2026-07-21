@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext, UserProfileRow } from "../types/auth";
 import { getLandingPageSettings } from "./landingPageSettingsService";
@@ -92,6 +92,7 @@ type StudentCourseTestEntity = {
   module_id: string;
   title: string;
   order: number;
+  is_graded: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -118,7 +119,8 @@ type StudentCourseTestAnswer = {
   id: string;
   question_id: string;
   answer_text: string;
-  is_correct: boolean;
+  // Present only for practice tests. Graded tests never ship the answer key to the client.
+  is_correct?: boolean;
   created_at: string;
 };
 
@@ -245,6 +247,11 @@ export type StudentTestCompletionResult = {
     passed: boolean;
     updated_at: string;
   };
+  // Server-graded summary for the results screen. per_question maps question id ->
+  // whether the student's submitted answer was correct (never the correct answer itself).
+  correct_count: number;
+  total_questions: number;
+  per_question: Record<string, boolean>;
 };
 
 export type StudentExerciseCompletionResult = {
@@ -255,15 +262,6 @@ export type StudentExerciseCompletionResult = {
 const profileSelect = "id,full_name,email";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function toServiceError(
-  statusCode: number,
-  code: string,
-  fallbackMessage: string,
-  error: { message: string }
-) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function chunkValues<TValue>(values: TValue[], size = 50) {
   const chunks: TValue[][] = [];
@@ -629,6 +627,7 @@ type GradingAnswerRow = {
   answer_text: string;
   is_correct: boolean;
 };
+const FALSE_ANSWER_LABELS = new Set(["false", "неправда"]);
 
 function computeCorrectIndexes(type: string, answers: GradingAnswerRow[]): number[] {
   if (type === "true_false") {
@@ -636,7 +635,9 @@ function computeCorrectIndexes(type: string, answers: GradingAnswerRow[]): numbe
     if (!correctAnswer) {
       return [];
     }
-    return correctAnswer.answer_text.trim().toLowerCase() === "false" ? [1] : [0];
+    return FALSE_ANSWER_LABELS.has(correctAnswer.answer_text.trim().toLowerCase())
+      ? [1]
+      : [0];
   }
 
   return answers.reduce<number[]>((indexes, answer, index) => {
@@ -655,10 +656,17 @@ function isQuestionAnsweredCorrectly(correctIndexes: number[], selectedRaw: numb
   );
 }
 
+type TestGradeResult = {
+  scorePercent: number;
+  correctCount: number;
+  totalQuestions: number;
+  perQuestion: Record<string, boolean>;
+};
+
 async function gradeTestSubmission(
   testId: string,
   submittedAnswers: Record<string, number[]>
-): Promise<number> {
+): Promise<TestGradeResult> {
   const { data: questions, error: questionsError } = await supabaseAdmin
     .from("test_questions")
     .select("id,type")
@@ -676,7 +684,7 @@ async function gradeTestSubmission(
 
   const questionRows = (questions ?? []) as GradingQuestionRow[];
   if (questionRows.length === 0) {
-    return 0;
+    return { scorePercent: 0, correctCount: 0, totalQuestions: 0, perQuestion: {} };
   }
 
   const questionIds = questionRows.map((question) => question.id);
@@ -702,16 +710,27 @@ async function gradeTestSubmission(
     answersByQuestionId.set(answer.question_id, list);
   }
 
-  const correctCount = questionRows.reduce((count, question) => {
+  const perQuestion: Record<string, boolean> = {};
+  let correctCount = 0;
+  for (const question of questionRows) {
     const correctIndexes = computeCorrectIndexes(
       question.type,
       answersByQuestionId.get(question.id) ?? []
     );
     const selected = submittedAnswers[question.id] ?? [];
-    return isQuestionAnsweredCorrectly(correctIndexes, selected) ? count + 1 : count;
-  }, 0);
+    const isCorrect = isQuestionAnsweredCorrectly(correctIndexes, selected);
+    perQuestion[question.id] = isCorrect;
+    if (isCorrect) {
+      correctCount += 1;
+    }
+  }
 
-  return Math.round((correctCount / questionRows.length) * 100);
+  return {
+    scorePercent: Math.round((correctCount / questionRows.length) * 100),
+    correctCount,
+    totalQuestions: questionRows.length,
+    perQuestion,
+  };
 }
 
 async function upsertUserTestResult(
@@ -1167,13 +1186,14 @@ async function listTestsByModuleIds(moduleIds: string[]) {
     questions.push(...((data ?? []) as StudentCourseTestQuestion[]));
   }
 
-  const answers: StudentCourseTestAnswer[] = [];
+  type FetchedTestAnswer = StudentCourseTestAnswer & { is_correct: boolean };
+  const answers: FetchedTestAnswer[] = [];
   const questionIds = questions.map((question) => question.id);
 
   for (const chunk of chunkValues(questionIds)) {
     const { data, error } = await supabaseAdmin
       .from("test_answers")
-      .select("*")
+      .select("id,question_id,answer_text,is_correct,created_at")
       .in("question_id", chunk)
       .order("created_at", { ascending: true });
 
@@ -1186,15 +1206,30 @@ async function listTestsByModuleIds(moduleIds: string[]) {
       );
     }
 
-    answers.push(...((data ?? []) as StudentCourseTestAnswer[]));
+    answers.push(...((data ?? []) as FetchedTestAnswer[]));
   }
 
+  // Graded tests never ship is_correct to the client; practice tests keep it so the
+  // client can check/reveal answers locally.
+  const gradedByTestId = new Map(tests.map((test) => [test.id, test.is_graded]));
   const answersByQuestionId = groupBy(answers, (answer) => answer.question_id);
   const questionsByTestId = groupBy(
-    questions.map((question) => ({
-      ...question,
-      answers: answersByQuestionId[question.id] ?? [],
-    })),
+    questions.map((question) => {
+      const isGraded = gradedByTestId.get(question.test_id) ?? false;
+      const questionAnswers = (answersByQuestionId[question.id] ?? []).map(
+        (answer): StudentCourseTestAnswer =>
+          isGraded
+            ? {
+                id: answer.id,
+                question_id: answer.question_id,
+                answer_text: answer.answer_text,
+                created_at: answer.created_at,
+              }
+            : answer
+      );
+
+      return { ...question, answers: questionAnswers };
+    }),
     (question) => question.test_id
   );
 
@@ -1858,12 +1893,15 @@ export async function completeStudentCourseTest(
   }
 
   // Grade server-side from the submitted answers — the client no longer sends a score.
-  const scorePercent = await gradeTestSubmission(testId, submittedAnswers);
-  const testResult = await upsertUserTestResult(auth.userId, testId, scorePercent);
+  const grade = await gradeTestSubmission(testId, submittedAnswers);
+  const testResult = await upsertUserTestResult(auth.userId, testId, grade.scorePercent);
   await updateCourseProgressAfterLessonCompletion(courseProgress, false);
 
   return {
     test_result: testResult,
+    correct_count: grade.correctCount,
+    total_questions: grade.totalQuestions,
+    per_question: grade.perQuestion,
   };
 }
 

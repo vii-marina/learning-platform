@@ -1,11 +1,14 @@
-import { useEffect, useState } from "react";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { Suspense, lazy, useEffect, useState } from "react";
 import type {
   DotLottie,
   LoadErrorEvent,
   RenderErrorEvent,
 } from "@lottiefiles/dotlottie-web";
 import loaderCatAnimationUrl from "../../assets/animations/loader-cat.lottie";
+
+const DotLottieReact = lazy(() =>
+  import("@lottiefiles/dotlottie-react").then((m) => ({ default: m.DotLottieReact }))
+);
 
 // Fetch the animation once and share it via `data`, so N on-screen loaders
 // don't each re-fetch the same asset (StrictMode would double that again).
@@ -93,6 +96,14 @@ export function LottieLoader({
     };
   }, [dotLottie]);
 
+  const cssSpinner = (
+    <div
+      aria-hidden="true"
+      className="rounded-full border-4 border-slate-200 border-t-orange-400 animate-spin"
+      style={{ width: size * 0.42, height: size * 0.42 }}
+    />
+  );
+
   return (
     <div
       className={`flex flex-col items-center justify-center gap-3 ${className}`}
@@ -100,19 +111,17 @@ export function LottieLoader({
       aria-live="polite"
     >
       {hasAnimationError || !animationData ? (
-        <div
-          aria-hidden="true"
-          className="rounded-full border-4 border-slate-200 border-t-orange-400 animate-spin"
-          style={{ width: size * 0.42, height: size * 0.42 }}
-        />
+        cssSpinner
       ) : (
-        <DotLottieReact
-          data={animationData}
-          autoplay
-          loop
-          dotLottieRefCallback={setDotLottie}
-          style={{ width: size, height: size, backgroundColor: "transparent" }}
-        />
+        <Suspense fallback={cssSpinner}>
+          <DotLottieReact
+            data={animationData}
+            autoplay
+            loop
+            dotLottieRefCallback={setDotLottie}
+            style={{ width: size, height: size, backgroundColor: "transparent" }}
+          />
+        </Suspense>
       )}
       {label ? (
         <p className={`text-sm font-medium text-slate-500 ${textClassName}`}>

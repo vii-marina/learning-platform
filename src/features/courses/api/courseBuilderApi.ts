@@ -95,6 +95,8 @@ export type GeneratedTestQuestion = {
 
 type GenerateTestQuestionsResponse = {
   questions: GeneratedTestQuestion[];
+  requestedCount?: number;
+  generatedCount?: number;
 };
 
 type GenerateTestQuestionsInput = {
@@ -112,6 +114,8 @@ export type GenerateExerciseResponse = {
   content?: ExerciseContent;
   exercises?: GeneratedExerciseWithDifficulty[];
   maxDifficulty?: ExerciseDifficulty;
+  requestedCount?: number;
+  generatedCount?: number;
 };
 
 export type GenerateExerciseInput = {
@@ -178,6 +182,14 @@ export async function getCourseById(courseId: string) {
 
     return data as Course;
   });
+}
+
+export async function getCurrentTeacherId() {
+  const { data, error } = await supabase.auth.getUser();
+  if (error || !data.user) {
+    throw new Error("Не вдалося знайти поточного викладача.");
+  }
+  return data.user.id;
 }
 
 export async function createCourse(input: CreateCourseInput) {
@@ -726,6 +738,24 @@ export async function deleteTestQuestion(questionId: string) {
   // Backend cascades: deletes the question's answers.
   await authorizedBackendRequest<void>(`/authoring/questions/${questionId}`, {
     method: "DELETE",
+  });
+}
+
+export type SaveTestQuestionInput = {
+  type: TestQuestionType;
+  question_text: string;
+  order?: number;
+  hint?: string | null;
+  answers: Array<{ answer_text: string; is_correct?: boolean }>;
+};
+
+// Replace a test's entire question/answer set in a single request (bulk save).
+// Backend clears the old content and recreates it in order; collapses the former
+// per-question / per-answer N+1.
+export async function saveTestQuestions(testId: string, questions: SaveTestQuestionInput[]) {
+  await authorizedBackendRequest<void>(`/authoring/tests/${testId}/questions`, {
+    method: "PUT",
+    body: { questions },
   });
 }
 

@@ -45,7 +45,8 @@ export function createApp() {
   };
 
   app.use(cors(corsOptions));
-  app.use(express.json());
+  // 1mb (up from the 100kb default) headroom for bulk authoring payloads (whole-test save).
+  app.use(express.json({ limit: "1mb" }));
 
   app.use(healthRoutes); // health checks stay unthrottled
   app.use(globalRateLimiter);

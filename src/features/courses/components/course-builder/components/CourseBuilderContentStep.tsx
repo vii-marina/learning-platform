@@ -124,6 +124,7 @@ export function CourseBuilderContentStep({
 
   useEffect(() => {
     if (!expandedModuleId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset measured height when the module collapses
       setExpandedModuleContentMaxHeightPx(MODULE_CONTENT_BASE_HEIGHT_PX);
       return;
     }

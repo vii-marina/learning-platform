@@ -1,5 +1,7 @@
 import type {
+  Exercise,
   GeneratedTestQuestion,
+  HydratedTestEntityResponse,
   Lesson,
   Module,
   TestAnswer,
@@ -7,6 +9,7 @@ import type {
   TestQuestionType,
 } from "../../../api/index";
 import type {
+  CourseExercise,
   CourseTest,
   CourseTestQuestion,
   ExerciseEditorDraft,
@@ -22,6 +25,7 @@ export type SavedCourseSnapshot = {
 
 export type TestEditorDraft = {
   afterLessonId: string | null;
+  isGraded: boolean;
   questions: CourseTestQuestion[];
 };
 
@@ -47,6 +51,8 @@ export const EMPTY_LESSON_EDITOR_DRAFT: LessonEditorDraft = {
 
 const TRUE_FALSE_OPTIONS = ["Правда", "Неправда"] as const;
 
+const FALSE_ANSWER_LABELS = new Set(["false", "неправда"]);
+
 const createId = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -65,6 +71,7 @@ export const createEmptyTestQuestion = (): CourseTestQuestion => ({
 
 export const createEmptyTestEditorDraft = (): TestEditorDraft => ({
   afterLessonId: null,
+  isGraded: false,
   questions: [createEmptyTestQuestion()],
 });
 
@@ -232,6 +239,7 @@ export const areTestDraftsEqual = (
   rightDraft: TestEditorDraft
 ) =>
   leftDraft.afterLessonId === rightDraft.afterLessonId &&
+  leftDraft.isGraded === rightDraft.isGraded &&
   areQuestionArraysEqual(leftDraft.questions, rightDraft.questions);
 
 const hasMeaningfulQuestionDraft = (question: CourseTestQuestion) => {
@@ -276,7 +284,9 @@ const buildCorrectOptionIndexes = (
       return [];
     }
 
-    return correctAnswer.answer_text.trim().toLowerCase() === "false" ? [1] : [0];
+    return FALSE_ANSWER_LABELS.has(correctAnswer.answer_text.trim().toLowerCase())
+      ? [1]
+      : [0];
   }
 
   return answers.reduce<number[]>((indexes, answer, index) => {
@@ -299,6 +309,32 @@ export const mapQuestionToCourseTestQuestion = (
   correctOptionIndexes: buildCorrectOptionIndexes(question, answers),
   hint: question.hint,
 });
+
+// Persisted models → editor drafts (shared by the builder, dashboards, and previews).
+export const mapExerciseToCourseExercise = (exercise: Exercise): CourseExercise => ({
+  id: exercise.id,
+  title: exercise.title,
+  description: exercise.description,
+  afterLessonId: exercise.after_lesson_id,
+  type: exercise.type,
+  content: exercise.content,
+  createdAt: exercise.created_at,
+  updatedAt: exercise.updated_at,
+});
+
+export const mapHydratedTestsToCourseTests = (
+  tests: HydratedTestEntityResponse[]
+): CourseTest[] =>
+  tests.map((test) => ({
+    id: test.id,
+    title: test.title,
+    afterLessonId: test.after_lesson_id,
+    order: test.order,
+    isGraded: test.is_graded,
+    questions: test.questions.map((question) =>
+      mapQuestionToCourseTestQuestion(question, question.answers)
+    ),
+  }));
 
 export const buildAnswerPayloads = (question: CourseTestQuestion) => {
   const options =

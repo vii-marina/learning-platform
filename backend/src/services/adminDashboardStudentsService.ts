@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, UserRole } from "../types/auth";
 import { updateCurrentUserProfile } from "./authService";
@@ -93,10 +93,6 @@ type AdminDashboardStudentProfileInput = {
   linkedinUrl?: string | null;
   githubUrl?: string | null;
 };
-
-function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: BackendError) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function isMissingOptionalRelationError(error: BackendError, relationName: string) {
   const message = error.message.toLowerCase();

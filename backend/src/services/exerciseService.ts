@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext } from "../types/auth";
 
@@ -51,15 +51,6 @@ type ExerciseRow = {
   created_at: string;
   updated_at: string;
 };
-
-function toServiceError(
-  statusCode: number,
-  code: string,
-  fallbackMessage: string,
-  error: { message: string }
-) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function ensureTeacherOrAdmin(auth: AuthenticatedRequestContext) {
   if (auth.isAdmin) {

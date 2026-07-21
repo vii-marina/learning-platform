@@ -1,4 +1,5 @@
 import { Sparkles, X } from "lucide-react";
+import { Modal } from "../../../../../components/ui/Modal";
 
 type CreationPathModalProps = {
   isOpen: boolean;
@@ -21,18 +22,19 @@ export function CreationPathModal({
   onSelectAi,
   onSelectManual,
 }: CreationPathModalProps) {
-  if (!isOpen) {
-    return null;
-  }
-
   const aiButtonClasses =
     accent === "exercise"
       ? "bg-gradient-to-r from-[#fdba74] via-[#fb923c] to-[#ea580c] text-white shadow-[0_12px_24px_rgba(234,88,12,0.18)] hover:translate-y-[-1px] hover:shadow-[0_16px_28px_rgba(234,88,12,0.24)]"
       : "bg-gradient-to-r from-[#a78bfa] via-[#8b5cf6] to-[#6d28d9] text-white shadow-[0_12px_24px_rgba(109,40,217,0.18)] hover:translate-y-[-1px] hover:shadow-[0_16px_28px_rgba(109,40,217,0.24)]";
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="flex w-full max-w-[40rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      overlayClassName="z-[95]"
+      ariaLabel={title}
+      panelClassName="flex w-full max-w-[40rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.2)]"
+    >
         <div className="relative border-b border-slate-200 px-6 py-5 pr-20">
           <button
             type="button"
@@ -66,7 +68,6 @@ export function CreationPathModal({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, UserProfileRow } from "../types/auth";
@@ -83,10 +83,6 @@ type AdminDashboardTeacherProfileInput = {
 };
 
 const profileSelect = "id,email,full_name,role,created_at";
-
-function toServiceError(statusCode: number, code: string, fallbackMessage: string, error: { message: string }) {
-  return new AppError(statusCode, `${fallbackMessage}: ${error.message}`, code);
-}
 
 function toNormalizedUser(profile: UserProfileRow): NormalizedUser {
   return {

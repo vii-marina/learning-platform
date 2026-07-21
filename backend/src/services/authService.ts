@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import {
@@ -158,13 +158,14 @@ async function updateAuthUserEmail(userId: string, email: string) {
     );
   }
 
+  console.error(`[AUTH_EMAIL_UPDATE_FAILED] Unable to update email: ${error.message}`);
   throw new AppError(
     500,
-    `Unable to update email: ${error.message}`,
+    "Unable to update email.",
     "AUTH_EMAIL_UPDATE_FAILED",
     {
       fieldErrors: {
-        email: [error.message],
+        email: ["Unable to update email. Try again later."],
       },
     }
   );
@@ -182,11 +183,7 @@ async function getTeacherProfileRecord(userId: string) {
       return null;
     }
 
-    throw new AppError(
-      500,
-      `Unable to load teacher profile: ${error.message}`,
-      "TEACHER_PROFILE_FETCH_FAILED"
-    );
+    throw toServiceError(500, "TEACHER_PROFILE_FETCH_FAILED", "Unable to load teacher profile", error);
   }
 
   return (data as Record<string, unknown> | null) ?? null;
@@ -204,11 +201,7 @@ async function getStudentProfileRecord(userId: string) {
       return null;
     }
 
-    throw new AppError(
-      500,
-      `Unable to load student profile: ${error.message}`,
-      "STUDENT_PROFILE_FETCH_FAILED"
-    );
+    throw toServiceError(500, "STUDENT_PROFILE_FETCH_FAILED", "Unable to load student profile", error);
   }
 
   return (data as Record<string, unknown> | null) ?? null;
@@ -372,11 +365,7 @@ async function patchTeacherProfile(
     .eq("id", userId);
 
   if (error) {
-    throw new AppError(
-      500,
-      `Unable to update teacher profile: ${error.message}`,
-      "TEACHER_PROFILE_UPDATE_FAILED"
-    );
+    throw toServiceError(500, "TEACHER_PROFILE_UPDATE_FAILED", "Unable to update teacher profile", error);
   }
 }
 
@@ -422,11 +411,7 @@ async function patchStudentProfile(
     .eq("id", userId);
 
   if (error) {
-    throw new AppError(
-      500,
-      `Unable to update student profile: ${error.message}`,
-      "STUDENT_PROFILE_UPDATE_FAILED"
-    );
+    throw toServiceError(500, "STUDENT_PROFILE_UPDATE_FAILED", "Unable to update student profile", error);
   }
 }
 

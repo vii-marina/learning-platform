@@ -1,11 +1,17 @@
 import { randomUUID } from "node:crypto";
-import OpenAI from "openai";
 import { z } from "zod";
 import { env } from "../config/env";
-
-const openai = new OpenAI({
-  apiKey: env.OPENAI_API_KEY,
-});
+import { openai } from "../lib/openai";
+import {
+  AiQualityError,
+  fillLessonText,
+  isTooSimilarToLesson,
+  LANGUAGE_RULE,
+  LESSON_TEXT_PLACEHOLDER,
+  logAiUsage,
+  normalizeForComparison,
+  UNTRUSTED_LESSON_NOTE,
+} from "./aiShared";
 
 export type GeneratedExerciseType = "drag_drop_code" | "write_code";
 export type ExerciseDifficulty = "easy" | "medium" | "hard";
@@ -37,8 +43,6 @@ export type GeneratedExerciseContent =
   | GeneratedDragDropCodeExerciseContent
   | GeneratedWriteCodeExerciseContent;
 
-const lessonTextPlaceholder = "__LESSON_TEXT__";
-
 const BLANK_SLOT_PATTERN = /___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_PATTERN = /{{answer}}|___|{{blank_\d+}}/g;
 const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
@@ -46,8 +50,9 @@ const WRITE_CODE_SLOT_TOKEN = "{{answer}}";
 const EXERCISE_SYSTEM_PROMPT =
   "You generate high-quality beginner programming exercises and must strictly match the requested difficulty level.";
 
+// Semantic validation of the parsed response (counts, non-empty strings).
+// Wire shape is already guaranteed by the strict Structured Outputs schemas below.
 const dragDropExerciseSchema = z.object({
-  type: z.literal("drag_drop_code").optional(),
   question: z.string().trim().min(1),
   code_template: z.string().trim().min(1),
   blanks: z
@@ -62,57 +67,49 @@ const dragDropExerciseSchema = z.object({
 });
 
 const writeCodeExerciseSchema = z.object({
-  type: z.literal("write_code").optional(),
   question: z.string().trim().min(1),
   initial_code: z.string().trim().min(1),
   expected_answer: z.string().trim().min(1),
 });
 
-function normalizeJsonResponse(response: string) {
-  const trimmed = response.trim();
+// Strict-mode Structured Outputs schemas (core keyword subset only — the
+// count/length constraints above stay in Zod). Require a model with
+// Structured Outputs support (default gpt-4o-mini has it).
+const dragDropJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["question", "code_template", "blanks"],
+  properties: {
+    question: { type: "string" },
+    code_template: { type: "string" },
+    blanks: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["correct", "distractors"],
+        properties: {
+          correct: { type: "string" },
+          distractors: {
+            type: "array",
+            items: { type: "string" },
+          },
+        },
+      },
+    },
+  },
+};
 
-  if (!trimmed.startsWith("```")) {
-    return trimmed;
-  }
-
-  return trimmed
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/, "")
-    .trim();
-}
-
-function extractExerciseData(parsed: unknown) {
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("Invalid AI structure");
-  }
-
-  const exercise =
-    "exercise" in parsed &&
-    parsed.exercise &&
-    typeof parsed.exercise === "object" &&
-    !Array.isArray(parsed.exercise)
-      ? parsed.exercise
-      : parsed;
-
-  if (exercise === parsed) {
-    console.warn("[AI] Exercise response has no wrapper, using root object");
-  }
-
-  return exercise;
-}
-
-function normalizeWhitespace(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function normalizeForComparison(value: string) {
-  return normalizeWhitespace(value).toLowerCase();
-}
-
-function isTooSimilarToLesson(text: string, lesson: string) {
-  return normalizeForComparison(lesson).includes(normalizeForComparison(text));
-}
+const writeCodeJsonSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["question", "initial_code", "expected_answer"],
+  properties: {
+    question: { type: "string" },
+    initial_code: { type: "string" },
+    expected_answer: { type: "string" },
+  },
+};
 
 function unique(values: string[]) {
   const set = new Set<string>();
@@ -130,17 +127,23 @@ function normalizeBlankPlaceholders(template: string) {
 }
 
 function normalizeDragDrop(raw: unknown, lessonText: string): GeneratedDragDropCodeExerciseContent {
-  const parsed = dragDropExerciseSchema.parse(raw);
+  const result = dragDropExerciseSchema.safeParse(raw);
+
+  if (!result.success) {
+    throw new AiQualityError("AI returned an invalid drag & drop exercise");
+  }
+
+  const parsed = result.data;
 
   if (isTooSimilarToLesson(parsed.question, lessonText)) {
-    throw new Error("Exercise question is too similar to lesson text");
+    throw new AiQualityError("Exercise question is too similar to lesson text");
   }
 
   const codeTemplate = normalizeBlankPlaceholders(parsed.code_template);
   const placeholderCount = codeTemplate.match(/{{blank_\d+}}/g)?.length ?? 0;
 
   if (placeholderCount !== parsed.blanks.length) {
-    throw new Error("Mismatch between blanks and placeholders");
+    throw new AiQualityError("Mismatch between blanks and placeholders");
   }
 
   const blanks = parsed.blanks.map((b) => {
@@ -149,7 +152,7 @@ function normalizeDragDrop(raw: unknown, lessonText: string): GeneratedDragDropC
     );
 
     if (distractors.length < 2) {
-      throw new Error("Invalid distractors");
+      throw new AiQualityError("Invalid distractors");
     }
 
     return {
@@ -170,16 +173,22 @@ function normalizeDragDrop(raw: unknown, lessonText: string): GeneratedDragDropC
 }
 
 function normalizeWriteCode(raw: unknown, lessonText: string): GeneratedWriteCodeExerciseContent {
-  const parsed = writeCodeExerciseSchema.parse(raw);
+  const result = writeCodeExerciseSchema.safeParse(raw);
+
+  if (!result.success) {
+    throw new AiQualityError("AI returned an invalid write code exercise");
+  }
+
+  const parsed = result.data;
 
   if (isTooSimilarToLesson(parsed.question, lessonText)) {
-    throw new Error("Exercise question is too similar to lesson text");
+    throw new AiQualityError("Exercise question is too similar to lesson text");
   }
 
   const matches = parsed.initial_code.match(WRITE_CODE_SLOT_PATTERN) ?? [];
 
   if (matches.length !== 1) {
-    throw new Error("Write code must have exactly one slot");
+    throw new AiQualityError("Write code must have exactly one slot");
   }
 
   return {
@@ -259,7 +268,7 @@ Strict rules:
         ? "You may stay close to lesson examples, but still create a distinct exercise"
         : "Do NOT copy or directly rewrite lesson examples"}
 - Do NOT create purely theoretical tasks
-
+${LANGUAGE_RULE}
 ${difficultyPrompt}
 
 Quality rules:
@@ -272,10 +281,10 @@ Blanks rules:
 - Each blank must represent a meaningful missing code part for the chosen difficulty
 - Distractors must be based on real beginner mistakes (not random)
 - Distractors must be plausible
+- Each blank must have 2 to 3 distractors
 
 Return JSON:
 {
-  "type": "drag_drop_code",
   "question": "...",
   "code_template": "... {{blank_1}} ...",
   "blanks": [
@@ -286,9 +295,11 @@ Return JSON:
   ]
 }
 
+${UNTRUSTED_LESSON_NOTE}
+
 Lesson:
 """
-${lessonTextPlaceholder}
+${LESSON_TEXT_PLACEHOLDER}
 """
 `;
   }
@@ -306,7 +317,7 @@ Strict rules:
         ? "Rephrasing the lesson style is allowed, but the task must still be a separate exercise"
         : "Do NOT copy or directly rephrase lesson examples"}
 - Avoid logic that is above the requested difficulty
-
+${LANGUAGE_RULE}
 ${difficultyPrompt}
 
 Quality rules:
@@ -320,15 +331,16 @@ Structure rules:
 
 Return JSON:
 {
-  "type": "write_code",
   "question": "...",
   "initial_code": "... {{answer}} ...",
   "expected_answer": "..."
 }
 
+${UNTRUSTED_LESSON_NOTE}
+
 Lesson:
 """
-${lessonTextPlaceholder}
+${LESSON_TEXT_PLACEHOLDER}
 """
 `;
 }
@@ -338,16 +350,19 @@ export async function generateExerciseFromLesson(
   type: GeneratedExerciseType,
   difficulty: ExerciseDifficulty
 ): Promise<GeneratedExerciseContent> {
-  const prompt = buildPrompt(type, difficulty).replace(
-    lessonTextPlaceholder,
-    lessonText
-  );
+  const prompt = fillLessonText(buildPrompt(type, difficulty), lessonText);
 
   const completion = await openai.chat.completions.create({
     model: env.OPENAI_MODEL,
     temperature: 0.75,
+    max_completion_tokens: 2048,
     response_format: {
-      type: "json_object",
+      type: "json_schema",
+      json_schema: {
+        name: type === "drag_drop_code" ? "drag_drop_exercise" : "write_code_exercise",
+        strict: true,
+        schema: type === "drag_drop_code" ? dragDropJsonSchema : writeCodeJsonSchema,
+      },
     },
     messages: [
       {
@@ -356,37 +371,38 @@ export async function generateExerciseFromLesson(
       },
       {
         role: "user",
-        content: `
-Return this JSON:
-{
-  "exercise": { ... }
-}
-
-${prompt}
-`,
+        content: prompt,
       },
     ],
   });
 
-  const response = completion.choices[0].message.content;
+  logAiUsage(`exercise:${type}:${difficulty}`, completion);
+
+  const message = completion.choices[0]?.message;
+
+  if (message?.refusal) {
+    throw new AiQualityError(`AI refused to generate exercise: ${message.refusal}`);
+  }
+
+  const response = message?.content;
 
   if (!response) {
-    throw new Error("Empty AI response");
+    throw new AiQualityError("Empty AI response");
   }
+
+  if (env.NODE_ENV === "development") {
+    console.log("[AI] Raw exercise response:", response);
+  }
+
+  let parsed: unknown;
 
   try {
-    console.log("[AI] Raw exercise response:", response);
-
-    const parsed = JSON.parse(normalizeJsonResponse(response));
-    const exerciseData = extractExerciseData(parsed);
-
-    return type === "drag_drop_code"
-      ? normalizeDragDrop(exerciseData, lessonText)
-      : normalizeWriteCode(exerciseData, lessonText);
-  } catch (e) {
-    console.error("[AI] Failed to normalize exercise response:", e);
-
-    if (e instanceof Error) throw e;
-    throw new Error("Failed to parse AI exercise");
+    parsed = JSON.parse(response);
+  } catch {
+    throw new AiQualityError("AI returned invalid JSON");
   }
+
+  return type === "drag_drop_code"
+    ? normalizeDragDrop(parsed, lessonText)
+    : normalizeWriteCode(parsed, lessonText);
 }

@@ -10,10 +10,13 @@ import {
   listModulesByCourse,
   updateModule,
 } from "../../../api/index";
-import type { Exercise, Lesson, Module } from "../../../api/index";
+import type { Lesson, Module } from "../../../api/index";
 import type { CourseExercise, CourseTest } from "../types/courseBuilderUiTypes";
-import { createLocalEntityId } from "../lib/courseBuilderPageUtils";
-import { mapQuestionToCourseTestQuestion } from "../lib/courseBuilderPageUtils";
+import {
+  createLocalEntityId,
+  mapExerciseToCourseExercise,
+  mapHydratedTestsToCourseTests,
+} from "../lib/courseBuilderPageUtils";
 
 type ModuleDeletedPayload = {
   moduleId: string;
@@ -28,19 +31,6 @@ type UseCourseBuilderContentDataArgs = {
   setMessage: Dispatch<SetStateAction<string>>;
   onModuleDeleted?: (payload: ModuleDeletedPayload) => void;
 };
-
-function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
-  return {
-    id: exercise.id,
-    title: exercise.title,
-    description: exercise.description,
-    afterLessonId: exercise.after_lesson_id,
-    type: exercise.type,
-    content: exercise.content,
-    createdAt: exercise.created_at,
-    updatedAt: exercise.updated_at,
-  };
-}
 
 export function useCourseBuilderContentData({
   currentCourseId,
@@ -123,15 +113,7 @@ export function useCourseBuilderContentData({
   const fetchTests = async (moduleId: string) => {
     try {
       const content = await listModuleContent(moduleId);
-      const tests = content.tests.map((test) => ({
-        id: test.id,
-        title: test.title,
-        afterLessonId: test.after_lesson_id,
-        order: test.order,
-        questions: test.questions.map((question) =>
-          mapQuestionToCourseTestQuestion(question, question.answers)
-        ),
-      }));
+      const tests = mapHydratedTestsToCourseTests(content.tests);
       applyModuleContent(moduleId, {
         lessons: content.lessons,
         tests,
@@ -409,15 +391,7 @@ export function useCourseBuilderContentData({
       const content = await listModuleContent(moduleId);
       applyModuleContent(moduleId, {
         lessons: content.lessons,
-        tests: content.tests.map((test) => ({
-          id: test.id,
-          title: test.title,
-          afterLessonId: test.after_lesson_id,
-          order: test.order,
-          questions: test.questions.map((question) =>
-            mapQuestionToCourseTestQuestion(question, question.answers)
-          ),
-        })),
+        tests: mapHydratedTestsToCourseTests(content.tests),
         exercises: content.exercises.map(mapExerciseToCourseExercise),
       });
       setMessage("");

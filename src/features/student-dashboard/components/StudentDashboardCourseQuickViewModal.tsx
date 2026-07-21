@@ -102,6 +102,7 @@ function mapHydratedTestToCourseTest(test: HydratedTestEntityResponse): CourseTe
     title: test.title,
     afterLessonId: test.after_lesson_id,
     order: test.order,
+    isGraded: test.is_graded,
     questions: [...test.questions]
       .sort((left, right) => left.order - right.order)
       .map((question) => ({

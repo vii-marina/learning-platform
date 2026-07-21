@@ -9,15 +9,14 @@ import {
   publishCourse,
   softDeleteCourse,
   unpublishCourse,
-  type Exercise,
-  type HydratedTestEntityResponse,
   type Lesson,
   type Module,
 } from "../../courses/api";
 import { getCourseMediaPublicUrl } from "../../courses/api/courseMediaStorage";
 import { CoursePreviewPage } from "../../courses/components/course-builder/components/CoursePreviewPage";
 import {
-  mapQuestionToCourseTestQuestion,
+  mapExerciseToCourseExercise,
+  mapHydratedTestsToCourseTests,
 } from "../../courses/components/course-builder/lib/courseBuilderPageUtils";
 import type { CourseExercise, CourseTest } from "../../courses/components/course-builder/types/courseBuilderUiTypes";
 import { getErrorMessage } from "../../auth/api/backendClient";
@@ -68,31 +67,6 @@ function buildAlertClassName(type: "error" | "success") {
   return type === "error"
     ? "border-rose-200 bg-rose-50 text-rose-700"
     : "border-[#13daec]/30 bg-[#13daec]/10 text-slate-800";
-}
-
-function mapExerciseToCourseExercise(exercise: Exercise): CourseExercise {
-  return {
-    id: exercise.id,
-    title: exercise.title,
-    description: exercise.description,
-    afterLessonId: exercise.after_lesson_id,
-    type: exercise.type,
-    content: exercise.content,
-    createdAt: exercise.created_at,
-    updatedAt: exercise.updated_at,
-  };
-}
-
-function mapHydratedTestsToCourseTests(tests: HydratedTestEntityResponse[]): CourseTest[] {
-  return tests.map((test) => ({
-    id: test.id,
-    title: test.title,
-    afterLessonId: test.after_lesson_id,
-    order: test.order,
-    questions: test.questions.map((question) =>
-      mapQuestionToCourseTestQuestion(question, question.answers)
-    ),
-  }));
 }
 
 async function loadTeacherCoursePreview(

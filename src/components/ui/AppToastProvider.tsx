@@ -1,7 +1,5 @@
 import {
-  createContext,
   useCallback,
-  useContext,
   useEffect,
   useMemo,
   useRef,
@@ -9,19 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { CheckCircle2, X } from "lucide-react";
+import { AppToastContext, type AppToastContextValue } from "./appToastContext";
 
 type ToastState = {
   id: number;
   message: string;
   isClosing: boolean;
 } | null;
-
-type AppToastContextValue = {
-  dismissToast: () => void;
-  showSuccessToast: (message: string) => void;
-};
-
-const AppToastContext = createContext<AppToastContextValue | null>(null);
 
 export function AppToastProvider({ children }: { children: ReactNode }) {
   const [toast, setToast] = useState<ToastState>(null);
@@ -118,14 +110,4 @@ export function AppToastProvider({ children }: { children: ReactNode }) {
       ) : null}
     </AppToastContext.Provider>
   );
-}
-
-export function useAppToast() {
-  const context = useContext(AppToastContext);
-
-  if (!context) {
-    throw new Error("useAppToast must be used within an AppToastProvider.");
-  }
-
-  return context;
 }
