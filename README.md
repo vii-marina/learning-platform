@@ -257,5 +257,5 @@ CORS_ORIGIN=
 
 ## Author
 
-Developed and founded by Maryna Vilkhovetska.
-Support and improvement by Volodymyr Mykhailiuk.
+Developed by Marina Vilkhovetska.
+Supported by Volodymyr Mykhailiuk.
