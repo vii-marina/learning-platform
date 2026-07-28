@@ -2,6 +2,14 @@ import { AppError, toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext, UserProfileRow } from "../types/auth";
 import { getLandingPageSettings } from "./landingPageSettingsService";
+import {
+  groupAnswersByQuestionId,
+  isPassingScore,
+  scoreSubmission,
+  type GradingAnswerRow,
+  type GradingQuestionRow,
+  type TestGradeResult,
+} from "./testGrading";
 
 type CourseRow = {
   id: string;
@@ -615,54 +623,7 @@ async function updateCourseProgressAfterLessonCompletion(
 
 // Server-side test grading (R15): the score is computed here from the student's
 // selected option indexes vs. the stored answers — never trusted from the client.
-// Mirrors the client's scoring rule exactly (CoursePreviewTestModal /
-// CoursePreviewLessonContent) so a submission grades identically:
-//   - option index order = answers sorted by created_at asc (same as the
-//     student-details endpoint that rendered the options);
-//   - true_false → [0] for the correct "true" answer, [1] for "false";
-//   - a question is correct iff the selected index set equals the correct set.
-type GradingQuestionRow = { id: string; type: string };
-type GradingAnswerRow = {
-  question_id: string;
-  answer_text: string;
-  is_correct: boolean;
-};
-const FALSE_ANSWER_LABELS = new Set(["false", "неправда"]);
-
-function computeCorrectIndexes(type: string, answers: GradingAnswerRow[]): number[] {
-  if (type === "true_false") {
-    const correctAnswer = answers.find((answer) => answer.is_correct);
-    if (!correctAnswer) {
-      return [];
-    }
-    return FALSE_ANSWER_LABELS.has(correctAnswer.answer_text.trim().toLowerCase())
-      ? [1]
-      : [0];
-  }
-
-  return answers.reduce<number[]>((indexes, answer, index) => {
-    if (answer.is_correct) {
-      indexes.push(index);
-    }
-    return indexes;
-  }, []);
-}
-
-function isQuestionAnsweredCorrectly(correctIndexes: number[], selectedRaw: number[]): boolean {
-  const selected = Array.from(new Set(selectedRaw));
-  return (
-    selected.length === correctIndexes.length &&
-    selected.every((index) => correctIndexes.includes(index))
-  );
-}
-
-type TestGradeResult = {
-  scorePercent: number;
-  correctCount: number;
-  totalQuestions: number;
-  perQuestion: Record<string, boolean>;
-};
-
+// The scoring rule itself lives in `testGrading.ts` (pure, unit-tested).
 async function gradeTestSubmission(
   testId: string,
   submittedAnswers: Record<string, number[]>
@@ -703,34 +664,9 @@ async function gradeTestSubmission(
     );
   }
 
-  const answersByQuestionId = new Map<string, GradingAnswerRow[]>();
-  for (const answer of (answers ?? []) as GradingAnswerRow[]) {
-    const list = answersByQuestionId.get(answer.question_id) ?? [];
-    list.push(answer);
-    answersByQuestionId.set(answer.question_id, list);
-  }
+  const answersByQuestionId = groupAnswersByQuestionId((answers ?? []) as GradingAnswerRow[]);
 
-  const perQuestion: Record<string, boolean> = {};
-  let correctCount = 0;
-  for (const question of questionRows) {
-    const correctIndexes = computeCorrectIndexes(
-      question.type,
-      answersByQuestionId.get(question.id) ?? []
-    );
-    const selected = submittedAnswers[question.id] ?? [];
-    const isCorrect = isQuestionAnsweredCorrectly(correctIndexes, selected);
-    perQuestion[question.id] = isCorrect;
-    if (isCorrect) {
-      correctCount += 1;
-    }
-  }
-
-  return {
-    scorePercent: Math.round((correctCount / questionRows.length) * 100),
-    correctCount,
-    totalQuestions: questionRows.length,
-    perQuestion,
-  };
+  return scoreSubmission(questionRows, answersByQuestionId, submittedAnswers);
 }
 
 async function upsertUserTestResult(
@@ -739,7 +675,7 @@ async function upsertUserTestResult(
   scorePercent: number
 ) {
   const now = new Date().toISOString();
-  const passed = scorePercent >= 70;
+  const passed = isPassingScore(scorePercent);
   const payload = {
     user_id: userId,
     test_id: testId,
