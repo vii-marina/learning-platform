@@ -1,0 +1,59 @@
+name: CI
+
+# Static checks + the unit suite. Everything here is hermetic: no secrets, no
+# Supabase, no OpenAI — the tests use pure modules or in-memory mocks.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Covers backend/src too — the flat ESLint config lints the whole repo.
+      - run: npm run lint
+
+      - run: npm test
+
+      # `tsc -b` (app + node projects) runs as part of the build script.
+      - run: npm run build
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run typecheck
+
+      - run: npm run typecheck:tests
+
+      - run: npm test
+
+      - run: npm run build

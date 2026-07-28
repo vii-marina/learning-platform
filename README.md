@@ -182,7 +182,7 @@ Generated AI content is shown as a draft first. Teachers can review, edit, and s
 
 ```text
 learning-platform/
-├── src/                 # Frontend application source
+├── frontend/            # Frontend application source
 │   ├── app/             # Application entry and routing setup
 │   ├── components/      # Shared UI and layout components
 │   ├── features/        # Feature modules for auth, courses, dashboards, and admin tools

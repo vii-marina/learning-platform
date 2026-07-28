@@ -3,6 +3,7 @@ import { updateLandingPageSettingsSchema } from "../validators/adminSchemas";
 import {
   getLandingPageSettings,
   saveLandingPageSettings,
+  saveLandingPreviewSnapshot,
 } from "../services/landingPageSettingsService";
 import { getPublicLandingLessonPreview } from "../services/studentDashboardCoursesService";
 
@@ -35,11 +36,17 @@ export async function updateAdminLandingSettingsHandler(req: Request, res: Respo
     allowAnySelectedCourse: true,
   });
   const settings = await saveLandingPageSettings(input);
+  const courseId = settings.course_id ?? input.courseId;
+  const lessonId = settings.lesson_id ?? input.lessonId;
   const preview = await getPublicLandingLessonPreview({
-    courseId: settings.course_id ?? input.courseId,
-    lessonId: settings.lesson_id ?? input.lessonId,
+    courseId,
+    lessonId,
     allowAnySelectedCourse: true,
   });
+
+  // Refresh the public snapshot the landing reads directly (F1). Best-effort:
+  // a failure here must not fail the admin's save.
+  await saveLandingPreviewSnapshot(preview, { courseId, lessonId });
 
   res.status(200).json({
     settings,
