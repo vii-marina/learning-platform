@@ -1,0 +1,335 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.neon-frame {
+  position: relative;
+}
+
+.neon-frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 5px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0) 0%,
+    rgba(10, 10, 10, 0.25) 35%,
+    rgba(10, 10, 10, 0.85) 50%,
+    rgba(10, 10, 10, 0.25) 65%,
+    rgba(0, 0, 0, 0) 100%
+  );
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  filter: drop-shadow(0 0 8px rgba(0, 0, 0, 0.5));
+  animation: neon-run 6s linear infinite;
+  pointer-events: none;
+}
+
+.neon-frame::after {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border-radius: inherit;
+  border: 1px solid rgba(15, 23, 42, 0.2);
+  pointer-events: none;
+}
+
+@keyframes neon-run {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 100%;
+  }
+  100% {
+    background-position: 0% 0%;
+  }
+}
+
+@keyframes success-notice-enter {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes success-notice-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+
+.success-notice--enter {
+  animation: success-notice-enter 220ms ease-out forwards;
+}
+
+.success-notice--exit {
+  animation: success-notice-exit 220ms ease-in forwards;
+}
+
+.rich-text-editor .rich-text-editor__content {
+  min-height: 320px;
+  padding: 16px 18px;
+  outline: none;
+  cursor: text;
+}
+
+.rich-text-editor .rich-text-editor__content > *:first-child {
+  margin-top: 0;
+}
+
+.rich-text-editor .rich-text-editor__content > *:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-editor .rich-text-editor__content p {
+  margin: 0;
+}
+
+.prose p {
+  margin: 0.75rem 0;
+  color: rgb(51 65 85);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
+.prose strong {
+  color: rgb(30 41 59);
+  font-weight: 800;
+}
+
+.prose ul,
+.prose ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.prose ul {
+  list-style: disc;
+}
+
+.prose ol {
+  list-style: decimal;
+}
+
+.prose li {
+  margin: 0.3rem 0;
+  color: rgb(51 65 85);
+  line-height: 1.7;
+}
+
+.rich-text-editor .rich-text-editor__content ul,
+.rich-text-editor .rich-text-editor__content ol {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.rich-text-editor .rich-text-editor__content ul {
+  list-style: disc;
+}
+
+.rich-text-editor .rich-text-editor__content ol {
+  list-style: decimal;
+}
+
+.rich-text-editor .rich-text-editor__content li {
+  margin: 0.25rem 0;
+}
+
+.rich-text-editor .rich-text-editor__content li p {
+  margin: 0;
+}
+
+.rich-text-editor .rich-text-editor__content a {
+  color: rgb(8 191 212);
+  text-decoration: underline;
+}
+
+.rich-text-editor .rich-text-editor__content pre,
+.prose pre {
+  --lesson-code-accent: rgb(8 191 212);
+  --lesson-code-bg-start: rgb(252 254 255);
+  --lesson-code-bg-end: rgb(241 245 249);
+  --lesson-code-text: rgb(51 65 85);
+  position: relative;
+  margin: 1rem 0;
+  overflow-x: auto;
+  border: 1px solid rgb(203 213 225);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, var(--lesson-code-bg-start), var(--lesson-code-bg-end));
+  color: var(--lesson-code-text);
+  box-shadow:
+    inset 4px 0 0 var(--lesson-code-accent),
+    0 12px 24px rgba(15, 23, 42, 0.05);
+  padding: 2.2rem 1.125rem 1rem;
+  font-family:
+    "SFMono-Regular",
+    SFMono-Regular,
+    ui-monospace,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.925rem;
+  line-height: 1.65;
+}
+
+.rich-text-editor .rich-text-editor__content pre::before,
+.prose pre::before {
+  content: "Example";
+  position: absolute;
+  left: 1rem;
+  top: 0.72rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--lesson-code-accent);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="example"],
+.prose pre[data-code-variant="example"] {
+  --lesson-code-accent: rgb(6 182 212);
+  --lesson-code-bg-start: rgb(252 254 255);
+  --lesson-code-bg-end: rgb(241 245 249);
+  --lesson-code-text: rgb(71 85 105);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="input"],
+.prose pre[data-code-variant="input"] {
+  --lesson-code-accent: rgb(22 163 74);
+  --lesson-code-bg-start: rgb(247 255 248);
+  --lesson-code-bg-end: rgb(236 253 243);
+  --lesson-code-text: rgb(22 101 52);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="input"]::before,
+.prose pre[data-code-variant="input"]::before {
+  content: "Input";
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="output"],
+.prose pre[data-code-variant="output"] {
+  --lesson-code-accent: rgb(79 70 229);
+  --lesson-code-bg-start: rgb(248 250 255);
+  --lesson-code-bg-end: rgb(238 242 255);
+  --lesson-code-text: rgb(67 56 202);
+}
+
+.rich-text-editor .rich-text-editor__content pre[data-code-variant="output"]::before,
+.prose pre[data-code-variant="output"]::before {
+  content: "Output";
+}
+
+.rich-text-editor .rich-text-editor__content pre code,
+.prose pre code {
+  display: block;
+  background: transparent;
+  color: inherit;
+  padding: 0;
+  font-size: inherit;
+  white-space: pre;
+}
+
+.rich-text-editor .rich-text-editor__content :not(pre) > code,
+.prose :not(pre) > code {
+  border-radius: 0.5rem;
+  border: 1px solid rgb(203 213 225);
+  background: linear-gradient(180deg, rgb(248 250 252), rgb(226 232 240));
+  color: rgb(14 116 144);
+  padding: 0.15rem 0.45rem;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  font-family:
+    "SFMono-Regular",
+    SFMono-Regular,
+    ui-monospace,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.9em;
+}
+
+.prose :not(pre) > code::before,
+.prose :not(pre) > code::after {
+  content: none;
+}
+
+.rich-text-editor .rich-text-editor__content img,
+.rich-text-editor .rich-text-editor__content .rich-text-editor__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 0.75rem 0;
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
+}
+
+.rich-text-editor .rich-text-editor__content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: rgb(148 163 184);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}
+
+.spoiler-reveal {
+  isolation: isolate;
+}
+
+.spoiler-reveal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image:
+    radial-gradient(circle, rgba(20, 33, 61, 0.18) 0 1px, transparent 1.8px),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.28), rgba(19, 218, 236, 0.08));
+  background-size: 12px 12px, 100% 100%;
+  background-position: 0 0, 0 0;
+  opacity: 0.9;
+  animation: spoiler-drift 4s linear infinite;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.spoiler-reveal[data-revealed="false"] .spoiler-reveal__body {
+  color: transparent;
+  filter: blur(9px);
+  user-select: none;
+  transition: filter 180ms ease, color 180ms ease;
+}
+
+.spoiler-reveal[data-revealed="true"]::before,
+.spoiler-reveal[data-revealed="true"] .spoiler-reveal__meta {
+  opacity: 0;
+}
+
+.spoiler-reveal[data-revealed="true"] .spoiler-reveal__body {
+  color: inherit;
+  filter: none;
+}
+
+@keyframes spoiler-drift {
+  0% {
+    background-position: 0 0, 0 0;
+  }
+  100% {
+    background-position: 30px 12px, 0 0;
+  }
+}
