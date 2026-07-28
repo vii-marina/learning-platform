@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { publicBackendRequest } from "../../../features/auth/api/backendClient";
 import { dedupeRequest } from "../../../lib/requestDedup";
+import { loadLandingPreview } from "./landingPreviewSource";
 import type { PreviewMode, PublicLandingPreview, LandingPreviewStatus } from "../types";
 import { CoursePreviewPlaceholder } from "./CoursePreviewPlaceholder";
 import { CoursePreviewFrame, LandingCourseSummary } from "./CoursePreviewFrame";
@@ -16,11 +16,12 @@ export default function CourseDemoSection() {
   useEffect(() => {
     let isMounted = true;
 
-    async function loadLandingPreview() {
+    async function loadPreview() {
       try {
         setLandingPreviewStatus("loading");
-        const loadedPreview = await dedupeRequest("public:landing-preview", () =>
-          publicBackendRequest<PublicLandingPreview>("/public/landing-preview")
+        const loadedPreview = await dedupeRequest(
+          "public:landing-preview",
+          loadLandingPreview
         );
 
         if (isMounted) {
@@ -35,7 +36,7 @@ export default function CourseDemoSection() {
       }
     }
 
-    void loadLandingPreview();
+    void loadPreview();
 
     return () => {
       isMounted = false;
