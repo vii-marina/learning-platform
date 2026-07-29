@@ -1,3 +1,5 @@
+import { BrandMark } from "../ui";
+
 type HeaderProps = {
   showAuthLinks?: boolean;
   alignLeft?: boolean;
@@ -11,7 +13,8 @@ export function Header({ showAuthLinks = false, alignLeft = false }: HeaderProps
           alignLeft ? "mx-0 max-w-none" : "mx-auto max-w-5xl"
         }`}
       >
-        <a href="/" className="text-lg font-semibold">
+        <a href="/" className="flex items-center gap-2 text-lg font-semibold">
+          <BrandMark className="h-8 w-8" />
           EduCat
         </a>
         {showAuthLinks ? (

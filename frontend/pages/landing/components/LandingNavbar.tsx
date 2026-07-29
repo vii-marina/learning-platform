@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { GraduationCap, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
+import { BrandMark } from "../../../components/ui";
 import { PrimaryLink, SecondaryLink } from "./primitives";
 
 export function LandingNavbar() {
@@ -16,9 +17,7 @@ export function LandingNavbar() {
     <header className="sticky top-0 z-40 border-b border-[#5549f1]/10 bg-[#f8f7ff]/90 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-5">
         <Link to="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5549f1] text-white">
-            <GraduationCap className="h-5 w-5" />
-          </span>
+          <BrandMark className="h-9 w-9" />
           <span className="text-base font-extrabold text-[#1f1b4d]">EduCat</span>
         </Link>
 

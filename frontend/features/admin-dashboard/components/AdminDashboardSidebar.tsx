@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Link, NavLink } from "react-router-dom";
+import { BrandMark } from "../../../components/ui";
 import { LogoutButton } from "../../auth/components/LogoutButton";
 
 type SidebarItem = {
@@ -88,7 +89,8 @@ export function AdminDashboardSidebar() {
         style={{ fontFamily: '"Lexend", sans-serif' }}
       >
         <div className="flex h-full flex-col">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            <BrandMark className="h-10 w-10" />
             <div>
               <p className="text-ml font-black tracking-tight text-[#14213d]">
                 EduCat

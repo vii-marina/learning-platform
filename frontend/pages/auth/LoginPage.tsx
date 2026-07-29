@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Lock, Mail, School } from "lucide-react";
+import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
+import { BrandMark } from "../../components/ui";
 import { supabase } from "../../lib/supabase";
 import { getCurrentUser, syncPendingRegistrationForEmail } from "../../features/auth/api/authApi";
 import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
@@ -93,9 +94,7 @@ export function LoginPage() {
       <header className="border-b border-slate-200 bg-white/85 backdrop-blur">
         <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-4 px-5 py-4 md:px-10">
           <Link to="/" className="flex items-center gap-3 text-[#0f172a]">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#5549f1] text-white shadow-[0_10px_22px_rgba(85,73,241,0.25)]">
-              <School className="h-4 w-4" />
-            </span>
+            <BrandMark className="h-10 w-10" />
             <span className="text-xl font-extrabold tracking-tight md:text-2xl">
               EduCat
             </span>
