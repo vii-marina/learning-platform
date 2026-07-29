@@ -1,0 +1,29 @@
+{
+  "name": "EduCat — платформа для курсів, тестів і вправ",
+  "short_name": "EduCat",
+  "description": "Створення курсів з уроками, тестами та практичними вправами.",
+  "lang": "uk",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "theme_color": "#5549f1",
+  "background_color": "#f1f0ff",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

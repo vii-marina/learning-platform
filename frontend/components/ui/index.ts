@@ -1,3 +1,4 @@
+export { BrandMark } from "./BrandMark";
 export { Button } from "./button";
 export { Card } from "./Card";
 export { Input } from "./input";

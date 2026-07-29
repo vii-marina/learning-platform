@@ -1,12 +1,16 @@
 import { useEffect, useState } from "react";
 import { dedupeRequest } from "../../../lib/requestDedup";
+import {
+  landingContainer,
+  SectionHead,
+  stickerLiftSm,
+  stickerOutline,
+} from "../components/primitives";
 import { loadLandingPreview } from "./landingPreviewSource";
 import type { PreviewMode, PublicLandingPreview, LandingPreviewStatus } from "../types";
 import { CoursePreviewPlaceholder } from "./CoursePreviewPlaceholder";
 import { CoursePreviewFrame, LandingCourseSummary } from "./CoursePreviewFrame";
 
-// Self-contained landing demo: owns the preview fetch + the selected mode. Lazy-loaded
-// by LandingPage so it (and its backend/storage imports) stay out of the initial chunk.
 export default function CourseDemoSection() {
   const [landingPreview, setLandingPreview] = useState<PublicLandingPreview | null>(null);
   const [landingPreviewStatus, setLandingPreviewStatus] =
@@ -45,8 +49,13 @@ export default function CourseDemoSection() {
 
   if (!landingPreview) {
     return (
-      <section id="course-preview" className="bg-[#f8f7ff] px-5 pb-16 pt-4 text-center">
-        <CoursePreviewPlaceholder status={landingPreviewStatus} />
+      <section
+        id="course-preview"
+        className="scroll-mt-20 border-b-2 border-[#1f1b4d] bg-[#f8f7ff] pb-16 pt-16 text-center"
+      >
+        <div className={landingContainer}>
+          <CoursePreviewPlaceholder status={landingPreviewStatus} />
+        </div>
       </section>
     );
   }
@@ -58,13 +67,37 @@ export default function CourseDemoSection() {
       : previewMode;
 
   return (
-    <section id="course-preview" className="bg-[#f8f7ff] px-5 pb-16 pt-4 text-center">
-      <LandingCourseSummary preview={landingPreview} />
-      <CoursePreviewFrame
-        mode={resolvedPreviewMode}
-        preview={landingPreview}
-        onModeChange={setPreviewMode}
-      />
+    <section
+      id="course-preview"
+      className="scroll-mt-20 border-b-2 border-[#1f1b4d] bg-[#f8f7ff] pb-16 pt-16 md:pt-20"
+    >
+      <div className={landingContainer}>
+        <SectionHead
+          title="Демонстрація курсу"
+          action={
+            <button
+              type="button"
+              onClick={() => setPreviewMode(landingPreview.test ? "test" : "exercise")}
+              className={`sticker-press sticker-cursor relative rounded-2xl rounded-br-sm bg-[#5549f1] px-4 py-2.5 text-sm font-bold text-white ${stickerOutline} ${stickerLiftSm}`}
+            >
+              Спробуйте натиснути, тут усе працює
+              <span
+                aria-hidden
+                className={`absolute -bottom-2 right-5 h-3 w-3 rotate-45 border-l-0 border-t-0 bg-[#5549f1] ${stickerOutline}`}
+              />
+            </button>
+          }
+        />
+      </div>
+
+      <div className={landingContainer}>
+        <LandingCourseSummary preview={landingPreview} />
+        <CoursePreviewFrame
+          mode={resolvedPreviewMode}
+          preview={landingPreview}
+          onModeChange={setPreviewMode}
+        />
+      </div>
     </section>
   );
 }
