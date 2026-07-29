@@ -44,7 +44,7 @@ export function CoursePreviewFrame({
   return (
     <>
       <div
-        className={`mx-auto h-[38rem] w-full overflow-hidden rounded-[1.5rem] border border-[#dedcff] bg-white text-left shadow-[0_24px_70px_rgba(31,27,77,0.08)] md:h-[34rem] ${
+        className={`mx-auto h-[38rem] w-full overflow-hidden rounded-[1.5rem] border-2 border-[#1f1b4d] bg-white text-left shadow-[6px_6px_0_0_#1f1b4d] md:h-[34rem] ${
           compact ? "mt-8 max-w-5xl" : "mt-0 max-w-6xl rounded-t-none border-t-0"
         }`}
       >
@@ -165,12 +165,10 @@ export function CoursePreviewFrame({
 
 export function LandingCourseSummary({ preview }: { preview: PublicLandingPreview }) {
   const thumbnailUrl = getCourseMediaPublicUrl(preview.course.thumbnail_path);
-  const description =
-    preview.course.description?.trim() ||
-    "Курс показано у форматі, близькому до реального проходження студентом: урок, тест і практика в одному потоці.";
+  const description = preview.course.description?.trim() || "Урок, тест і практика в одному потоці.";
 
   return (
-    <div className="mx-auto mt-12 max-w-6xl rounded-t-xl border border-b-0 border-[#dedcff] bg-white p-3 text-left shadow-[0_18px_54px_rgba(31,27,77,0.06)] sm:p-5 md:p-6">
+    <div className="mx-auto mt-10 max-w-6xl rounded-t-xl border-2 border-b-0 border-[#1f1b4d] bg-white p-3 text-left sm:p-5 md:p-6">
       <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-3 sm:grid-cols-[16rem_minmax(0,1fr)] sm:gap-5 md:items-center">
         <div className="aspect-video overflow-hidden rounded-[1rem] border border-[#dedcff] bg-[#1f1b4d]">
           {thumbnailUrl ? (

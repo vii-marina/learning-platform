@@ -2,9 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { PublicLandingPreview } from "../types";
 
-// F1 contract: prefer the always-on Supabase snapshot, fall back to the backend
-// endpoint whenever the snapshot is absent, malformed or unreachable — never
-// leave the landing without a preview just because the snapshot path failed.
 const mocks = vi.hoisted(() => {
   const state = {
     snapshotRow: null as { payload?: unknown } | null,
@@ -90,7 +87,6 @@ describe("loadLandingPreview", () => {
     expect(mocks.publicBackendRequest).toHaveBeenCalledWith("/public/landing-preview");
   });
 
-  // The table does not exist until the migration is run — that must degrade, not break.
   it("falls back when Supabase returns an error", async () => {
     mocks.state.snapshotError = { message: "could not find the table" };
 
