@@ -2,10 +2,13 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Menu, X } from "lucide-react";
 import { BrandMark } from "../../../components/ui";
+import { useSignedInDashboardPath } from "../../../features/auth/hooks/useSignedInDashboardPath";
 import { PrimaryLink, SecondaryLink, stickerOutline } from "./primitives";
 
 export function LandingNavbar() {
   const [open, setOpen] = useState(false);
+  const dashboardPath = useSignedInDashboardPath();
+  const accountLabel = dashboardPath ? "Мій кабінет" : "Увійти";
   const links = [
     { label: "Приклад курсу", href: "#course-preview" },
     { label: "Для викладачів", href: "#teachers" },
@@ -34,10 +37,10 @@ export function LandingNavbar() {
 
         <div className="ml-auto hidden items-center gap-3 md:flex">
           <Link
-            to="/login"
+            to={dashboardPath ?? "/login"}
             className="rounded-xl px-3 py-2 text-sm font-bold text-[#1f1b4d] transition hover:bg-[#eceaff]"
           >
-            Увійти
+            {accountLabel}
           </Link>
           <PrimaryLink to="/register" compact>
             Створити акаунт
@@ -69,7 +72,7 @@ export function LandingNavbar() {
             ))}
           </div>
           <div className="mt-4 grid gap-2">
-            <SecondaryLink to="/login">Увійти</SecondaryLink>
+            <SecondaryLink to={dashboardPath ?? "/login"}>{accountLabel}</SecondaryLink>
             <PrimaryLink to="/register">Створити акаунт</PrimaryLink>
           </div>
         </div>

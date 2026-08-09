@@ -1,17 +1,11 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type Dispatch,
-  type SetStateAction,
-} from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
+import { useLessonEditorDraft } from "./useLessonEditorDraft";
 import {
   createLesson,
   deleteLesson,
   listLessonBlocksByLesson,
   updateLesson,
-  updateTestEntity,
   upsertLessonPrimaryRichTextBlock,
 } from "../../../api/index";
 import {
@@ -20,18 +14,12 @@ import {
 } from "../../../api/courseMediaStorage";
 import type { Lesson } from "../../../api/index";
 import type { CourseExercise, CourseTest } from "../types/courseBuilderUiTypes";
-import {
-  EMPTY_LESSON_EDITOR_DRAFT,
-  createLocalEntityId,
-  hasLessonContent,
-  type LessonEditorDraft,
-} from "../lib/courseBuilderPageUtils";
+import type { LessonEditorDraft } from "../lib/courseBuilderPageUtils";
 
 type UseCourseBuilderLessonEditorArgs = {
   currentCourseId: string | null;
   draftCourseSessionId: string;
   lessonsByModule: Record<string, Lesson[]>;
-  testsByModule: Record<string, CourseTest[]>;
   setLessonsByModule: Dispatch<SetStateAction<Record<string, Lesson[]>>>;
   setTestsByModule: Dispatch<SetStateAction<Record<string, CourseTest[]>>>;
   fetchLessons: (moduleId: string) => Promise<Lesson[] | null>;
@@ -46,7 +34,6 @@ export function useCourseBuilderLessonEditor({
   currentCourseId,
   draftCourseSessionId,
   lessonsByModule,
-  testsByModule,
   setLessonsByModule,
   setTestsByModule,
   fetchLessons,
@@ -56,41 +43,35 @@ export function useCourseBuilderLessonEditor({
   isPersistingCourse,
   setMessage,
 }: UseCourseBuilderLessonEditorArgs) {
-  const [lessonEditorModuleId, setLessonEditorModuleId] = useState<string | null>(null);
-  const [editingLessonId, setEditingLessonId] = useState<string | null>(null);
+  const { confirm } = useConfirmDialog();
+  const {
+    lessonEditorModuleId,
+    editingLessonId,
+    isLoadingLessonDraft,
+    setIsLoadingLessonDraft,
+    lessonEditorNotice,
+    setLessonEditorNotice,
+    lessonTitle,
+    setLessonTitle,
+    lessonContent,
+    setLessonContent,
+    lessonVideoUrl,
+    setLessonVideoUrl,
+    pendingLessonDraft,
+    setPendingLessonDraft,
+    setLessonInitialDraft,
+    lessonLoadRequestRef,
+    shouldGuardLessonDraft,
+    applyLessonDraft,
+    openPendingLessonDraft,
+    closeCreateLessonModal,
+    updatePendingLessonDraft,
+    createLocalLessonDraft,
+  } = useLessonEditorDraft(lessonsByModule);
   const [isCreatingLesson, setIsCreatingLesson] = useState(false);
-  const [isLoadingLessonDraft, setIsLoadingLessonDraft] = useState(false);
-  const [lessonEditorNotice, setLessonEditorNotice] = useState("");
-  const [lessonTitle, setLessonTitle] = useState("");
-  const [lessonContent, setLessonContent] = useState("");
-  const [lessonVideoUrl, setLessonVideoUrl] = useState("");
-  const [lessonInitialDraft, setLessonInitialDraft] =
-    useState<LessonEditorDraft>(EMPTY_LESSON_EDITOR_DRAFT);
-  const [pendingLessonDraft, setPendingLessonDraft] = useState<{
-    moduleId: string;
-    draft: LessonEditorDraft;
-  } | null>(null);
   const [expandedLessonIds, setExpandedLessonIds] = useState<Record<string, boolean>>({});
   const [shouldPersistDraftAfterLessonSave, setShouldPersistDraftAfterLessonSave] =
     useState(false);
-  const lessonLoadRequestRef = useRef(0);
-
-  const isLessonDirty = useMemo(
-    () =>
-      lessonTitle !== lessonInitialDraft.title ||
-      lessonContent !== lessonInitialDraft.content ||
-      lessonVideoUrl !== lessonInitialDraft.videoUrl,
-    [lessonContent, lessonInitialDraft, lessonTitle, lessonVideoUrl]
-  );
-  const hasMeaningfulNewLessonDraft = useMemo(
-    () =>
-      lessonTitle.trim().length > 0 ||
-      hasLessonContent(lessonContent) ||
-      lessonVideoUrl.trim().length > 0,
-    [lessonContent, lessonTitle, lessonVideoUrl]
-  );
-  const shouldGuardLessonDraft =
-    isLessonDirty && (editingLessonId !== null || hasMeaningfulNewLessonDraft);
 
   useEffect(() => {
     if (!shouldPersistDraftAfterLessonSave || currentCourseId !== null || isPersistingCourse) {
@@ -112,82 +93,6 @@ export function useCourseBuilderLessonEditor({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- trigger-flag effect; persistDraftCourse is recreated each render and must not re-run it
   }, [currentCourseId, isPersistingCourse, shouldPersistDraftAfterLessonSave]);
-
-  const applyLessonDraft = (
-    moduleId: string,
-    lessonId: string | null,
-    draft: LessonEditorDraft
-  ) => {
-    setLessonEditorModuleId(moduleId);
-    setEditingLessonId(lessonId);
-    setLessonTitle(draft.title);
-    setLessonContent(draft.content);
-    setLessonVideoUrl(draft.videoUrl);
-    setLessonInitialDraft(draft);
-    setLessonEditorNotice("");
-  };
-
-  const openPendingLessonDraft = (moduleId: string) => {
-    lessonLoadRequestRef.current += 1;
-    setIsLoadingLessonDraft(false);
-    const nextDraft =
-      pendingLessonDraft?.moduleId === moduleId
-        ? pendingLessonDraft.draft
-        : EMPTY_LESSON_EDITOR_DRAFT;
-
-    setPendingLessonDraft({
-      moduleId,
-      draft: nextDraft,
-    });
-    applyLessonDraft(moduleId, null, nextDraft);
-  };
-
-  const closeCreateLessonModal = () => {
-    lessonLoadRequestRef.current += 1;
-    setLessonEditorModuleId(null);
-    setEditingLessonId(null);
-    setLessonTitle("");
-    setLessonContent("");
-    setLessonVideoUrl("");
-    setLessonInitialDraft(EMPTY_LESSON_EDITOR_DRAFT);
-    setPendingLessonDraft(null);
-    setLessonEditorNotice("");
-    setIsLoadingLessonDraft(false);
-  };
-
-  const updatePendingLessonDraft = (draft: LessonEditorDraft) => {
-    if (editingLessonId === null && lessonEditorModuleId) {
-      setPendingLessonDraft({
-        moduleId: lessonEditorModuleId,
-        draft,
-      });
-    }
-
-    if (lessonEditorNotice) {
-      setLessonEditorNotice("");
-    }
-  };
-
-  const createLocalLessonDraft = (moduleId: string): Lesson => {
-    const timestamp = new Date().toISOString();
-    const nextOrder =
-      (lessonsByModule[moduleId] || []).reduce(
-        (maxOrder, lesson) => Math.max(maxOrder, lesson.order),
-        0
-      ) + 1;
-
-    return {
-      id: createLocalEntityId("lesson"),
-      module_id: moduleId,
-      title: lessonTitle.trim(),
-      content: lessonContent,
-      video_url: lessonVideoUrl.trim() || null,
-      content_type: "rich_text",
-      order: nextOrder,
-      created_at: timestamp,
-      updated_at: timestamp,
-    };
-  };
 
   const openCreateLessonModal = (moduleId: string) => {
     openPendingLessonDraft(moduleId);
@@ -314,9 +219,19 @@ export function useCourseBuilderLessonEditor({
     openPendingLessonDraft(moduleId);
   };
 
-  const handleLessonEditorClose = () => {
-    if (shouldGuardLessonDraft && !window.confirm("Discard unsaved lesson changes?")) {
-      return;
+  const handleLessonEditorClose = async () => {
+    if (shouldGuardLessonDraft) {
+      const shouldDiscard = await confirm({
+        title: "Відхилити незбережені зміни?",
+        description: "Внесені в урок зміни буде втрачено.",
+        confirmLabel: "Відхилити",
+        cancelLabel: "Продовжити редагування",
+        tone: "danger",
+      });
+
+      if (!shouldDiscard) {
+        return;
+      }
     }
 
     closeCreateLessonModal();
@@ -443,7 +358,14 @@ export function useCourseBuilderLessonEditor({
   };
 
   const handleDeleteLesson = async (moduleId: string, lessonId: string) => {
-    if (!window.confirm("Delete this lesson?")) {
+    const isConfirmed = await confirm({
+      title: "Видалити урок?",
+      description: "Разом з уроком буде видалено його вміст та прогрес студентів по ньому.",
+      confirmLabel: "Видалити",
+      tone: "danger",
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -468,15 +390,10 @@ export function useCourseBuilderLessonEditor({
     }
 
     try {
-      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
-      const linkedTests = moduleTests.filter((test) => test.afterLessonId === lessonId);
-
-      for (const test of linkedTests) {
-        await updateTestEntity(test.id, {
-          after_lesson_id: null,
-        });
-      }
-
+      // deleteLessonById unlinks both tests AND exercises server-side, in one place, before the
+      // delete. This used to unlink only the tests, from here, one request each — half the job and
+      // N+1 round-trips. See the unlink comment in backend courseBuilderService: it is what stops
+      // the after_lesson_id cascade from taking the tests with the lesson.
       await deleteLesson(lessonId);
       await fetchLessons(moduleId);
       await fetchTests(moduleId);

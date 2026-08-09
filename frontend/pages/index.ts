@@ -18,3 +18,4 @@ export {
 } from "./dashboards";
 export { CourseBuilderPage } from "./admin";
 export { CourseBuilderWorkspacePage } from "./course-builder";
+export { NotFoundPage } from "./not-found";

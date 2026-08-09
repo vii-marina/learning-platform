@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
+import type { ConfirmDialogContextValue } from "../../../../../components/ui/confirmDialogContext";
 import type { ExerciseDifficulty } from "../../../api/index";
 import type {
   ExerciseEditorDraft,
@@ -12,7 +13,9 @@ import {
 } from "./exerciseCreateModalUtils";
 
 // Plain handler factory — owns no state; the hook passes its state + setters in.
+// `confirm` arrives the same way: this is not a hook, so it cannot read the context itself.
 type AiGenerationHandlerDeps = {
+  confirm: ConfirmDialogContextValue["confirm"];
   draft: ExerciseEditorDraft;
   isAiMode: boolean;
   generatedExercises: GeneratedExerciseAiDraft[];
@@ -44,6 +47,7 @@ type AiGenerationHandlerDeps = {
 };
 
 export function createAiGenerationHandlers({
+  confirm,
   draft,
   isAiMode,
   generatedExercises,
@@ -154,11 +158,16 @@ export function createAiGenerationHandlers({
     const shouldConfirmReplace =
       hasMeaningfulExerciseDraft(draft) && (!isAiMode || generatedExercises.length === 0);
 
-    if (
-      shouldConfirmReplace &&
-      !window.confirm("Замінити поточну вправу AI-згенерованим контентом?")
-    ) {
-      return;
+    if (shouldConfirmReplace) {
+      const shouldReplace = await confirm({
+        title: "Замінити поточну вправу?",
+        description: "Складену вручну вправу буде замінено згенерованою ШІ.",
+        confirmLabel: "Замінити",
+      });
+
+      if (!shouldReplace) {
+        return;
+      }
     }
 
     try {

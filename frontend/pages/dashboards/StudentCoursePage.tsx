@@ -11,7 +11,7 @@ import {
   loadStudentCourse,
   type StudentCourseDetailsResponse,
 } from "../../features/student-dashboard/api/studentDashboardApi";
-import { getErrorMessage } from "../../features/auth/api/backendClient";
+import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
 import { getCourseMediaPublicUrl } from "../../features/courses/api/courseMediaStorage";
 import { CoursePreviewPage } from "../../features/courses/components/course-builder/components/CoursePreviewPage";
 import {
@@ -76,9 +76,16 @@ export function StudentCoursePage() {
           setCourseData(loadedCourse);
         }
       } catch (error) {
-        if (isMounted) {
-          setMessage(getErrorMessage(error, "Не вдалося завантажити цей курс."));
+        if (!isMounted) {
+          return;
         }
+
+        if (error instanceof BackendApiError && error.status === 401) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setMessage(getErrorMessage(error, "Не вдалося завантажити цей курс."));
       } finally {
         if (isMounted) {
           setIsLoading(false);
@@ -91,7 +98,7 @@ export function StudentCoursePage() {
     return () => {
       isMounted = false;
     };
-  }, [courseId]);
+  }, [courseId, navigate]);
 
   const previewData = useMemo(
     () => (courseData ? mapStudentCourseData(courseData) : null),

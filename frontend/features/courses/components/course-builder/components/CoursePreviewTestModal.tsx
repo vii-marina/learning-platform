@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { BadgeCheck, Lightbulb, X } from "lucide-react";
+import { Modal } from "../../../../../components/ui/Modal";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
 import { studentQuestionTypeLabels } from "../lib/courseBuilderPageUtils";
@@ -49,6 +50,7 @@ export function CoursePreviewTestModal({
   onClose,
   onComplete,
 }: CoursePreviewTestModalProps) {
+  const headingId = useId();
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number[]>>({});
   const [revealedHints, setRevealedHints] = useState<Record<string, boolean>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -75,16 +77,14 @@ export function CoursePreviewTestModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[125] bg-slate-950/50 px-4 py-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      closeOnOverlayClick
+      overlayClassName="z-[125]"
+      panelClassName="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
     >
-      <div className="mx-auto flex min-h-full max-w-3xl items-center justify-center">
-        <div className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -107,7 +107,7 @@ export function CoursePreviewTestModal({
                 ) : null}
               </div>
 
-              <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+              <h2 id={headingId} className="text-xl font-semibold tracking-tight text-slate-950">
                 {title}
               </h2>
             </div>
@@ -254,8 +254,6 @@ export function CoursePreviewTestModal({
               Завершити тест
             </Button>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

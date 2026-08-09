@@ -1,4 +1,5 @@
 import { AppError, toServiceError } from "../lib/appError";
+import { logger } from "../lib/logger";
 import { supabaseAdmin } from "../lib/supabase";
 
 export type LandingPageSettingsRow = {
@@ -89,15 +90,52 @@ export async function saveLandingPreviewSnapshot(
   }
 
   if (isMissingTableError(error, LANDING_PREVIEW_SNAPSHOT_TABLE)) {
-    console.warn(
-      `[LANDING_PREVIEW_SNAPSHOT] table missing — landing will keep using the backend endpoint. Run claude/${LANDING_PREVIEW_SNAPSHOT_TABLE}.sql in Supabase.`
+    logger.warn(
+      "Landing preview snapshot table is missing — the landing will keep using the backend endpoint",
+      {
+        code: "LANDING_PREVIEW_SNAPSHOT_TABLE_MISSING",
+        remedy: `Run claude/${LANDING_PREVIEW_SNAPSHOT_TABLE}.sql in Supabase.`,
+      }
     );
     return false;
   }
 
-  console.error(
-    `[LANDING_PREVIEW_SNAPSHOT_SAVE_FAILED] Unable to store landing preview snapshot: ${error.message}`
-  );
+  logger.error("Unable to store the landing preview snapshot", {
+    code: "LANDING_PREVIEW_SNAPSHOT_SAVE_FAILED",
+    detail: error.message,
+  });
+  return false;
+}
+
+/**
+ * Drops the cached landing preview when it was built from `courseId`. The snapshot is a derived
+ * cache with no invalidation of its own, so a course that is deleted, archived or unpublished
+ * would otherwise keep rendering on the public landing page indefinitely — the frontend only falls
+ * back to the backend endpoint when the row is absent or unrenderable, and a stale row is neither.
+ *
+ * Scoped by `source_course_id` so unpublishing an unrelated course leaves the cache alone.
+ * Best-effort, like the writer: losing the cache must never fail the admin operation.
+ */
+export async function clearLandingPreviewSnapshotForCourse(courseId: string): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from(LANDING_PREVIEW_SNAPSHOT_TABLE)
+    .delete()
+    .eq("id", LANDING_PREVIEW_SNAPSHOT_ID)
+    .eq("source_course_id", courseId);
+
+  if (!error) {
+    return true;
+  }
+
+  if (isMissingTableError(error, LANDING_PREVIEW_SNAPSHOT_TABLE)) {
+    return false;
+  }
+
+  logger.error("Unable to clear the landing preview snapshot", {
+    code: "LANDING_PREVIEW_SNAPSHOT_CLEAR_FAILED",
+    detail: error.message,
+    courseId,
+  });
   return false;
 }
 

@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import {  X } from "lucide-react";
+import { Modal } from "../../../../../components/ui/Modal";
 import { Button } from "../../../../../components/ui/button";
 
 export type CoursePreviewChatContext = {
@@ -27,6 +28,7 @@ export function CoursePreviewAskTeacherModal({
   onClose,
   onSend,
 }: CoursePreviewAskTeacherModalProps) {
+  const headingId = useId();
   const [draft, setDraft] = useState("");
   const [prevOpenKey, setPrevOpenKey] = useState<string | null>(null);
 
@@ -44,21 +46,19 @@ export function CoursePreviewAskTeacherModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[130] bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      closeOnOverlayClick
+      overlayClassName="z-[130]"
+      panelClassName="w-full max-w-2xl overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl"
     >
-      <div className="mx-auto flex min-h-full max-w-2xl items-center justify-center">
-        <div className="w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5">
             <div className="space-y-2">
             
               <div>
-                <h2 className="text-xl font-semibold tracking-tight text-slate-950">
+                <h2 id={headingId} className="text-xl font-semibold tracking-tight text-slate-950">
                   {context.title}
                 </h2>
                 
@@ -122,8 +122,6 @@ export function CoursePreviewAskTeacherModal({
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

@@ -1,453 +1,41 @@
+/**
+ * The admin's course management API.
+ *
+ * Reads live in `adminDashboardCourses/contentRepository`; this file hydrates what they
+ * return into the nested shape the UI expects, and owns the lifecycle actions.
+ */
+
 import { AppError, toServiceError } from "../lib/appError";
-import { isAdminRole } from "../lib/roles";
+import { chunkValues, groupByToMap as groupBy } from "../lib/collections";
+import { isUuidValue } from "../lib/identifiers";
 import { supabaseAdmin } from "../lib/supabase";
-import type { NormalizedUser, UserProfileRow } from "../types/auth";
+import {
+  buildCourseEnrollmentStats,
+  getCourseById,
+  getCourseByIdIncludingDeleted,
+  listAnswers,
+  listCourseProgress,
+  listCourses,
+  listExercisesByModuleIds,
+  listLessonBlocks,
+  listLessons,
+  listModules,
+  listProfilesByIds,
+  listQuestions,
+  listTests,
+  updateCourseById,
+} from "./adminDashboardCourses/contentRepository";
+import type {
+  AdminCourseAction,
+  CourseRow,
+  LessonBlockRow,
+  TestAnswerRow,
+  UpdateCoursePayload,
+} from "./adminDashboardCourses/types";
+import { clearLandingPreviewSnapshotForCourse } from "./landingPageSettingsService";
+
+export type { AdminCourseAction } from "./adminDashboardCourses/types";
 
-type CourseRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  teacher_id: string | null;
-  status: "draft" | "published" | "archived";
-  access_type: "public" | "private" | "invite";
-  slug: string;
-  thumbnail_path: string | null;
-  is_published: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-};
-
-type ModuleRow = {
-  id: string;
-  course_id: string;
-  title: string;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type LessonRow = {
-  id: string;
-  module_id: string;
-  title: string;
-  content: string | null;
-  video_url: string | null;
-  content_type: string | null;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type LessonBlockRow = {
-  id: string;
-  lesson_id: string;
-  block_type: string;
-  content: Record<string, unknown>;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type TestEntityRow = {
-  id: string;
-  after_lesson_id: string | null;
-  module_id: string;
-  title: string;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type TestQuestionRow = {
-  id: string;
-  test_id: string;
-  type: string;
-  question_text: string;
-  order: number;
-  hint: string | null;
-  created_at: string;
-};
-
-type TestAnswerRow = {
-  id: string;
-  question_id: string;
-  answer_text: string;
-  is_correct: boolean;
-  created_at: string;
-};
-
-type ExerciseIdRow = {
-  id: string;
-};
-
-type CourseProgressRow = {
-  course_id: string;
-  user_id: string;
-  finished_at: string | null;
-};
-
-type UpdateCoursePayload = Partial<
-  Pick<CourseRow, "status" | "is_published" | "deleted_at">
->;
-
-export type AdminCourseAction = "publish" | "unpublish" | "archive";
-
-const profileSelect = "id,email,full_name,role,created_at";
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function toNormalizedUser(profile: UserProfileRow): NormalizedUser {
-  return {
-    id: profile.id,
-    email: profile.email,
-    fullName: profile.full_name,
-    role: profile.role,
-    isAdmin: isAdminRole(profile.role),
-    isSuperAdmin: profile.role === "super-admin",
-    createdAt: profile.created_at,
-  };
-}
-
-function groupBy<TItem>(items: TItem[], getKey: (item: TItem) => string | null) {
-  const map = new Map<string, TItem[]>();
-
-  for (const item of items) {
-    const key = getKey(item);
-
-    if (!key) {
-      continue;
-    }
-
-    const bucket = map.get(key) ?? [];
-    bucket.push(item);
-    map.set(key, bucket);
-  }
-
-  return map;
-}
-
-function chunkValues<TValue>(values: TValue[], size = 50) {
-  const chunks: TValue[][] = [];
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-
-  return chunks;
-}
-
-function isUuidValue(value: string | null | undefined): value is string {
-  return typeof value === "string" && UUID_PATTERN.test(value);
-}
-
-async function listCourses() {
-  const { data, error } = await supabaseAdmin
-    .from("courses")
-    .select("*")
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw toServiceError(500, "COURSES_LIST_FAILED", "Unable to list courses", error);
-  }
-
-  return (data ?? []) as CourseRow[];
-}
-
-async function getCourseById(courseId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("courses")
-    .select("*")
-    .eq("id", courseId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
-  }
-
-  return (data as CourseRow | null) ?? null;
-}
-
-async function getCourseByIdIncludingDeleted(courseId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("courses")
-    .select("*")
-    .eq("id", courseId)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
-  }
-
-  return (data as CourseRow | null) ?? null;
-}
-
-async function updateCourseById(courseId: string, payload: UpdateCoursePayload) {
-  const { data, error } = await supabaseAdmin
-    .from("courses")
-    .update(payload)
-    .eq("id", courseId)
-    .is("deleted_at", null)
-    .select("*")
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "COURSE_UPDATE_FAILED", "Unable to update course", error);
-  }
-
-  return (data as CourseRow | null) ?? null;
-}
-
-async function listProfilesByIds(ids: string[]) {
-  if (ids.length === 0) {
-    return new Map<string, NormalizedUser>();
-  }
-
-  const profiles: UserProfileRow[] = [];
-
-  for (const chunk of chunkValues(ids)) {
-    const { data, error } = await supabaseAdmin
-      .from("profiles")
-      .select(profileSelect)
-      .in("id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "COURSE_TEACHERS_FETCH_FAILED", "Unable to load course teachers", error);
-    }
-
-    profiles.push(...((data ?? []) as UserProfileRow[]));
-  }
-
-  const users = profiles.map(toNormalizedUser);
-  return new Map(users.map((user) => [user.id, user]));
-}
-
-async function listModules(courseIds: string[]) {
-  if (courseIds.length === 0) {
-    return [] as ModuleRow[];
-  }
-
-  const modules: ModuleRow[] = [];
-
-  for (const chunk of chunkValues(courseIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("modules")
-      .select("*")
-      .in("course_id", chunk)
-      .order("order", { ascending: true });
-
-    if (error) {
-      throw toServiceError(500, "MODULES_LIST_FAILED", "Unable to list modules", error);
-    }
-
-    modules.push(...((data ?? []) as ModuleRow[]));
-  }
-
-  return modules;
-}
-
-async function listLessons(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return [] as LessonRow[];
-  }
-
-  const lessons: LessonRow[] = [];
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("lessons")
-      .select("*")
-      .in("module_id", chunk)
-      .order("order", { ascending: true });
-
-    if (error) {
-      throw toServiceError(500, "LESSONS_LIST_FAILED", "Unable to list lessons", error);
-    }
-
-    lessons.push(...((data ?? []) as LessonRow[]));
-  }
-
-  return lessons;
-}
-
-async function listCourseProgress(courseIds: string[]) {
-  if (courseIds.length === 0) {
-    return [] as CourseProgressRow[];
-  }
-
-  const progressRows: CourseProgressRow[] = [];
-
-  for (const chunk of chunkValues(courseIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("course_progress")
-      .select("course_id,user_id,finished_at")
-      .in("course_id", chunk);
-
-    if (error) {
-      throw toServiceError(
-        500,
-        "COURSE_PROGRESS_LIST_FAILED",
-        "Unable to list course enrollments",
-        error
-      );
-    }
-
-    progressRows.push(...((data ?? []) as CourseProgressRow[]));
-  }
-
-  return progressRows;
-}
-
-function buildCourseEnrollmentStats(progressRows: CourseProgressRow[]) {
-  const statsByCourseId = new Map<
-    string,
-    { enrolledStudentCount: number; completedStudentCount: number }
-  >();
-  const seenStudentCoursePairs = new Set<string>();
-
-  for (const row of progressRows) {
-    const key = `${row.course_id}:${row.user_id}`;
-
-    if (seenStudentCoursePairs.has(key)) {
-      continue;
-    }
-
-    seenStudentCoursePairs.add(key);
-    const stats = statsByCourseId.get(row.course_id) ?? {
-      enrolledStudentCount: 0,
-      completedStudentCount: 0,
-    };
-
-    stats.enrolledStudentCount += 1;
-
-    if (row.finished_at) {
-      stats.completedStudentCount += 1;
-    }
-
-    statsByCourseId.set(row.course_id, stats);
-  }
-
-  return statsByCourseId;
-}
-
-async function listLessonBlocks(lessonIds: string[]) {
-  if (lessonIds.length === 0) {
-    return [] as LessonBlockRow[];
-  }
-
-  const blocks: LessonBlockRow[] = [];
-
-  for (const chunk of chunkValues(lessonIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("lesson_blocks")
-      .select("*")
-      .in("lesson_id", chunk)
-      .order("order", { ascending: true });
-
-    if (error) {
-      throw toServiceError(500, "LESSON_BLOCKS_LIST_FAILED", "Unable to list lesson blocks", error);
-    }
-
-    blocks.push(...((data ?? []) as LessonBlockRow[]));
-  }
-
-  return blocks;
-}
-
-async function listTests(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return [] as TestEntityRow[];
-  }
-
-  const tests: TestEntityRow[] = [];
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("test_entities")
-      .select("*")
-      .in("module_id", chunk)
-      .order("order", { ascending: true });
-
-    if (error) {
-      throw toServiceError(500, "TESTS_LIST_FAILED", "Unable to list module tests", error);
-    }
-
-    tests.push(...((data ?? []) as TestEntityRow[]));
-  }
-
-  return tests;
-}
-
-async function listQuestions(testIds: string[]) {
-  if (testIds.length === 0) {
-    return [] as TestQuestionRow[];
-  }
-
-  const questions: TestQuestionRow[] = [];
-
-  for (const chunk of chunkValues(testIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("test_questions")
-      .select("*")
-      .in("test_id", chunk)
-      .order("order", { ascending: true });
-
-    if (error) {
-      throw toServiceError(500, "QUESTIONS_LIST_FAILED", "Unable to list test questions", error);
-    }
-
-    questions.push(...((data ?? []) as TestQuestionRow[]));
-  }
-
-  return questions;
-}
-
-async function listAnswers(questionIds: string[]) {
-  if (questionIds.length === 0) {
-    return [] as TestAnswerRow[];
-  }
-
-  const answers: TestAnswerRow[] = [];
-
-  for (const chunk of chunkValues(questionIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("test_answers")
-      .select("*")
-      .in("question_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "ANSWERS_LIST_FAILED", "Unable to list test answers", error);
-    }
-
-    answers.push(...((data ?? []) as TestAnswerRow[]));
-  }
-
-  return answers;
-}
-
-async function listExercisesByModuleIds(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return [] as ExerciseIdRow[];
-  }
-
-  const exercises: ExerciseIdRow[] = [];
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("exercises")
-      .select("id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "EXERCISES_LIST_FAILED", "Unable to list exercises", error);
-    }
-
-    exercises.push(...((data ?? []) as ExerciseIdRow[]));
-  }
-
-  return exercises;
-}
 
 function isMissingOptionalRelationError(error: { message: string; code?: string }) {
   const message = error.message.toLowerCase();
@@ -691,6 +279,12 @@ export async function updateAdminDashboardCourse(
     throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
   }
 
+  // Taking a course off the public site must also drop its cached landing preview, or the
+  // unpublished content keeps rendering on the homepage.
+  if (action !== "publish") {
+    await clearLandingPreviewSnapshotForCourse(courseId);
+  }
+
   const [hydratedCourse] = await hydrateCourseSummaries([updatedCourse]);
   return hydratedCourse;
 }
@@ -705,6 +299,8 @@ export async function deleteAdminDashboardCourse(courseId: string) {
   if (!deletedCourse) {
     throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
   }
+
+  await clearLandingPreviewSnapshotForCourse(courseId);
 
   const [hydratedCourse] = await hydrateCourseSummaries([deletedCourse]);
   return hydratedCourse;
@@ -729,6 +325,9 @@ export async function permanentlyDeleteAdminDashboardCourse(courseId: string) {
   const exerciseIds = exercises.map((exercise) => exercise.id);
 
   await clearLandingSettingsForDeletedCourse(course.id, lessonIds);
+  // The settings row above points the landing at a course; the snapshot is the cached render of
+  // it. Clearing only the settings left the deleted course's content live on the public page.
+  await clearLandingPreviewSnapshotForCourse(course.id);
   await deleteRowsByValues("user_test_results", "test_id", testIds, {
     optional: true,
     errorCode: "USER_TEST_RESULTS_DELETE_FAILED",

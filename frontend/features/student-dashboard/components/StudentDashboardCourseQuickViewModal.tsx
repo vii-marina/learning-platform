@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { Modal } from "../../../components/ui/Modal";
 import {
   BadgeCheck,
   ChevronDown,
@@ -11,7 +12,6 @@ import {
 import { Button } from "../../../components/ui/button";
 import { getErrorMessage } from "../../auth/api/backendClient";
 import type { Lesson, Module } from "../../courses/api";
-import type { HydratedTestEntityResponse } from "../../courses/api/courseBuilderApi";
 import {
   hasLessonContent,
 } from "../../courses/components/course-builder/lib/courseBuilderPageUtils";
@@ -19,16 +19,24 @@ import {
   buildCoursePreviewSidebarItems,
   getCoursePreviewTestTitle,
 } from "../../courses/components/course-builder/lib/coursePreviewUtils";
-import type {
-  CourseExercise,
-  CourseTest,
-} from "../../courses/components/course-builder/types/courseBuilderUiTypes";
 import {
   loadStudentCourse,
   type StudentDashboardCourseCatalogItem,
   type StudentCourseDetailsResponse,
 } from "../api/studentDashboardApi";
 import { getTeacherAvatarPublicUrl } from "../../teacher-dashboard/api/teacherProfileStorage";
+import {
+  getAuthorInitials,
+  getCollapsedDescription,
+  getFirstLesson,
+  getSortedExercises,
+  getSortedLessons,
+  getSortedModules,
+  getSortedTests,
+  metricButtonBaseClassName,
+  metricButtonToneClassNames,
+  metricIconToneClassNames,
+} from "./studentCourseQuickViewData";
 import type { StudentDashboardCatalogCard } from "./studentDashboardViewModels";
 
 type StudentDashboardCourseQuickViewModalProps = {
@@ -38,143 +46,6 @@ type StudentDashboardCourseQuickViewModalProps = {
   onContinueCourse?: (courseId: string) => void;
   isPrimaryActionLoading?: boolean;
 };
-
-const metricButtonBaseClassName =
-  "flex min-w-[10.5rem] cursor-default items-center gap-3 rounded-[1.25rem] border bg-white px-4 py-3 text-center shadow-[0_10px_24px_rgba(15,23,42,0.06)]";
-
-const metricButtonToneClassNames = {
-  modules: "border-cyan-200 text-cyan-700",
-  lessons: "border-emerald-200 text-emerald-700",
-  exercises: "border-amber-200 text-amber-800",
-  tests: "border-violet-200 text-violet-700",
-};
-
-const metricIconToneClassNames = {
-  modules: "bg-cyan-50 text-cyan-600",
-  lessons: "bg-emerald-50 text-emerald-600",
-  exercises: "bg-amber-50 text-amber-700",
-  tests: "bg-violet-50 text-violet-700",
-};
-
-function normalizeDescription(value: string | null) {
-  return (
-    value
-      ?.split(/\s+/)
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .join(" ") ?? ""
-  );
-}
-
-function getCollapsedDescription(value: string | null) {
-  const normalizedValue = normalizeDescription(value);
-
-  if (!normalizedValue) {
-    return "Опис курсу зʼявиться тут.";
-  }
-
-  if (normalizedValue.length <= 190) {
-    return normalizedValue;
-  }
-
-  return `${normalizedValue.slice(0, 190).trim()}...`;
-}
-
-function getAuthorInitials(name: string) {
-  const parts = name
-    .split(/\s+/)
-    .map((part) => part.trim())
-    .filter(Boolean);
-
-  if (parts.length === 0) {
-    return "IN";
-  }
-
-  return parts
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join("");
-}
-
-function mapHydratedTestToCourseTest(test: HydratedTestEntityResponse): CourseTest {
-  return {
-    id: test.id,
-    title: test.title,
-    afterLessonId: test.after_lesson_id,
-    order: test.order,
-    isGraded: test.is_graded,
-    questions: [...test.questions]
-      .sort((left, right) => left.order - right.order)
-      .map((question) => ({
-        id: question.id,
-        type: question.type,
-        questionText: question.question_text,
-        options: question.answers.map((answer) => answer.answer_text),
-        correctOptionIndexes: question.answers.reduce<number[]>(
-          (indexes, answer, answerIndex) => {
-            if (answer.is_correct) {
-              indexes.push(answerIndex);
-            }
-
-            return indexes;
-          },
-          []
-        ),
-        hint: question.hint,
-      })),
-  };
-}
-function mapExerciseToCourseExercise(
-  exercise: StudentCourseDetailsResponse["exercises_by_module"][string][number]
-): CourseExercise {
-  return {
-    id: exercise.id,
-    title: exercise.title,
-    description: exercise.description,
-    afterLessonId: exercise.after_lesson_id,
-    type: exercise.type,
-    content: exercise.content,
-    createdAt: exercise.created_at,
-    updatedAt: exercise.updated_at,
-  };
-}
-function getSortedModules(courseData: StudentCourseDetailsResponse | null) {
-  return [...(courseData?.modules ?? [])].sort((left, right) => left.order - right.order);
-}
-
-function getSortedLessons(courseData: StudentCourseDetailsResponse | null, moduleId: string) {
-  return [...(courseData?.lessons_by_module[moduleId] ?? [])].sort(
-    (left, right) => left.order - right.order
-  );
-}
-
-function getSortedTests(courseData: StudentCourseDetailsResponse | null, moduleId: string) {
-  return [...(courseData?.tests_by_module[moduleId] ?? [])]
-    .sort((left, right) => left.order - right.order)
-    .map(mapHydratedTestToCourseTest);
-}
-function getSortedExercises(courseData: StudentCourseDetailsResponse | null, moduleId: string) {
-  return [...(courseData?.exercises_by_module[moduleId] ?? [])]
-    .sort((left, right) => left.created_at.localeCompare(right.created_at))
-    .map(mapExerciseToCourseExercise);
-}
-
-function getFirstLesson(courseData: StudentCourseDetailsResponse | null) {
-  for (const module of getSortedModules(courseData)) {
-    const lesson = getSortedLessons(courseData, module.id)[0] ?? null;
-
-    if (lesson) {
-      return {
-        module,
-        lesson,
-        lessons: getSortedLessons(courseData, module.id),
-        tests: getSortedTests(courseData, module.id),
-      };
-    }
-  }
-
-  return null;
-}
 
 function CourseThumbnail({
   course,
@@ -371,6 +242,7 @@ export function StudentDashboardCourseQuickViewModal({
   onContinueCourse,
   isPrimaryActionLoading = false,
 }: StudentDashboardCourseQuickViewModalProps) {
+  const headingId = useId();
   const [courseData, setCourseData] = useState<StudentCourseDetailsResponse | null>(null);
   const [isLoadingCourse, setIsLoadingCourse] = useState(false);
   const [courseMessage, setCourseMessage] = useState<string | null>(null);
@@ -466,15 +338,14 @@ export function StudentDashboardCourseQuickViewModal({
   const canUsePrimaryAction = course.isStarted ? Boolean(onContinueCourse) : Boolean(onStartCourse);
 
   return (
-    <div
-      className="fixed inset-0 z-[110] bg-slate-950/55 px-4 py-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      closeOnOverlayClick
+      overlayClassName="z-[110]"
+      panelClassName="mx-auto flex h-full max-h-[86vh] w-full max-w-[82rem] flex-col overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]"
     >
-      <div className="mx-auto flex h-full max-h-[86vh] w-full max-w-[82rem] flex-col overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
         <div className="min-h-0 flex-1 overflow-y-auto">
           <section className="border-b border-slate-200 bg-white px-5 py-5 md:px-6">
             <div className="flex items-start justify-between gap-4">
@@ -496,7 +367,7 @@ export function StudentDashboardCourseQuickViewModal({
                   </p>
                 </div>
 
-                <h2 className="max-w-[48rem] text-2xl font-semibold tracking-tight text-slate-950 md:text-[1.85rem]">
+                <h2 id={headingId} className="max-w-[48rem] text-2xl font-semibold tracking-tight text-slate-950 md:text-[1.85rem]">
                   {course.title}
                 </h2>
               </div>
@@ -596,7 +467,6 @@ export function StudentDashboardCourseQuickViewModal({
             {isPrimaryActionLoading ? "Завантаження..." : primaryActionLabel}
           </Button>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

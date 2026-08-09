@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
 import { EditorContent, useEditor } from "@tiptap/react";
 import Link from "@tiptap/extension-link";
 import StarterKit from "@tiptap/starter-kit";
@@ -35,6 +36,7 @@ export function RichTextEditor({
   disabled = false,
   onImageUpload,
 }: RichTextEditorProps) {
+  const { prompt } = useConfirmDialog();
   const imageInputRef = useRef<HTMLInputElement | null>(null);
   const [editorMessage, setEditorMessage] = useState("");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
@@ -139,7 +141,7 @@ export function RichTextEditor({
       ? (editor.getAttributes("codeBlock").codeVariant as string)
       : "example";
 
-  const handleToggleLink = () => {
+  const handleToggleLink = async () => {
     if (disabled) {
       return;
     }
@@ -149,10 +151,14 @@ export function RichTextEditor({
         ? (editor.getAttributes("link").href as string)
         : "";
 
-    const nextHref = window.prompt(
-      "Вставте URL ресурсу. Залиште порожнім, щоб видалити посилання.",
-      currentHref || "https://"
-    );
+    const nextHref = await prompt({
+      title: "Посилання",
+      description: "Залиште поле порожнім, щоб видалити посилання.",
+      label: "URL ресурсу",
+      defaultValue: currentHref || "https://",
+      placeholder: "https://",
+      confirmLabel: "Зберегти",
+    });
 
     if (nextHref === null) {
       return;

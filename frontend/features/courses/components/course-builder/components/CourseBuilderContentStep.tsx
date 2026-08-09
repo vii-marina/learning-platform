@@ -19,6 +19,16 @@ import type { CourseExercise, CourseTest } from "../types/courseBuilderUiTypes";
 import type { CreateContentMode } from "../lib/courseBuilderPageUtils";
 import { CourseBuilderStepHeading } from "./CourseBuilderStepHeading";
 import { ModuleContentList } from "./ModuleContentList";
+import { CourseBuilderModuleComposer } from "./CourseBuilderModuleComposer";
+import {
+  exerciseActionButtonClassName,
+  lessonActionButtonClassName,
+  moduleCardClassName,
+  moduleHeaderClassName,
+  moduleHeaderDividerClassName,
+  moduleSectionDividerClassName,
+  testActionButtonClassName,
+} from "./courseBuilderContentStepStyles";
 
 const MODULE_CONTENT_BASE_HEIGHT_PX = 256;
 
@@ -170,19 +180,6 @@ export function CourseBuilderContentStep({
     testsByModule,
   ]);
 
-  const moduleCardClassName =
-    "overflow-hidden rounded-[0.75rem] border border-[#13daec] shadow-[0_18px_45px_rgba(15,23,42,0.06)]";
-  const moduleHeaderClassName =
-    "flex items-center gap-3 bg-[#13daec]/5 px-4 py-4 md:px-5";
-  const moduleHeaderDividerClassName = "border-b border-[#13daec]";
-  const moduleSectionDividerClassName =
-    "border-t border-[#13daec] bg-[#13daec]/5 px-4 py-4 md:px-5";
-  const lessonActionButtonClassName =
-    "!border-2 !border-emerald-300 !bg-emerald-50 !text-emerald-800 hover:!border-emerald-400 hover:!bg-emerald-100";
-  const testActionButtonClassName =
-    "!border-2 !border-[#a78bfa] !bg-[#f5f3ff] !text-[#6d28d9] hover:!border-[#8b5cf6] hover:!bg-[#ede9fe]";
-  const exerciseActionButtonClassName =
-    "!border-2 !border-[#fdba74] !bg-[#fff7ed] !text-[#c2410c] hover:!border-[#fb923c] hover:!bg-[#ffedd5]";
   const isFirstModuleComposerOpen = isNewModuleComposerOpen && modules.length === 0;
   const canSaveFirstModule = newModuleTitle.trim().length > 0 && !isCreatingModule;
 
@@ -406,156 +403,20 @@ export function CourseBuilderContentStep({
             );
           })}
 
-          {isFirstModuleComposerOpen ? (
-            <article className={moduleCardClassName}>
-              <div className={`${moduleHeaderClassName} ${moduleHeaderDividerClassName}`}>
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
-                  <span className="shrink-0 text-xl font-semibold tracking-tight text-slate-950">
-                    {`Module ${nextModuleOrder}:`}
-                  </span>
-                  <Input
-                    value={newModuleTitle}
-                    onChange={(event) => onNewModuleTitleChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void onSaveNewModule();
-                      }
-                    }}
-                    autoFocus
-                    disabled={isCreatingModule}
-                    className="h-12 flex-1 border-slate-200 bg-white text-base font-medium"
-                  />
-                </div>
-
-                <div className="flex items-center gap-1 text-[#bdd1e1]">
-                  <span className="rounded-lg p-2">
-                    <ChevronDown className="h-4 w-4" />
-                  </span>
-                  <span className="rounded-lg p-2">
-                    <Pencil className="h-4 w-4" />
-                  </span>
-                  <span className="rounded-lg p-2">
-                    <Trash2 className="h-4 w-4" />
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col">
-                <div className="max-h-[16rem] overflow-y-auto px-4 py-4 md:px-5 md:py-5">
-                  <ModuleContentList
-                    moduleId=""
-                    moduleOrder={nextModuleOrder}
-                    lessons={[]}
-                    tests={[]}
-                    exercises={[]}
-                    expandedLessonIds={{}}
-                    expandedTestIds={{}}
-                    expandedExerciseIds={{}}
-                    onToggleLesson={() => {}}
-                    onEditLesson={() => {}}
-                    onDeleteLesson={() => {}}
-                    onToggleTest={() => {}}
-                    onEditTest={() => {}}
-                    onDeleteTest={() => {}}
-                    onToggleExercise={() => {}}
-                    onEditExercise={() => {}}
-                    onDeleteExercise={() => {}}
-                  />
-                </div>
-
-                <div className={moduleSectionDividerClassName}>
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="lg"
-                      onClick={() => {
-                        void (async () => {
-                          const moduleId = await ensureNewModuleExists();
-                          if (!moduleId) {
-                            return;
-                          }
-
-                          onCreateLesson(moduleId);
-                        })();
-                      }}
-                      disabled={!canSaveFirstModule}
-                      className={lessonActionButtonClassName}
-                    >
-                      <Plus className="h-4 w-4 text-emerald-600" />
-                      Додати урок
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="lg"
-                      onClick={() => {
-                        void (async () => {
-                          const moduleId = await ensureNewModuleExists();
-                          if (!moduleId) {
-                            return;
-                          }
-
-                          onCreateTest(moduleId);
-                        })();
-                      }}
-                      disabled={!canSaveFirstModule}
-                      className={testActionButtonClassName}
-                    >
-                      <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
-                      Додати тест
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="lg"
-                      onClick={() => {
-                        void (async () => {
-                          const moduleId = await ensureNewModuleExists();
-                          if (!moduleId) {
-                            return;
-                          }
-
-                          onCreateExercise(moduleId);
-                        })();
-                      }}
-                      disabled={!canSaveFirstModule}
-                      className={exerciseActionButtonClassName}
-                    >
-                      <Code2 className="h-4 w-4 text-[#f97316]" />
-                      Додати вправу
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            </article>
-          ) : isNewModuleComposerOpen ? (
-            <article className={moduleCardClassName}>
-              <div className={moduleHeaderClassName}>
-                <div className="flex min-w-0 flex-1 items-center gap-3">
-                  <GripVertical className="h-5 w-5 shrink-0 text-[#90a0b7]" />
-                  <span className="shrink-0 text-xl font-semibold tracking-tight text-slate-950">
-                    {`Module ${nextModuleOrder}:`}
-                  </span>
-                  <Input
-                    value={newModuleTitle}
-                    onChange={(event) => onNewModuleTitleChange(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault();
-                        void onSaveNewModule();
-                      }
-                    }}
-                    autoFocus
-                    disabled={isCreatingModule}
-                    className="h-12 flex-1 border-slate-200 bg-white text-base font-medium"
-                  />
-                </div>
-              </div>
-            </article>
-          ) : null}
+          <CourseBuilderModuleComposer
+            isFirstModuleComposerOpen={isFirstModuleComposerOpen}
+            isNewModuleComposerOpen={isNewModuleComposerOpen}
+            nextModuleOrder={nextModuleOrder}
+            newModuleTitle={newModuleTitle}
+            isCreatingModule={isCreatingModule}
+            canSaveFirstModule={canSaveFirstModule}
+            onNewModuleTitleChange={onNewModuleTitleChange}
+            onSaveNewModule={onSaveNewModule}
+            ensureNewModuleExists={ensureNewModuleExists}
+            onCreateLesson={onCreateLesson}
+            onCreateTest={onCreateTest}
+            onCreateExercise={onCreateExercise}
+          />
 
           {!isNewModuleComposerOpen || isFirstModuleComposerOpen ? (
             <button

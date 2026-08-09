@@ -1,3 +1,5 @@
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
+
 type ConfirmDeleteButtonProps = {
   label?: string;
   className?: string;
@@ -11,12 +13,21 @@ export function ConfirmDeleteButton({
   onConfirm,
   confirmText = "Видалити цей елемент?",
 }: ConfirmDeleteButtonProps) {
+  const { confirm } = useConfirmDialog();
+
   return (
     <button
       type="button"
       className={className}
-      onClick={() => {
-        if (window.confirm(confirmText)) {
+      onClick={async () => {
+        const isConfirmed = await confirm({
+          title: confirmText,
+          description: "Цю дію не можна скасувати.",
+          confirmLabel: "Видалити",
+          tone: "danger",
+        });
+
+        if (isConfirmed) {
           onConfirm();
         }
       }}

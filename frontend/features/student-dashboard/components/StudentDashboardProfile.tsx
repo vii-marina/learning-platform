@@ -4,12 +4,24 @@ import {
   RotateCcw,
   UserRound,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/Card";
 import { AdminTeacherAvatar } from "../../admin-dashboard/components/AdminTeacherAvatar";
 import type { CurrentUser, UpdateCurrentUserProfileInput } from "../../auth/types";
+import {
+  getDateStatus,
+  getEmailStatus,
+  getFlattenedErrorDetails,
+  getNoticeClassName,
+  getOptionalTextStatus,
+  getRequiredTextStatus,
+  getUrlStatus,
+  isImageFile,
+  joinLabels,
+  normalizeOptionalText,
+} from "../../profile/profileFormFields";
+import { TextAreaField, TextField } from "../../profile/ProfileFormControls";
 import { getStudentAvatarPublicUrl } from "../api/studentProfileStorage";
 
 type StudentDashboardProfileProps = {
@@ -38,21 +50,11 @@ type StudentProfileFormState = {
   githubUrl: string;
 };
 
-type FieldStatus = "neutral" | "valid" | "invalid";
-
-type FlattenedErrorDetails = {
-  formErrors: string[];
-  fieldErrors: Record<string, string[]>;
-};
 
 function getStudentDisplayName(student: CurrentUser) {
   return student.fullName?.trim() || student.email;
 }
 
-function normalizeOptionalText(value: string) {
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
 
 function toFormState(student: CurrentUser): StudentProfileFormState {
   return {
@@ -67,241 +69,7 @@ function toFormState(student: CurrentUser): StudentProfileFormState {
   };
 }
 
-function isImageFile(file: File) {
-  if (file.type) {
-    return file.type.startsWith("image/");
-  }
 
-  return /\.(avif|bmp|gif|jpeg|jpg|png|svg|webp)$/i.test(file.name);
-}
-
-function isValidDateValue(value: string) {
-  if (!value) {
-    return false;
-  }
-
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
-}
-
-function isValidEmailValue(value: string) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
-function isValidUrlValue(value: string) {
-  try {
-    const url = new URL(value);
-    return url.protocol === "http:" || url.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
-
-function getEmailStatus(value: string): FieldStatus {
-  if (!value.trim()) {
-    return "neutral";
-  }
-
-  return isValidEmailValue(value) ? "valid" : "invalid";
-}
-
-function getRequiredTextStatus(value: string): FieldStatus {
-  return value.trim() ? "valid" : "neutral";
-}
-
-function getOptionalTextStatus(value: string): FieldStatus {
-  return value.trim() ? "valid" : "neutral";
-}
-
-function getDateStatus(value: string): FieldStatus {
-  if (!value.trim()) {
-    return "neutral";
-  }
-
-  return isValidDateValue(value) ? "valid" : "invalid";
-}
-
-function getUrlStatus(value: string): FieldStatus {
-  if (!value.trim()) {
-    return "neutral";
-  }
-
-  return isValidUrlValue(value.trim()) ? "valid" : "invalid";
-}
-
-function getFieldFrameClasses(status: FieldStatus) {
-  if (status === "invalid") {
-    return "border-rose-300 bg-rose-50/40";
-  }
-
-  return "border-slate-300 bg-white";
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function toErrorMessages(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
-}
-
-function getFlattenedErrorDetails(details: unknown): FlattenedErrorDetails {
-  if (!isRecord(details)) {
-    return {
-      formErrors: [],
-      fieldErrors: {},
-    };
-  }
-
-  const formErrors = toErrorMessages(details.formErrors);
-  const fieldErrors: Record<string, string[]> = {};
-
-  if (isRecord(details.fieldErrors)) {
-    for (const [key, value] of Object.entries(details.fieldErrors)) {
-      const messages = toErrorMessages(value);
-
-      if (messages.length > 0) {
-        fieldErrors[key] = messages;
-      }
-    }
-  }
-
-  return {
-    formErrors,
-    fieldErrors,
-  };
-}
-
-function joinLabels(labels: string[]) {
-  if (labels.length === 0) {
-    return "";
-  }
-
-  if (labels.length === 1) {
-    return labels[0];
-  }
-
-  if (labels.length === 2) {
-    return `${labels[0]} and ${labels[1]}`;
-  }
-
-  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
-}
-
-function getNoticeClassName(
-  type: "error" | "warning" | "info"
-) {
-  if (type === "error") {
-    return "border-rose-200 bg-rose-50 text-rose-700";
-  }
-
-  if (type === "warning") {
-    return "border-amber-200 bg-amber-50 text-amber-800";
-  }
-
-  return "border-[#bdeff5] bg-[#effcff] text-[#0f172a]";
-}
-
-function FieldLabel({
-  label,
-  required,
-}: {
-  label: string;
-  required: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <label className="text-sm font-medium text-slate-700">{label}</label>
-      <span
-        className={`text-xs font-medium ${
-          required ? "text-[#0891a4]" : "text-slate-400"
-        }`}
-      >
-        {required ? "Обовʼязково" : "Необовʼязково"}
-      </span>
-    </div>
-  );
-}
-
-function FieldShell({
-  children,
-}: {
-  children: ReactNode;
-}) {
-  return <div className="space-y-2">{children}</div>;
-}
-
-function TextField({
-  label,
-  required,
-  value,
-  onChange,
-  placeholder,
-  status,
-  type = "text",
-}: {
-  label: string;
-  required: boolean;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  status: FieldStatus;
-  type?: "text" | "url" | "date" | "email";
-}) {
-  return (
-    <FieldShell>
-      <FieldLabel label={label} required={required} />
-      <div
-        className={`rounded-xl border transition focus-within:border-[#13daec] focus-within:ring-4 focus-within:ring-[#13daec]/12 ${getFieldFrameClasses(status)}`}
-      >
-        <input
-          type={type}
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          aria-invalid={status === "invalid"}
-          className="h-11 w-full rounded-xl bg-transparent px-3.5 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-        />
-      </div>
-    </FieldShell>
-  );
-}
-
-function TextAreaField({
-  label,
-  required,
-  value,
-  onChange,
-  placeholder,
-  status,
-}: {
-  label: string;
-  required: boolean;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder: string;
-  status: FieldStatus;
-}) {
-  return (
-    <FieldShell>
-      <FieldLabel label={label} required={required} />
-      <div
-        className={`rounded-xl border transition focus-within:border-[#13daec] focus-within:ring-4 focus-within:ring-[#13daec]/12 ${getFieldFrameClasses(status)}`}
-      >
-        <textarea
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          placeholder={placeholder}
-          aria-invalid={status === "invalid"}
-          className="min-h-[7rem] w-full resize-y rounded-xl bg-transparent px-3.5 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400"
-        />
-      </div>
-    </FieldShell>
-  );
-}
 
 export function StudentDashboardProfile({
   student,

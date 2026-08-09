@@ -1,17 +1,31 @@
+/**
+ * AI generation endpoints.
+ *
+ * Parameter coercion lives in `ai/requestNormalizers`; retry and concurrency policy in
+ * `ai/generationRetries`. What remains here is authorisation, orchestration and the
+ * response shape.
+ */
+
 import { Request, Response } from "express";
 import { AppError } from "../lib/appError";
+import { logger } from "../lib/logger";
 import {
-  type ExerciseDifficulty,
-  generateExerciseFromLesson,
-  type GeneratedExerciseContent,
-  type GeneratedExerciseType,
-} from "../services/aiExerciseGenerator";
+  AI_EXERCISE_CONCURRENCY,
+  generateExerciseWithRetry,
+  generateQuestionsWithRetry,
+  mapWithConcurrency,
+} from "./ai/generationRetries";
 import {
-  generateQuestionsFromLesson,
-  type AiQuestionGenerationMode,
-  type GeneratedQuestion,
-} from "../services/aiQuestionGenerator";
-import { AiQualityError } from "../services/aiShared";
+  attachDifficulty,
+  distributeExerciseCount,
+  normalizeExerciseCount,
+  normalizeExerciseDifficulties,
+  normalizeExerciseType,
+  normalizeGenerationMode,
+  sendAiError,
+  stripDifficulty,
+  type GeneratedExerciseDraft,
+} from "./ai/requestNormalizers";
 import {
   authorizeLessonAccess,
   authorizeModuleAccess,
@@ -56,233 +70,6 @@ async function authorizeAiTarget(
   );
 }
 
-function normalizeGenerationMode(value: unknown): AiQuestionGenerationMode {
-  return value === "true_false" ||
-    value === "single_choice" ||
-    value === "multiple_choice" ||
-    value === "mixed"
-    ? value
-    : "single_choice";
-}
-
-function normalizeExerciseType(value: unknown): GeneratedExerciseType | null {
-  return value === "drag_drop_code" || value === "write_code" ? value : null;
-}
-
-function normalizeExerciseDifficulty(value: unknown): ExerciseDifficulty | null {
-  return value === "easy" || value === "medium" || value === "hard" ? value : null;
-}
-
-function normalizeExerciseDifficulties(value: unknown): ExerciseDifficulty[] | null {
-  if (value === undefined) {
-    return ["medium"];
-  }
-
-  if (!Array.isArray(value) || value.length === 0) {
-    return null;
-  }
-
-  const seen = new Set<ExerciseDifficulty>();
-  const difficulties: ExerciseDifficulty[] = [];
-
-  for (const entry of value) {
-    const difficulty = normalizeExerciseDifficulty(entry);
-
-    if (!difficulty || seen.has(difficulty)) {
-      continue;
-    }
-
-    seen.add(difficulty);
-    difficulties.push(difficulty);
-  }
-
-  return difficulties.length > 0 ? difficulties : null;
-}
-
-function sendAiError(
-  res: Response,
-  status: number,
-  message: string,
-  code: string
-) {
-  return res.status(status).json({
-    message,
-    error: message,
-    code,
-  });
-}
-
-function normalizeExerciseCount(value: unknown): number | null {
-  if (value === undefined) {
-    return 1;
-  }
-
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return null;
-  }
-
-  const normalized = Math.floor(value);
-
-  return normalized > 0 ? normalized : null;
-}
-
-function distributeExerciseCount(
-  difficulties: ExerciseDifficulty[],
-  count: number
-) {
-  const baseCount = Math.floor(count / difficulties.length);
-  const remainder = count % difficulties.length;
-
-  return difficulties
-    .map((difficulty, index) => ({
-      difficulty,
-      count: baseCount + (index < remainder ? 1 : 0),
-    }))
-    .filter((allocation) => allocation.count > 0);
-}
-
-type GeneratedExerciseDraft = GeneratedExerciseContent & {
-  difficulty: ExerciseDifficulty;
-};
-
-function attachDifficulty(
-  content: GeneratedExerciseContent,
-  difficulty: ExerciseDifficulty
-): GeneratedExerciseDraft {
-  return {
-    ...content,
-    difficulty,
-  };
-}
-
-function stripDifficulty(
-  exercise: GeneratedExerciseDraft
-): GeneratedExerciseContent {
-  const { difficulty: _difficulty, ...content } = exercise;
-  return content;
-}
-
-// Accumulates unique questions across attempts instead of discarding whole
-// batches, so a partial shortfall tops up rather than starting over.
-// Only quality failures are retried — the OpenAI SDK already retries
-// transport errors with backoff, so those fail fast (or return a partial pool).
-async function generateQuestionsWithRetry(
-  text: string,
-  questionCount: number,
-  mode: AiQuestionGenerationMode
-): Promise<GeneratedQuestion[]> {
-  const MAX_ATTEMPTS = 3;
-  const pool: GeneratedQuestion[] = [];
-  const seenTexts = new Set<string>();
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS && pool.length < questionCount; attempt++) {
-    try {
-      console.log(
-        `[AI] Generating questions (attempt ${attempt}, have ${pool.length}/${questionCount})`
-      );
-
-      const batch = await generateQuestionsFromLesson(text, questionCount, mode);
-
-      for (const question of batch) {
-        const key = question.question_text.trim().toLowerCase();
-
-        if (seenTexts.has(key)) {
-          continue;
-        }
-
-        seenTexts.add(key);
-        pool.push(question);
-      }
-    } catch (err) {
-      if (err instanceof AiQualityError) {
-        console.warn("[AI] Quality failure, retrying:", err.message);
-        continue;
-      }
-
-      if (pool.length > 0) {
-        console.error("[AI] Transport error after partial generation, returning partial:", err);
-        break;
-      }
-
-      throw err;
-    }
-  }
-
-  if (pool.length === 0) {
-    throw new Error("AI failed to generate valid questions after retries");
-  }
-
-  return pool.slice(0, questionCount);
-}
-
-async function generateExerciseWithRetry(
-  text: string,
-  type: GeneratedExerciseType,
-  difficulty: ExerciseDifficulty
-) {
-  const MAX_ATTEMPTS = 3;
-
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      console.log(
-        `[AI] Generating ${difficulty} exercise (attempt ${attempt})`
-      );
-
-      const exercise = await generateExerciseFromLesson(
-        text,
-        type,
-        difficulty
-      );
-
-      if (exercise.question.length > 10) {
-        return exercise;
-      }
-
-      console.warn("[AI] Low quality exercise, retrying...");
-    } catch (err) {
-      // Transport/API errors were already retried by the SDK — fail fast.
-      if (!(err instanceof AiQualityError)) {
-        throw err;
-      }
-
-      console.warn("[AI] Exercise quality failure, retrying:", err.message);
-    }
-  }
-
-  throw new Error("AI failed to generate valid exercise after retries");
-}
-
-const AI_EXERCISE_CONCURRENCY = 3;
-
-// Bounded-concurrency map; a failed item resolves to null instead of
-// rejecting the whole batch, so one bad generation doesn't waste the rest.
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<Array<R | null>> {
-  const results: Array<R | null> = new Array(items.length).fill(null);
-  let nextIndex = 0;
-
-  const workers = Array.from(
-    { length: Math.min(limit, items.length) },
-    async () => {
-      while (nextIndex < items.length) {
-        const index = nextIndex++;
-
-        try {
-          results[index] = await fn(items[index], index);
-        } catch (err) {
-          console.error("[AI] Generation job failed:", err);
-        }
-      }
-    }
-  );
-
-  await Promise.all(workers);
-
-  return results;
-}
 
 export async function getExerciseGenerationLimit(req: Request, res: Response) {
   const { afterLessonId, moduleId } = exerciseGenerationLimitSchema.parse(req.body);
@@ -309,7 +96,10 @@ export async function getExerciseGenerationLimit(req: Request, res: Response) {
       maxDifficulty,
     });
   } catch (error) {
-    console.error("[AI] Final error (exercise limit):", error);
+    logger.error("AI exercise-limit request failed", {
+      code: "AI_EXERCISE_LIMIT_FAILED",
+      error,
+    });
 
     return sendAiError(
       res,
@@ -363,7 +153,10 @@ export async function generateTestQuestions(req: Request, res: Response) {
       generatedCount: questions.length,
     });
   } catch (error) {
-    console.error("[AI] Final error (questions):", error);
+    logger.error("AI question generation failed", {
+      code: "AI_QUESTION_GENERATION_FAILED",
+      error,
+    });
 
     return sendAiError(
       res,
@@ -434,7 +227,7 @@ export async function generateExerciseDraft(req: Request, res: Response) {
     const maxDifficulty = detectMaxDifficulty(text);
     const allowedDifficulties = filterDifficulties(difficulties, maxDifficulty);
 
-    console.log("[AI] Exercise difficulty filter:", {
+    logger.debug("Exercise difficulty filter", {
       requested: difficulties,
       max: maxDifficulty,
       final: allowedDifficulties,
@@ -488,7 +281,10 @@ export async function generateExerciseDraft(req: Request, res: Response) {
       generatedCount: exercises.length,
     });
   } catch (error) {
-    console.error("[AI] Final error (exercise):", error);
+    logger.error("AI exercise generation failed", {
+      code: "AI_EXERCISE_GENERATION_FAILED",
+      error,
+    });
 
     return sendAiError(
       res,

@@ -7,264 +7,19 @@ import type {
   AuthenticatedRequestContext,
   NormalizedUser,
   UserProfileRow,
-  UserRole,
 } from "../types/auth";
+import {
+  clearTeacherCourseReferences,
+  deleteAuthUserIfExists,
+  deleteOptionalProfileRecord,
+  deleteProfileRecord,
+  removeStudentAssignmentsFromTeacherProfiles,
+} from "./user/accountCleanup";
+import type { ProfilePayload } from "./user/assignedStudents";
 
 const profileSelect = "id,email,full_name,role,created_at";
 const adminSelect = "id,is_super_admin,created_at";
 
-type ProfilePayload = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  role: UserRole;
-};
-
-type BackendError = {
-  message: string;
-  code?: string;
-};
-
-function isMissingOptionalRelationError(error: BackendError, relationName: string) {
-  const message = error.message.toLowerCase();
-  const relation = relationName.toLowerCase();
-
-  return (
-    error.code === "PGRST205" ||
-    error.code === "42P01" ||
-    (message.includes(relation) &&
-      (message.includes("does not exist") ||
-        message.includes("could not find the table")))
-  );
-}
-
-function isAuthUserNotFoundError(error: BackendError) {
-  const message = error.message.toLowerCase();
-
-  return message.includes("user not found") || message.includes("not found");
-}
-
-function removeStudentReferenceFromArray(values: unknown[], studentId: string) {
-  let changed = false;
-
-  const filtered = values.filter((value) => {
-    if (typeof value === "string") {
-      const matches = value === studentId;
-      changed = changed || matches;
-      return !matches;
-    }
-
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "id" in value &&
-      typeof value.id === "string"
-    ) {
-      const matches = value.id === studentId;
-      changed = changed || matches;
-      return !matches;
-    }
-
-    return true;
-  });
-
-  return { changed, filtered };
-}
-
-function getNextAssignedStudentsValue(value: unknown, studentId: string) {
-  if (Array.isArray(value)) {
-    const { changed, filtered } = removeStudentReferenceFromArray(value, studentId);
-    return {
-      changed,
-      nextValue: filtered,
-    };
-  }
-
-  if (typeof value !== "string") {
-    return {
-      changed: false,
-      nextValue: value,
-    };
-  }
-
-  const trimmed = value.trim();
-
-  if (!trimmed) {
-    return {
-      changed: false,
-      nextValue: value,
-    };
-  }
-
-  if (trimmed.startsWith("[")) {
-    try {
-      const parsed = JSON.parse(trimmed);
-
-      if (Array.isArray(parsed)) {
-        const { changed, filtered } = removeStudentReferenceFromArray(parsed, studentId);
-        return {
-          changed,
-          nextValue: JSON.stringify(filtered),
-        };
-      }
-    } catch {
-      return {
-        changed: false,
-        nextValue: value,
-      };
-    }
-  }
-
-  if (trimmed.includes(",")) {
-    const values = trimmed
-      .split(",")
-      .map((entry) => entry.trim())
-      .filter(Boolean);
-    const filtered = values.filter((entry) => entry !== studentId);
-
-    return {
-      changed: filtered.length !== values.length,
-      nextValue: filtered.join(", "),
-    };
-  }
-
-  if (trimmed === studentId) {
-    return {
-      changed: true,
-      nextValue: null,
-    };
-  }
-
-  return {
-    changed: false,
-    nextValue: value,
-  };
-}
-
-function getAssignedStudentsFieldName(record: Record<string, unknown>) {
-  for (const key of ["assigned_student_ids", "assignedStudents", "student_ids", "students"]) {
-    if (key in record) {
-      return key;
-    }
-  }
-
-  return null;
-}
-
-async function deleteOptionalProfileRecord(
-  tableName: "teacher_profiles" | "student_profiles",
-  userId: string
-) {
-  const { error } = await supabaseAdmin.from(tableName).delete().eq("id", userId);
-
-  if (error && !isMissingOptionalRelationError(error, tableName)) {
-    throw toServiceError(
-      500,
-      "PROFILE_RELATION_DELETE_FAILED",
-      `Unable to remove ${tableName}`,
-      error
-    );
-  }
-}
-
-async function deleteProfileRecord(userId: string) {
-  const { error } = await supabaseAdmin.from("profiles").delete().eq("id", userId);
-
-  if (error) {
-    throw toServiceError(500, "PROFILE_DELETE_FAILED", "Unable to remove profile", error);
-  }
-}
-
-async function clearTeacherCourseReferences(teacherId: string) {
-  const { error } = await supabaseAdmin
-    .from("courses")
-    .update({ teacher_id: null })
-    .eq("teacher_id", teacherId);
-
-  if (error) {
-    throw toServiceError(
-      500,
-      "COURSE_TEACHER_REFERENCE_CLEAR_FAILED",
-      "Unable to detach teacher from linked courses",
-      error
-    );
-  }
-}
-
-async function removeStudentAssignmentsFromTeacherProfiles(studentId: string) {
-  const { data, error } = await supabaseAdmin.from("teacher_profiles").select("*");
-
-  if (error) {
-    if (isMissingOptionalRelationError(error, "teacher_profiles")) {
-      return;
-    }
-
-    throw toServiceError(
-      500,
-      "TEACHER_PROFILES_LIST_FAILED",
-      "Unable to load teacher profiles for assignment cleanup",
-      error
-    );
-  }
-
-  const teacherProfiles = (data ?? []) as Array<Record<string, unknown>>;
-  const updates = teacherProfiles
-    .map((record) => {
-      const teacherId = typeof record.id === "string" ? record.id : null;
-      const fieldName = getAssignedStudentsFieldName(record);
-
-      if (!teacherId || !fieldName) {
-        return null;
-      }
-
-      const { changed, nextValue } = getNextAssignedStudentsValue(record[fieldName], studentId);
-
-      if (!changed) {
-        return null;
-      }
-
-      return {
-        teacherId,
-        fieldName,
-        nextValue,
-      };
-    })
-    .filter(
-      (
-        update
-      ): update is {
-        teacherId: string;
-        fieldName: string;
-        nextValue: unknown;
-      } => Boolean(update)
-    );
-
-  await Promise.all(
-    updates.map(async ({ teacherId, fieldName, nextValue }) => {
-      const { error: updateError } = await supabaseAdmin
-        .from("teacher_profiles")
-        .update({ [fieldName]: nextValue })
-        .eq("id", teacherId);
-
-      if (updateError) {
-        throw toServiceError(
-          500,
-          "TEACHER_PROFILE_ASSIGNMENTS_UPDATE_FAILED",
-          "Unable to remove student from teacher assignments",
-          updateError
-        );
-      }
-    })
-  );
-}
-
-async function deleteAuthUserIfExists(userId: string) {
-  const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-
-  if (error && !isAuthUserNotFoundError(error)) {
-    throw toServiceError(500, "AUTH_USER_DELETE_FAILED", "Unable to remove auth user", error);
-  }
-}
 
 function buildNormalizedUser(
   userId: string,
@@ -299,7 +54,7 @@ function buildNormalizedUser(
   };
 }
 
-export async function getProfileById(userId: string): Promise<UserProfileRow | null> {
+async function getProfileById(userId: string): Promise<UserProfileRow | null> {
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select(profileSelect)
@@ -325,6 +80,28 @@ export async function getAdminRecordById(userId: string): Promise<AdminRow | nul
   }
 
   return (data as AdminRow | null) ?? null;
+}
+
+/**
+ * Batch form of getAdminRecordById, for list endpoints that must resolve roles the same way a
+ * request does. `admins` — not `profiles.role` — is what elevates a user (see normalizeUserRole),
+ * so any reader that skips it can disagree with the request context about who is an admin.
+ */
+export async function listAdminRecordsByIds(userIds: string[]): Promise<Map<string, AdminRow>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("admins")
+    .select(adminSelect)
+    .in("id", userIds);
+
+  if (error) {
+    throw toServiceError(500, "ADMINS_LIST_FAILED", "Unable to list admin records", error);
+  }
+
+  return new Map(((data ?? []) as AdminRow[]).map((record) => [record.id, record]));
 }
 
 export async function saveProfile(payload: ProfilePayload): Promise<void> {

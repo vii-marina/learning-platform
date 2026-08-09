@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { Modal } from "../../../../../components/ui/Modal";
 import { Plus, Sparkles, X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { CourseTestQuestion } from "../types/courseBuilderUiTypes";
@@ -27,6 +29,7 @@ export function AiQuestionReviewModal({
   onQuestionChange,
   onDeleteQuestion,
 }: AiQuestionReviewModalProps) {
+  const headingId = useId();
   if (!isOpen) {
     return null;
   }
@@ -34,15 +37,20 @@ export function AiQuestionReviewModal({
   const canApply = canSaveTestDraft(questions);
 
   return (
-    <div className="fixed inset-0 z-[100] bg-slate-950/70 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[72rem] flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.24)]">
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      overlayClassName="z-[100]"
+      panelClassName="mx-auto flex h-full max-h-[94vh] w-full max-w-[72rem] flex-col overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.24)]"
+    >
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#13daec]/15 text-[#08bfd4]">
               <Sparkles className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-3xl font-extrabold tracking-tight text-[#14213d]">
+              <h3 id={headingId} className="text-3xl font-extrabold tracking-tight text-[#14213d]">
                 {title}
               </h3>
               <p className="mt-1 text-sm text-slate-500">{description}</p>
@@ -121,7 +129,6 @@ export function AiQuestionReviewModal({
             </Button>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

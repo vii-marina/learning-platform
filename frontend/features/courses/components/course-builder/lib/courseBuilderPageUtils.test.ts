@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import type { TestAnswer, TestQuestion, TestQuestionType } from "../../../api/index";
-import { mapQuestionToCourseTestQuestion } from "./courseBuilderPageUtils";
+import {
+  getCourseBuilderStepDescription,
+  getCourseBuilderStepTitle,
+  mapQuestionToCourseTestQuestion,
+} from "./courseBuilderPageUtils";
 
 function question(type: TestQuestionType, overrides: Partial<TestQuestion> = {}): TestQuestion {
   return {
@@ -119,5 +123,25 @@ describe("mapQuestionToCourseTestQuestion", () => {
         ]).correctOptionIndexes
       ).toEqual([]);
     });
+  });
+});
+
+describe("course builder step copy", () => {
+  it("distinguishes creating a course from editing one on the first step", () => {
+    expect(getCourseBuilderStepTitle(1, false)).toBe("Створіть свій курс");
+    expect(getCourseBuilderStepTitle(1, true)).toBe("Редагування курсу");
+  });
+
+  it("uses the same title for later steps whether or not the course exists", () => {
+    expect(getCourseBuilderStepTitle(2, false)).toBe("Зміст курсу");
+    expect(getCourseBuilderStepTitle(2, true)).toBe("Зміст курсу");
+    expect(getCourseBuilderStepTitle(3, false)).toBe("Огляд та публікація");
+    expect(getCourseBuilderStepTitle(3, true)).toBe("Огляд та публікація");
+  });
+
+  it("describes only the review step", () => {
+    expect(getCourseBuilderStepDescription(1)).toBe("");
+    expect(getCourseBuilderStepDescription(2)).toBe("");
+    expect(getCourseBuilderStepDescription(3)).toContain("фінальну перевірку");
   });
 });

@@ -5,6 +5,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
 import {
   createTestEntity,
   deleteTestEntity,
@@ -62,6 +63,7 @@ export function useCourseBuilderTestEditor({
   resolveAiGenerationTarget,
   setMessage,
 }: UseCourseBuilderTestEditorArgs) {
+  const { confirm } = useConfirmDialog();
   const [testEditorModuleId, setTestEditorModuleId] = useState<string | null>(null);
   const [editingTestId, setEditingTestId] = useState<string | null>(null);
   const [isSavingTest, setIsSavingTest] = useState(false);
@@ -227,11 +229,16 @@ export function useCourseBuilderTestEditor({
       return false;
     }
 
-    if (
-      hasMeaningfulTestQuestionDraft(testQuestions) &&
-      !window.confirm("Replace the current test questions with AI-generated ones?")
-    ) {
-      return false;
+    if (hasMeaningfulTestQuestionDraft(testQuestions)) {
+      const shouldReplace = await confirm({
+        title: "Замінити поточні питання?",
+        description: "Складені вручну питання буде замінено згенерованими ШІ.",
+        confirmLabel: "Замінити",
+      });
+
+      if (!shouldReplace) {
+        return false;
+      }
     }
 
     setMessage("");
@@ -373,7 +380,14 @@ export function useCourseBuilderTestEditor({
   };
 
   const handleDeleteTest = async (moduleId: string, testId: string) => {
-    if (!window.confirm("Delete this test?")) {
+    const isConfirmed = await confirm({
+      title: "Видалити тест?",
+      description: "Разом з тестом будуть видалені його питання та результати студентів.",
+      confirmLabel: "Видалити",
+      tone: "danger",
+    });
+
+    if (!isConfirmed) {
       return;
     }
 

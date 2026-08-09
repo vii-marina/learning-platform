@@ -45,11 +45,14 @@ export async function updateAdminLandingSettingsHandler(req: Request, res: Respo
   });
 
   // Refresh the public snapshot the landing reads directly (F1). Best-effort:
-  // a failure here must not fail the admin's save.
-  await saveLandingPreviewSnapshot(preview, { courseId, lessonId });
+  // a failure here must not fail the admin's save. The result is reported back, though —
+  // swallowing it entirely meant a failed write looked like a success while the public landing
+  // silently kept serving the previous course.
+  const snapshotSaved = await saveLandingPreviewSnapshot(preview, { courseId, lessonId });
 
   res.status(200).json({
     settings,
     preview,
+    snapshotSaved,
   });
 }

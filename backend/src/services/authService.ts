@@ -1,5 +1,5 @@
 import { AppError, toServiceError } from "../lib/appError";
-import { isAdminRole } from "../lib/roles";
+import { logger } from "../lib/logger";
 import { supabaseAdmin } from "../lib/supabase";
 import {
   ensureStudentProfile,
@@ -7,133 +7,22 @@ import {
   getNormalizedUserById,
   saveProfile,
 } from "./userService";
-import type {
-  AuthenticatedRequestContext,
-  NormalizedUser,
-  PublicRegistrationRole,
-} from "../types/auth";
+import type { AuthenticatedRequestContext, NormalizedUser } from "../types/auth";
+import {
+  assertStudentProfileRequirements,
+  assertTeacherProfileRequirements,
+  isDuplicateEmailError,
+  isMissingOptionalRelationError,
+  normalizeEmailValue,
+  pickNumberValue,
+  pickStringValue,
+  type CurrentAuthenticatedUser,
+  type RegisterProfileInput,
+  type StudentProfileFields,
+  type TeacherProfileFields,
+  type UpdateCurrentUserProfileInput,
+} from "./auth/profileValidation";
 
-type RegisterProfileInput = {
-  userId: string;
-  email: string;
-  fullName: string;
-  role: PublicRegistrationRole;
-};
-
-type TeacherProfileFields = {
-  headline: string | null;
-  bio: string | null;
-  specialization: string | null;
-  experienceYears: number | null;
-  education: string | null;
-  gender: "male" | "female" | "other" | null;
-  birthDate: string | null;
-  avatarPath: string | null;
-  linkedinUrl: string | null;
-  githubUrl: string | null;
-};
-
-type StudentProfileFields = {
-  avatarPath: string | null;
-  githubUrl: string | null;
-  linkedinUrl: string | null;
-  educationPlace: string | null;
-  bio: string | null;
-  birthDate: string | null;
-};
-
-type CurrentAuthenticatedUser = NormalizedUser &
-  Partial<TeacherProfileFields> &
-  Partial<StudentProfileFields>;
-
-type UpdateCurrentUserProfileInput = {
-  email?: string;
-  fullName?: string;
-  headline?: string | null;
-  bio?: string | null;
-  specialization?: string | null;
-  experienceYears?: number | null;
-  education?: string | null;
-  educationPlace?: string | null;
-  gender?: "male" | "female" | "other" | null;
-  birthDate?: string | null;
-  avatarPath?: string | null;
-  linkedinUrl?: string | null;
-  githubUrl?: string | null;
-};
-
-type BackendError = {
-  message: string;
-  code?: string;
-};
-
-function isMissingOptionalRelationError(error: BackendError, relationName: string) {
-  const message = error.message.toLowerCase();
-  const relation = relationName.toLowerCase();
-
-  return (
-    error.code === "PGRST205" ||
-    error.code === "42P01" ||
-    (message.includes(relation) &&
-      (message.includes("does not exist") ||
-        message.includes("could not find the table")))
-  );
-}
-
-function pickStringValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!record) {
-    return null;
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return null;
-}
-
-function pickNumberValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!record) {
-    return null;
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value);
-
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-
-  return null;
-}
-
-function normalizeEmailValue(value: string) {
-  return value.trim().toLowerCase();
-}
-
-function isDuplicateEmailError(error: BackendError) {
-  const message = error.message.toLowerCase();
-
-  return (
-    message.includes("already been registered") ||
-    message.includes("already exists") ||
-    message.includes("already in use") ||
-    message.includes("email exists")
-  );
-}
 
 async function updateAuthUserEmail(userId: string, email: string) {
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
@@ -158,7 +47,10 @@ async function updateAuthUserEmail(userId: string, email: string) {
     );
   }
 
-  console.error(`[AUTH_EMAIL_UPDATE_FAILED] Unable to update email: ${error.message}`);
+  logger.error("Unable to update email", {
+    code: "AUTH_EMAIL_UPDATE_FAILED",
+    detail: error.message,
+  });
   throw new AppError(
     500,
     "Unable to update email.",
@@ -243,69 +135,6 @@ function getStudentProfileFields(
   };
 }
 
-function assertTeacherProfileRequirements(input: UpdateCurrentUserProfileInput) {
-  const fieldErrors: Record<string, string[]> = {};
-
-  if (!input.email?.trim()) {
-    fieldErrors.email = ["Email is required."];
-  }
-
-  if (!input.fullName?.trim()) {
-    fieldErrors.fullName = ["Full name is required."];
-  }
-
-  if (!input.headline?.trim()) {
-    fieldErrors.headline = ["Headline is required."];
-  }
-
-  if (!input.education?.trim()) {
-    fieldErrors.education = ["Education is required."];
-  }
-
-  if (!input.gender) {
-    fieldErrors.gender = ["Gender is required."];
-  }
-
-  if (!input.birthDate?.trim()) {
-    fieldErrors.birthDate = ["Birth date is required."];
-  }
-
-  if (Object.keys(fieldErrors).length > 0) {
-    throw new AppError(
-      400,
-      "Complete all required fields before saving.",
-      "TEACHER_PROFILE_REQUIRED_FIELDS",
-      {
-        formErrors: ["Complete all required fields before saving."],
-        fieldErrors,
-      }
-    );
-  }
-}
-
-function assertStudentProfileRequirements(input: UpdateCurrentUserProfileInput) {
-  const fieldErrors: Record<string, string[]> = {};
-
-  if (!input.email?.trim()) {
-    fieldErrors.email = ["Email is required."];
-  }
-
-  if (!input.fullName?.trim()) {
-    fieldErrors.fullName = ["Full name is required."];
-  }
-
-  if (Object.keys(fieldErrors).length > 0) {
-    throw new AppError(
-      400,
-      "Complete all required fields before saving.",
-      "STUDENT_PROFILE_REQUIRED_FIELDS",
-      {
-        formErrors: ["Complete all required fields before saving."],
-        fieldErrors,
-      }
-    );
-  }
-}
 
 async function patchTeacherProfile(
   userId: string,
@@ -417,7 +246,10 @@ async function patchStudentProfile(
 
 export async function registerProfile(input: RegisterProfileInput): Promise<NormalizedUser> {
   const existingUser = await getNormalizedUserById(input.userId, input.email);
-  const nextRole = existingUser && isAdminRole(existingUser.role) ? existingUser.role : input.role;
+  // The request body may only choose a role while the user has no profile yet, i.e. at sign-up.
+  // Once a profile exists its role is the server's to change (admin panel), otherwise anyone
+  // demoted by a super-admin could re-POST this endpoint and grant themselves teacher again.
+  const nextRole = existingUser ? existingUser.role : input.role;
 
   await saveProfile({
     id: input.userId,

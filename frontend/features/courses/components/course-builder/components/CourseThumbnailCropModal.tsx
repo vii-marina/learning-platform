@@ -1,11 +1,12 @@
 import {
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
-import { createPortal } from "react-dom";
+import { Modal } from "../../../../../components/ui/Modal";
 import {   X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import {
@@ -86,6 +87,7 @@ export function CourseThumbnailCropModal({
   onClose,
   onConfirm,
 }: CourseThumbnailCropModalProps) {
+  const headingId = useId();
   const [previewStatus, setPreviewStatus] = useState<PreviewStatus>("idle");
   const [previewError, setPreviewError] = useState("");
   const [imageState, setImageState] = useState<ImageState | null>(null);
@@ -334,9 +336,15 @@ export function CourseThumbnailCropModal({
     }
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[160] flex items-center justify-center bg-slate-950/70 px-4 py-5 backdrop-blur-sm">
-      <div className="flex w-full max-w-[56rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.28)]">
+  return (
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      dismissDisabled={isBusy}
+      overlayClassName="z-[160]"
+      panelClassName="flex w-full max-w-[56rem] flex-col overflow-hidden rounded-[1.75rem] border border-slate-200 bg-white shadow-[0_30px_80px_rgba(15,23,42,0.28)]"
+    >
         <div className="relative border-b border-slate-200 px-6 py-5 pr-20">
           <button
             type="button"
@@ -350,7 +358,7 @@ export function CourseThumbnailCropModal({
 
           <div className="space-y-2">
             <div>
-              <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
+              <h3 id={headingId} className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                 Adjust the course thumbnail
               </h3>
             </div>
@@ -454,8 +462,6 @@ export function CourseThumbnailCropModal({
             </div>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

@@ -1,10 +1,9 @@
 import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
 import {
   createModule,
-  deleteExercise,
   listModuleContent,
   deleteModule,
-  deleteTestEntity,
   listExercisesByModule,
   listLessonsByModule,
   listModulesByCourse,
@@ -38,6 +37,7 @@ export function useCourseBuilderContentData({
   setMessage,
   onModuleDeleted,
 }: UseCourseBuilderContentDataArgs) {
+  const { confirm } = useConfirmDialog();
   const [modules, setModules] = useState<Module[]>([]);
   const [hasFetchedModules, setHasFetchedModules] = useState(false);
   const [modulesLoadState, setModulesLoadState] = useState<
@@ -280,7 +280,15 @@ export function useCourseBuilderContentData({
   });
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!window.confirm("Delete this module?")) {
+    const isConfirmed = await confirm({
+      title: "Видалити модуль?",
+      description:
+        "Разом з модулем будуть видалені його уроки, тести та вправи. Цю дію не можна скасувати.",
+      confirmLabel: "Видалити",
+      tone: "danger",
+    });
+
+    if (!isConfirmed) {
       return;
     }
 
@@ -317,17 +325,11 @@ export function useCourseBuilderContentData({
     }
 
     try {
-      const moduleExercises =
-        exercisesByModule[moduleId] ?? (await fetchExercises(moduleId)) ?? [];
-      for (const exercise of moduleExercises) {
-        await deleteExercise(exercise.id);
-      }
-
-      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
-      for (const test of moduleTests) {
-        await deleteTestEntity(test.id);
-      }
-
+      // One request. Every child of a module (lessons, blocks, tests, questions, answers,
+      // exercises, content, results, progress) is removed by ON DELETE CASCADE in the database —
+      // verified against the live schema on 09-08-2026, with zero orphan rows anywhere.
+      // This used to delete exercises and tests one at a time first, which was N+1 round-trips and
+      // could leave a half-gutted module if the tab was closed mid-loop, since nothing rolled back.
       await deleteModule(moduleId);
     } catch {
       setMessage("Unable to delete module.");

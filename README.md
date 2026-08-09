@@ -15,9 +15,10 @@ EduCat is an MVP and active development project. The core platform is implemente
 ### Public Landing Page
 
 - Product overview for the learning platform
-- Dedicated sections for students and teachers
-- Dynamic course preview managed from the admin dashboard
-- FAQ section
+- Dedicated sections for students and teachers, each mirroring that role's real dashboard
+- Interactive course preview: visitors can answer a real test without registering
+- The previewed course is chosen by an admin and served from a prepared snapshot row, so the
+  landing does not wait on the backend to wake up
 - Authentication entry points
 
 ### Authentication and Roles
@@ -102,11 +103,33 @@ EduCat is an MVP and active development project. The core platform is implemente
 
 EduCat uses a full-stack client-server architecture.
 
-The frontend handles the user interface, routing, dashboards, public landing page, course learning flow, course builder, and admin interface. It uses Supabase Auth for user sessions and communicates with the backend for protected operations.
+The frontend handles the user interface, routing, dashboards, public landing page, course learning flow, course builder, and admin interface. It uses Supabase Auth for user sessions.
 
 The backend handles secure business logic, AI generation, request validation, admin operations, progress saving, dashboard statistics, landing preview settings, and secure access to OpenAI and Supabase service-role operations.
 
 Sensitive keys, including the Supabase service-role key and OpenAI API key, are stored only on the backend and are never exposed in frontend code.
+
+### Data path: writes through the backend, reads direct
+
+The platform deliberately uses two paths to the database, and the distinction matters when reading
+the code:
+
+- **Writes go through the backend.** Every mutation of course content, progress, and user data is an
+  Express endpoint that authenticates the caller, checks ownership, and then writes with the
+  service-role key. The browser never writes to Supabase directly.
+- **Course-content reads go straight from the browser to Supabase**, using the anon key under Row
+  Level Security. This keeps reading a course off the backend's critical path.
+
+Row Level Security is the backstop rather than the primary control: on the course-content tables the
+policies allow `SELECT` only, so even a forged client request cannot write. Authorization proper
+lives in the backend, which means access control is enforced in two independent places.
+
+Tests come in two modes. A **practice** test sends its answers to the client, which checks them
+locally so the student gets an instant result. A **graded** test withholds the answers entirely and
+is scored on the server when the student submits.
+
+Coding exercises are currently the exception: they still send the expected answer to the browser and
+are checked there. Moving that check to the server is known work, not a design choice.
 
 ## Core User Flows
 
@@ -158,9 +181,13 @@ The platform uses Supabase PostgreSQL as the primary database. Main entities inc
 - `lesson_progress`
 - `user_test_results`
 - `user_exercise_results`
-- `user_courses`
-- `course_access_list`
 - `landing_page_settings`
+- `landing_preview_snapshot`
+
+Two further tables, `user_courses` and `course_access_list`, are not referenced by application code.
+They are kept because the `can_read_course()` RLS function reads them to gate direct client access to
+published courses, so dropping them would break Row Level Security. Enrollment itself is recorded in
+`course_progress`.
 
 Supabase Storage is used for course thumbnails, lesson media, and user profile assets.
 
@@ -198,12 +225,19 @@ learning-platform/
 │   │   ├── routes/      # API route definitions
 │   │   ├── services/    # Business logic, AI generation, dashboards, and persistence
 │   │   └── validators/  # Zod schemas
+│   ├── tests/           # Backend tests, kept outside src so dist/ stays clean
 │   └── scripts/         # Helper SQL and maintenance scripts
-├── public/              # Static public assets
+├── brand/               # Logo masters and derived icon alternates
+├── public/              # Static public assets and the shipped icon set
+├── .github/workflows/   # CI: lint, typecheck, test, and build
 ├── package.json         # Frontend dependencies and scripts
+├── vite.config.ts       # Frontend build and test configuration
 ├── vercel.json          # Frontend deployment configuration
 └── README.md
 ```
+
+The frontend source lives in `frontend/`, but its tooling configuration (`package.json`,
+`vite.config.ts`, `tailwind.config.js`, `index.html`) sits at the repository root.
 
 ## Getting Started
 
@@ -239,9 +273,44 @@ VITE_BACKEND_URL=
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 OPENAI_API_KEY=
+OPENAI_MODEL=
 PORT=
 CORS_ORIGIN=
+NODE_ENV=
+LOG_LEVEL=
 ```
+
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, and `CORS_ORIGIN` are required; the
+process refuses to start without them. The rest have defaults: `OPENAI_MODEL` is `gpt-4o-mini`,
+`PORT` is `4000`, `NODE_ENV` is `development`, and `LOG_LEVEL` is `debug` in development and `info`
+otherwise.
+
+`CORS_ORIGIN` accepts a comma-separated list of allowed origins.
+
+The model named in `OPENAI_MODEL` must support structured outputs, because both generators request a
+strict JSON schema rather than parsing free text.
+
+## Testing and CI
+
+Both packages use Vitest.
+
+```bash
+npm test              # frontend, from the repository root
+npm run test:watch
+
+cd backend
+npm test              # backend
+npm run typecheck     # source
+npm run typecheck:tests
+```
+
+The tests are hermetic by construction: no test reaches the database, Supabase, or OpenAI. Backend
+tests either exercise pure modules or run against a mocked Supabase client, and frontend component
+tests run in jsdom. This is what makes them safe to run against a repository whose only database is
+production.
+
+GitHub Actions runs lint, both typechecks, both test suites, and both builds on every push to `main`
+and on every pull request.
 
 ## Roadmap
 

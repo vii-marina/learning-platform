@@ -1,4 +1,5 @@
 import { useState, type Dispatch, type SetStateAction } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
 import {
   createExercise,
   deleteExercise,
@@ -103,6 +104,7 @@ export function useCourseBuilderExerciseEditor({
   resolveAiGenerationTarget,
   setMessage,
 }: UseCourseBuilderExerciseEditorArgs) {
+  const { confirm } = useConfirmDialog();
   const [exerciseEditorModuleId, setExerciseEditorModuleId] = useState<string | null>(null);
   const [exerciseCreateInitialMode, setExerciseCreateInitialMode] =
     useState<CreateContentMode | null>(null);
@@ -285,7 +287,14 @@ export function useCourseBuilderExerciseEditor({
   };
 
   const handleDeleteExercise = async (moduleId: string, exerciseId: string) => {
-    if (!window.confirm("Delete this exercise?")) {
+    const isConfirmed = await confirm({
+      title: "Видалити вправу?",
+      description: "Разом з вправою будуть видалені результати студентів по ній.",
+      confirmLabel: "Видалити",
+      tone: "danger",
+    });
+
+    if (!isConfirmed) {
       return;
     }
 

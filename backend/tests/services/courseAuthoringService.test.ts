@@ -8,18 +8,46 @@ import type { AuthenticatedRequestContext } from "../../src/types/auth";
 const mocks = vi.hoisted(() => {
   const rowsByTable = new Map<string, unknown>();
 
+  type StubFilter = { column: string; value: unknown };
+
   type QueryBuilder = {
     select: () => QueryBuilder;
-    eq: () => QueryBuilder;
+    eq: (column: string, value: unknown) => QueryBuilder;
+    is: (column: string, value: unknown) => QueryBuilder;
     maybeSingle: () => Promise<{ data: unknown; error: null }>;
   };
 
+  // The stub honours the filters it is given: a seeded row is returned only when every
+  // eq()/is() matches it. A column the seeded row omits reads as null, so `.is("deleted_at", null)`
+  // passes for a live row and fails once a test seeds a deleted_at timestamp.
+  function resolveRow(table: string, filters: StubFilter[]) {
+    const row = rowsByTable.get(table) as Record<string, unknown> | null | undefined;
+
+    if (!row) {
+      return null;
+    }
+
+    const matchesEveryFilter = filters.every(
+      ({ column, value }) => (row[column] ?? null) === (value ?? null)
+    );
+
+    return matchesEveryFilter ? row : null;
+  }
+
   const supabaseAdmin = {
     from(table: string) {
+      const filters: StubFilter[] = [];
       const builder: QueryBuilder = {
         select: () => builder,
-        eq: () => builder,
-        maybeSingle: async () => ({ data: rowsByTable.get(table) ?? null, error: null }),
+        eq: (column, value) => {
+          filters.push({ column, value });
+          return builder;
+        },
+        is: (column, value) => {
+          filters.push({ column, value });
+          return builder;
+        },
+        maybeSingle: async () => ({ data: resolveRow(table, filters), error: null }),
       };
       return builder;
     },
@@ -149,6 +177,35 @@ describe("authorizeModuleAccess", () => {
       404,
       "COURSE_NOT_FOUND"
     );
+  });
+
+  // A course an admin soft-deleted must drop out of authoring entirely — otherwise its owner
+  // could keep editing it and, because updateCourse accepted `deleted_at: null`, restore and
+  // republish it. courseBuilderService and exerciseService have always filtered this.
+  it("treats a soft-deleted course as missing, even for its owner", async () => {
+    mocks.rowsByTable.set("courses", {
+      id: "course-1",
+      teacher_id: OWNER_ID,
+      deleted_at: "2026-08-01T10:00:00.000Z",
+    });
+
+    await expectAppError(
+      authorizeModuleAccess(authContext(), "module-1"),
+      404,
+      "COURSE_NOT_FOUND"
+    );
+  });
+
+  it("still allows the owner when deleted_at is explicitly null", async () => {
+    mocks.rowsByTable.set("courses", {
+      id: "course-1",
+      teacher_id: OWNER_ID,
+      deleted_at: null,
+    });
+
+    await expect(authorizeModuleAccess(authContext(), "module-1")).resolves.toMatchObject({
+      id: "module-1",
+    });
   });
 });
 

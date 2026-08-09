@@ -5,6 +5,7 @@ type BackendErrorResponse = {
   error?: string;
   code?: string;
   details?: unknown;
+  requestId?: string;
 };
 
 type BackendRequestOptions = Omit<RequestInit, "body"> & {
@@ -15,13 +16,25 @@ export class BackendApiError extends Error {
   readonly status: number;
   readonly code?: string;
   readonly details?: unknown;
+  /**
+   * The backend's id for the request that failed. Quoting it in a bug report points
+   * straight at the matching server log line, which is otherwise a needle in a haystack.
+   */
+  readonly requestId?: string;
 
-  constructor(message: string, status: number, code?: string, details?: unknown) {
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    details?: unknown,
+    requestId?: string
+  ) {
     super(message);
     this.name = "BackendApiError";
     this.status = status;
     this.code = code;
     this.details = details;
+    this.requestId = requestId;
   }
 }
 
@@ -77,6 +90,7 @@ function parseErrorPayload(payload: unknown) {
       message: "Request failed.",
       code: undefined,
       details: undefined,
+      requestId: undefined,
     };
   }
 
@@ -86,90 +100,76 @@ function parseErrorPayload(payload: unknown) {
     message: errorPayload.message ?? errorPayload.error ?? "Request failed.",
     code: errorPayload.code,
     details: errorPayload.details,
+    requestId: errorPayload.requestId,
   };
+}
+
+/**
+ * The single request path. Authenticated and public calls previously duplicated this
+ * whole body, so a fix to one silently missed the other; the only real difference is
+ * whether an Authorization header is attached.
+ */
+async function backendRequest<T>(
+  path: string,
+  options: BackendRequestOptions,
+  accessToken: string | null
+): Promise<T> {
+  const headers = new Headers(options.headers);
+
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
+  if (options.body !== undefined) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
+    ...options,
+    headers,
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+  });
+
+  const responseText = await response.text();
+  let payload: unknown = null;
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = responseText;
+    }
+  }
+
+  if (!response.ok) {
+    const errorPayload = parseErrorPayload(payload);
+
+    throw new BackendApiError(
+      errorPayload.message,
+      response.status,
+      errorPayload.code,
+      errorPayload.details,
+      // The header is set for every response; the body only carries it for errors the
+      // backend generated itself. Preferring the body keeps them consistent when both exist.
+      errorPayload.requestId ?? response.headers.get("x-request-id") ?? undefined
+    );
+  }
+
+  return payload as T;
 }
 
 export async function authorizedBackendRequest<T>(
   path: string,
   options: BackendRequestOptions = {}
 ): Promise<T> {
-  const accessToken = await getAccessToken();
-  const headers = new Headers(options.headers);
-
-  headers.set("Authorization", `Bearer ${accessToken}`);
-
-  if (options.body !== undefined) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-    ...options,
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
-
-  const responseText = await response.text();
-  let payload: unknown = null;
-
-  if (responseText) {
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = responseText;
-    }
-  }
-
-  if (!response.ok) {
-    const errorPayload = parseErrorPayload(payload);
-    throw new BackendApiError(
-      errorPayload.message,
-      response.status,
-      errorPayload.code,
-      errorPayload.details
-    );
-  }
-
-  return payload as T;
+  return backendRequest<T>(path, options, await getAccessToken());
 }
 
 export async function publicBackendRequest<T>(
   path: string,
   options: BackendRequestOptions = {}
 ): Promise<T> {
-  const headers = new Headers(options.headers);
-
-  if (options.body !== undefined) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  const response = await fetch(`${getBackendBaseUrl()}${path}`, {
-    ...options,
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-  });
-
-  const responseText = await response.text();
-  let payload: unknown = null;
-
-  if (responseText) {
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = responseText;
-    }
-  }
-
-  if (!response.ok) {
-    const errorPayload = parseErrorPayload(payload);
-    throw new BackendApiError(
-      errorPayload.message,
-      response.status,
-      errorPayload.code,
-      errorPayload.details
-    );
-  }
-
-  return payload as T;
+  return backendRequest<T>(path, options, null);
 }
 
 export function getErrorMessage(error: unknown, fallbackMessage: string) {

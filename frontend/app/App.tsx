@@ -9,7 +9,12 @@ function lazyPage<K extends string, M extends Record<K, ComponentType>>(
   return lazy(() => loader().then((module) => ({ default: module[name] })));
 }
 
+// Lazy so the Supabase client stays out of the entry chunk; it renders null, so
+// its own Suspense boundary keeps a pending chunk from blanking the page.
+const AuthSessionWatcher = lazyPage("AuthSessionWatcher", () => import("../features/auth/components/AuthSessionWatcher"));
+
 const LandingPage = lazyPage("LandingPage", () => import("../pages/landing/LandingPage"));
+const NotFoundPage = lazyPage("NotFoundPage", () => import("../pages/not-found/NotFoundPage"));
 const EmailConfirmedPage = lazyPage("EmailConfirmedPage", () => import("../pages/auth/EmailConfirmedPage"));
 const LoginPage = lazyPage("LoginPage", () => import("../pages/auth/LoginPage"));
 const RegisterPage = lazyPage("RegisterPage", () => import("../pages/auth/RegisterPage"));
@@ -34,6 +39,9 @@ const CourseBuilderWorkspacePage = lazyPage("CourseBuilderWorkspacePage", () => 
 function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={null}>
+        <AuthSessionWatcher />
+      </Suspense>
       <Suspense fallback={<LoadingState variant="page" />}>
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -51,12 +59,14 @@ function App() {
             <Route path="courses" element={<AdminDashboardCoursesPage />} />
             <Route path="landing" element={<AdminDashboardLandingPage />} />
             <Route path="settings" element={<AdminDashboardSettingsPage />} />
+            <Route path="*" element={<NotFoundPage />} />
           </Route>
           <Route path="/teacher/dashboard" element={<TeacherDashboardPage />} />
           <Route path="/student/dashboard" element={<StudentDashboardPage />} />
           <Route path="/student/courses/:courseId" element={<StudentCoursePage />} />
           <Route path="/course-builder" element={<CourseBuilderWorkspacePage />} />
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
     </BrowserRouter>

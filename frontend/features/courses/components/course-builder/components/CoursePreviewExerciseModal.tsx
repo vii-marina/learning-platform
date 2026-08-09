@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import {  X } from "lucide-react";
+import { Modal } from "../../../../../components/ui/Modal";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
 import type { CourseExercise } from "../types/courseBuilderUiTypes";
@@ -29,6 +30,7 @@ export function CoursePreviewExerciseModal({
   onAskTeacher,
   onResolveExercise,
 }: CoursePreviewExerciseModalProps) {
+  const headingId = useId();
   const [showSourceLesson, setShowSourceLesson] = useState(false);
   const [prevSourceLessonKey, setPrevSourceLessonKey] = useState<string | null>(null);
 
@@ -68,16 +70,14 @@ export function CoursePreviewExerciseModal({
     exercises.length === 1 ? exercises[0].title : `Вправи після ${module.order}.${lesson.order}`;
 
   return (
-    <div
-      className="fixed inset-0 z-[130] bg-slate-950/55 px-4 py-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      closeOnOverlayClick
+      overlayClassName="z-[130]"
+      panelClassName="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_22px_80px_rgba(15,23,42,0.22)]"
     >
-      <div className="mx-auto flex min-h-full max-w-5xl items-center justify-center">
-        <div className="flex max-h-[90vh] w-full flex-col overflow-hidden rounded-[1.5rem] border border-slate-200 bg-white shadow-[0_22px_80px_rgba(15,23,42,0.22)]">
           <div className="flex items-start justify-between gap-4 border-b border-slate-200 px-5 py-5 md:px-6">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -91,7 +91,7 @@ export function CoursePreviewExerciseModal({
               </div>
 
               <div>
-                <h2 className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
+                <h2 id={headingId} className="text-2xl font-semibold tracking-tight text-slate-950">{title}</h2>
               </div>
             </div>
 
@@ -132,8 +132,6 @@ export function CoursePreviewExerciseModal({
               ))}
             </div>
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

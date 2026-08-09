@@ -1,274 +1,32 @@
-import { AppError, toServiceError } from "../lib/appError";
+/**
+ * Lesson and lesson-block authoring.
+ *
+ * Ownership checks live in `courseBuilder/access`; the test rows shown alongside a module's
+ * lessons come from `courseBuilder/testContentRepository`.
+ */
+
+import { toServiceError } from "../lib/appError";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AuthenticatedRequestContext } from "../types/auth";
+import {
+  authorizeLessonAccess,
+  authorizeLessonBlockAccess,
+  authorizeModuleAccess,
+  getNextLessonBlockOrder,
+  getNextLessonOrder,
+  type LessonBlockRow,
+  type LessonRow,
+  type TestAnswerRow,
+  type TestQuestionRow,
+} from "./courseBuilder/access";
+import {
+  listModuleTestEntities,
+  listTestAnswersByQuestionIds,
+  listTestQuestionsByTestIds,
+} from "./courseBuilder/testContentRepository";
 import { listModuleExercises } from "./exerciseService";
 
-type CourseOwnershipRow = {
-  id: string;
-  teacher_id: string | null;
-};
 
-type ModuleRow = {
-  id: string;
-  course_id: string;
-  title: string;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type LessonRow = {
-  id: string;
-  module_id: string;
-  title: string;
-  content: string | null;
-  video_url: string | null;
-  content_type: string | null;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type LessonBlockRow = {
-  id: string;
-  lesson_id: string;
-  block_type: string;
-  content: Record<string, unknown>;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type TestEntityRow = {
-  id: string;
-  after_lesson_id: string | null;
-  module_id: string;
-  title: string;
-  order: number;
-  created_at: string;
-  updated_at: string;
-};
-
-type TestQuestionRow = {
-  id: string;
-  test_id: string;
-  type: string;
-  question_text: string;
-  order: number;
-  hint: string | null;
-  created_at: string;
-};
-
-type TestAnswerRow = {
-  id: string;
-  question_id: string;
-  answer_text: string;
-  is_correct: boolean;
-  created_at: string;
-};
-
-function ensureTeacherOrAdmin(auth: AuthenticatedRequestContext) {
-  if (auth.isAdmin) {
-    return;
-  }
-
-  if (auth.role !== "teacher") {
-    throw new AppError(
-      403,
-      "Only teachers or admins can manage course lessons.",
-      "COURSE_BUILDER_FORBIDDEN"
-    );
-  }
-}
-
-async function getCourseOwnership(courseId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("courses")
-    .select("id,teacher_id")
-    .eq("id", courseId)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
-  }
-
-  if (!data) {
-    throw new AppError(404, "Course was not found.", "COURSE_NOT_FOUND");
-  }
-
-  return data as CourseOwnershipRow;
-}
-
-async function getModuleById(moduleId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("modules")
-    .select("*")
-    .eq("id", moduleId)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "MODULE_FETCH_FAILED", "Unable to load module", error);
-  }
-
-  if (!data) {
-    throw new AppError(404, "Module was not found.", "MODULE_NOT_FOUND");
-  }
-
-  return data as ModuleRow;
-}
-
-async function authorizeCourseAccess(auth: AuthenticatedRequestContext, courseId: string) {
-  ensureTeacherOrAdmin(auth);
-  const course = await getCourseOwnership(courseId);
-
-  if (!auth.isAdmin && course.teacher_id !== auth.userId) {
-    throw new AppError(403, "You cannot manage this course.", "COURSE_ACCESS_DENIED");
-  }
-
-  return course;
-}
-
-async function authorizeModuleAccess(auth: AuthenticatedRequestContext, moduleId: string) {
-  const module = await getModuleById(moduleId);
-  await authorizeCourseAccess(auth, module.course_id);
-  return module;
-}
-
-async function getLessonById(lessonId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("lessons")
-    .select("*")
-    .eq("id", lessonId)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "LESSON_FETCH_FAILED", "Unable to load lesson", error);
-  }
-
-  if (!data) {
-    throw new AppError(404, "Lesson was not found.", "LESSON_NOT_FOUND");
-  }
-
-  return data as LessonRow;
-}
-
-async function authorizeLessonAccess(auth: AuthenticatedRequestContext, lessonId: string) {
-  const lesson = await getLessonById(lessonId);
-  await authorizeModuleAccess(auth, lesson.module_id);
-  return lesson;
-}
-
-async function getLessonBlockById(lessonBlockId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("lesson_blocks")
-    .select("*")
-    .eq("id", lessonBlockId)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "LESSON_BLOCK_FETCH_FAILED", "Unable to load lesson block", error);
-  }
-
-  if (!data) {
-    throw new AppError(404, "Lesson block was not found.", "LESSON_BLOCK_NOT_FOUND");
-  }
-
-  return data as LessonBlockRow;
-}
-
-async function authorizeLessonBlockAccess(auth: AuthenticatedRequestContext, lessonBlockId: string) {
-  const lessonBlock = await getLessonBlockById(lessonBlockId);
-  await authorizeLessonAccess(auth, lessonBlock.lesson_id);
-  return lessonBlock;
-}
-
-async function getNextLessonOrder(moduleId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("lessons")
-    .select("order")
-    .eq("module_id", moduleId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(500, "LESSON_ORDER_FAILED", "Unable to compute lesson order", error);
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-async function getNextLessonBlockOrder(lessonId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("lesson_blocks")
-    .select("order")
-    .eq("lesson_id", lessonId)
-    .order("order", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw toServiceError(
-      500,
-      "LESSON_BLOCK_ORDER_FAILED",
-      "Unable to compute lesson block order",
-      error
-    );
-  }
-
-  return (data?.order ?? 0) + 1;
-}
-
-async function listModuleTestEntities(moduleId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("test_entities")
-    .select("*")
-    .eq("module_id", moduleId)
-    .order("order", { ascending: true });
-
-  if (error) {
-    throw toServiceError(500, "TESTS_LIST_FAILED", "Unable to list tests", error);
-  }
-
-  return (data ?? []) as TestEntityRow[];
-}
-
-async function listTestQuestionsByTestIds(testIds: string[]) {
-  if (testIds.length === 0) {
-    return [] as TestQuestionRow[];
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("test_questions")
-    .select("*")
-    .in("test_id", testIds)
-    .order("order", { ascending: true });
-
-  if (error) {
-    throw toServiceError(500, "TEST_QUESTIONS_LIST_FAILED", "Unable to list test questions", error);
-  }
-
-  return (data ?? []) as TestQuestionRow[];
-}
-
-async function listTestAnswersByQuestionIds(questionIds: string[]) {
-  if (questionIds.length === 0) {
-    return [] as TestAnswerRow[];
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("test_answers")
-    .select("*")
-    .in("question_id", questionIds)
-    .order("created_at", { ascending: true });
-
-  if (error) {
-    throw toServiceError(500, "TEST_ANSWERS_LIST_FAILED", "Unable to list test answers", error);
-  }
-
-  return (data ?? []) as TestAnswerRow[];
-}
 
 export async function listModuleLessons(auth: AuthenticatedRequestContext, moduleId: string) {
   await authorizeModuleAccess(auth, moduleId);
@@ -424,6 +182,18 @@ export async function updateLessonById(
 export async function deleteLessonById(auth: AuthenticatedRequestContext, lessonId: string) {
   await authorizeLessonAccess(auth, lessonId);
 
+  // These two unlinks are belt to the schema's braces, and worth keeping.
+  //
+  // `after_lesson_id` records *position*, not ownership — a test simply sits after a lesson; what
+  // owns it is `module_id`. Until 09-08-2026 both columns were declared ON DELETE CASCADE, which
+  // meant deleting a lesson made Postgres delete every test and exercise anchored to it, with their
+  // questions, answers, content and student results. These unlinks were the only thing preventing
+  // that. The R32 migration changed all three such constraints (`test_entities`, `exercises` and the
+  // unreferenced-but-populated `ai_generated_tests`) to ON DELETE SET NULL, so the database now does
+  // the right thing on its own — see claude/db-actions.md.
+  //
+  // They stay because they cost two cheap updates on a rare operation and make the intent explicit
+  // at the call site, and because behaviour must not depend on which of the two mechanisms fires.
   const { error: testLinkError } = await supabaseAdmin
     .from("test_entities")
     .update({ after_lesson_id: null })
