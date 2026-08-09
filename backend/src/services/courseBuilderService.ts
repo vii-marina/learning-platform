@@ -182,12 +182,18 @@ export async function updateLessonById(
 export async function deleteLessonById(auth: AuthenticatedRequestContext, lessonId: string) {
   await authorizeLessonAccess(auth, lessonId);
 
-  // ⚠️ DO NOT REMOVE THESE TWO UNLINKS. They look defensive; they are load-bearing.
-  // `test_entities.after_lesson_id` and `exercises.after_lesson_id` are both declared
-  // ON DELETE CASCADE in the database (confirmed 09-08-2026). Those columns record *position*,
-  // not ownership — a test simply sits after a lesson. So deleting a lesson without nulling them
-  // first makes Postgres delete every test and exercise anchored to it, along with their questions,
-  // answers, content and student results. Nulling them first is what keeps the cascade from firing.
+  // These two unlinks are belt to the schema's braces, and worth keeping.
+  //
+  // `after_lesson_id` records *position*, not ownership — a test simply sits after a lesson; what
+  // owns it is `module_id`. Until 09-08-2026 both columns were declared ON DELETE CASCADE, which
+  // meant deleting a lesson made Postgres delete every test and exercise anchored to it, with their
+  // questions, answers, content and student results. These unlinks were the only thing preventing
+  // that. The R32 migration changed all three such constraints (`test_entities`, `exercises` and the
+  // unreferenced-but-populated `ai_generated_tests`) to ON DELETE SET NULL, so the database now does
+  // the right thing on its own — see claude/db-actions.md.
+  //
+  // They stay because they cost two cheap updates on a rare operation and make the intent explicit
+  // at the call site, and because behaviour must not depend on which of the two mechanisms fires.
   const { error: testLinkError } = await supabaseAdmin
     .from("test_entities")
     .update({ after_lesson_id: null })
