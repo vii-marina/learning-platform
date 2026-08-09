@@ -17,20 +17,34 @@ type UsersResponse = {
   users: CurrentUser[];
 };
 
-let currentUserCache: CurrentUser | null = null;
+// The cached profile carries the role every dashboard guard routes on, so it
+// cannot be trusted forever: without an expiry a role change server-side would
+// never reach a browser that keeps navigating. Past the TTL we refetch /auth/me.
+type CachedCurrentUser = {
+  user: CurrentUser;
+  cachedAt: number;
+};
+
+let currentUserCache: CachedCurrentUser | null = null;
 let currentUserPromise: Promise<CurrentUser> | null = null;
-const CURRENT_USER_STORAGE_KEY = "learning-platform.current-user.v1";
+// Bumped to v2 with the cache entry shape; v1 entries are plain profiles.
+const CURRENT_USER_STORAGE_KEY = "learning-platform.current-user.v2";
+const CURRENT_USER_TTL_MS = 5 * 60 * 1000;
+
+function isFreshCacheEntry(entry: CachedCurrentUser) {
+  return Date.now() - entry.cachedAt < CURRENT_USER_TTL_MS;
+}
 
 function canUseLocalStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
 }
 
-function persistCurrentUser(user: CurrentUser) {
+function persistCurrentUser(entry: CachedCurrentUser) {
   if (!canUseLocalStorage()) {
     return;
   }
 
-  window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user));
+  window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(entry));
 }
 
 function clearPersistedCurrentUser() {
@@ -53,7 +67,19 @@ function loadPersistedCurrentUser() {
   }
 
   try {
-    return JSON.parse(rawValue) as CurrentUser;
+    const entry = JSON.parse(rawValue) as CachedCurrentUser;
+
+    if (!entry?.user?.id || typeof entry.cachedAt !== "number") {
+      clearPersistedCurrentUser();
+      return null;
+    }
+
+    if (!isFreshCacheEntry(entry)) {
+      clearPersistedCurrentUser();
+      return null;
+    }
+
+    return entry;
   } catch {
     clearPersistedCurrentUser();
     return null;
@@ -67,9 +93,18 @@ export function clearCurrentUserCache() {
 }
 
 export function primeCurrentUserCache(user: CurrentUser) {
-  currentUserCache = user;
+  const entry: CachedCurrentUser = { user, cachedAt: Date.now() };
+
+  currentUserCache = entry;
   currentUserPromise = Promise.resolve(user);
-  persistCurrentUser(user);
+  persistCurrentUser(entry);
+}
+
+// Hydrating from storage keeps the original timestamp: re-stamping it here would
+// let a profile that is read on every navigation outlive the TTL indefinitely.
+function adoptCachedCurrentUser(entry: CachedCurrentUser) {
+  currentUserCache = entry;
+  currentUserPromise = Promise.resolve(entry.user);
 }
 
 export async function registerProfile(input: {
@@ -100,24 +135,24 @@ export async function getCurrentUser() {
     throw new BackendApiError("No active user session.", 401, "SESSION_MISSING");
   }
 
-  if (currentUserCache && currentUserCache.id !== sessionUserId) {
+  if (currentUserCache && (currentUserCache.user.id !== sessionUserId || !isFreshCacheEntry(currentUserCache))) {
     currentUserCache = null;
     currentUserPromise = null;
   }
 
-  if (currentUserCache?.id === sessionUserId) {
-    return currentUserCache;
+  if (currentUserCache?.user.id === sessionUserId) {
+    return currentUserCache.user;
   }
 
   const persistedCurrentUser = loadPersistedCurrentUser();
 
-  if (persistedCurrentUser && persistedCurrentUser.id !== sessionUserId) {
+  if (persistedCurrentUser && persistedCurrentUser.user.id !== sessionUserId) {
     clearPersistedCurrentUser();
   }
 
-  if (persistedCurrentUser?.id === sessionUserId) {
-    primeCurrentUserCache(persistedCurrentUser);
-    return persistedCurrentUser;
+  if (persistedCurrentUser?.user.id === sessionUserId) {
+    adoptCachedCurrentUser(persistedCurrentUser);
+    return persistedCurrentUser.user;
   }
 
   if (currentUserPromise) {
@@ -165,7 +200,7 @@ export async function updateAdminUser(userId: string, input: UpdateAdminUserInpu
     body: input,
   });
 
-  if (currentUserCache?.id === response.user.id) {
+  if (currentUserCache?.user.id === response.user.id) {
     primeCurrentUserCache(response.user);
   }
 

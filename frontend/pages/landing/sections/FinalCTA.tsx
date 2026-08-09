@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import { BrandMark } from "../../../components/ui";
+import { useSignedInDashboardPath } from "../../../features/auth/hooks/useSignedInDashboardPath";
 import {
   landingContainer,
   PrimaryLink,
@@ -8,6 +9,8 @@ import {
 } from "../components/primitives";
 
 export function FinalCTA() {
+  const dashboardPath = useSignedInDashboardPath();
+
   return (
     <section className="bg-[#f8f7ff] py-16 md:py-20">
       <div className={landingContainer}>
@@ -34,10 +37,10 @@ export function FinalCTA() {
                   Створити акаунт <ArrowRight className="h-4 w-4" />
                 </PrimaryLink>
                 <Link
-                  to="/login"
+                  to={dashboardPath ?? "/login"}
                   className={`sticker-cursor inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 px-5 py-3 text-sm font-bold text-white transition hover:bg-white/20 ${stickerOutline} border-white/40`}
                 >
-                  Увійти
+                  {dashboardPath ? "Мій кабінет" : "Увійти"}
                 </Link>
               </div>
             </div>

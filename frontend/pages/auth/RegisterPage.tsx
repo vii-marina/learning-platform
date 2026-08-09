@@ -10,9 +10,11 @@ import {
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandMark } from "../../components/ui";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { supabase } from "../../lib/supabase";
 import { registerProfile } from "../../features/auth/api/authApi";
 import { getErrorMessage } from "../../features/auth/api/backendClient";
+import { useRedirectIfAuthenticated } from "../../features/auth/hooks/useRedirectIfAuthenticated";
 import { clearPendingRegistration, savePendingRegistration } from "../../features/auth/lib/pendingRegistration";
 import { getDefaultRouteForRole } from "../../features/auth/lib/roleRouting";
 import type { PublicRegistrationRole } from "../../features/auth/types";
@@ -30,6 +32,7 @@ export function RegisterPage() {
   );
   const [passwordError, setPasswordError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isCheckingSession = useRedirectIfAuthenticated();
 
   useEffect(() => {
     if (password.length >= 6 && passwordError) {
@@ -119,7 +122,7 @@ export function RegisterPage() {
         });
 
         clearPendingRegistration();
-        navigate(getDefaultRouteForRole(currentUser.role));
+        navigate(getDefaultRouteForRole(currentUser.role), { replace: true });
         return;
       }
 
@@ -177,6 +180,14 @@ export function RegisterPage() {
       : messageType === "success"
         ? "border-emerald-200 bg-emerald-50 text-emerald-700"
         : "border-[#5549f1]/30 bg-[#5549f1]/10 text-slate-600";
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f6f8f8] px-4">
+        <LoadingState variant="page" className="max-w-[31rem]" />
+      </div>
+    );
+  }
 
   return (
     <div

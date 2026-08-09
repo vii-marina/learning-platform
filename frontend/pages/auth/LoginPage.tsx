@@ -2,9 +2,11 @@ import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, Mail } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { BrandMark } from "../../components/ui";
+import { LoadingState } from "../../components/ui/LoadingState";
 import { supabase } from "../../lib/supabase";
 import { getCurrentUser, syncPendingRegistrationForEmail } from "../../features/auth/api/authApi";
 import { BackendApiError, getErrorMessage } from "../../features/auth/api/backendClient";
+import { useRedirectIfAuthenticated } from "../../features/auth/hooks/useRedirectIfAuthenticated";
 import { getDefaultRouteForRole } from "../../features/auth/lib/roleRouting";
 
 export function LoginPage() {
@@ -15,6 +17,7 @@ export function LoginPage() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const isCheckingSession = useRedirectIfAuthenticated();
 
   useEffect(() => {
     if (password.length >= 6 && passwordError) {
@@ -57,7 +60,7 @@ export function LoginPage() {
         (await syncPendingRegistrationForEmail(signedInEmail)) ??
         (await getCurrentUser());
 
-      navigate(getDefaultRouteForRole(currentUser.role));
+      navigate(getDefaultRouteForRole(currentUser.role), { replace: true });
     } catch (error) {
       if (error instanceof BackendApiError && error.code === "PROFILE_NOT_FOUND") {
         setMessage(
@@ -85,6 +88,14 @@ export function LoginPage() {
       setMessage("");
     }
   };
+
+  if (isCheckingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f6f8f8] px-4">
+        <LoadingState variant="page" className="max-w-[31rem]" />
+      </div>
+    );
+  }
 
   return (
     <div

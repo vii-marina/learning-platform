@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import { BrandMark } from "../../../components/ui";
+import { useSignedInDashboardPath } from "../../../features/auth/hooks/useSignedInDashboardPath";
 import {
   landingContainer,
   PrimaryLink,
@@ -9,6 +10,8 @@ import {
 } from "../components/primitives";
 
 export function Hero() {
+  const dashboardPath = useSignedInDashboardPath();
+
   return (
     <section className="relative overflow-hidden border-b-2 border-[#1f1b4d] bg-[#f8f7ff] py-14 md:py-20">
       <div
@@ -36,7 +39,9 @@ export function Hero() {
             <PrimaryLink to="/register">
               Створити акаунт <ArrowRight className="h-4 w-4" />
             </PrimaryLink>
-            <SecondaryLink to="/login">Увійти</SecondaryLink>
+            <SecondaryLink to={dashboardPath ?? "/login"}>
+              {dashboardPath ? "Мій кабінет" : "Увійти"}
+            </SecondaryLink>
           </div>
         </div>
 
