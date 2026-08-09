@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
 import {
   createModule,
   listModuleContent,
@@ -36,6 +37,7 @@ export function useCourseBuilderContentData({
   setMessage,
   onModuleDeleted,
 }: UseCourseBuilderContentDataArgs) {
+  const { confirm } = useConfirmDialog();
   const [modules, setModules] = useState<Module[]>([]);
   const [hasFetchedModules, setHasFetchedModules] = useState(false);
   const [modulesLoadState, setModulesLoadState] = useState<
@@ -278,7 +280,15 @@ export function useCourseBuilderContentData({
   });
 
   const handleDeleteModule = async (moduleId: string) => {
-    if (!window.confirm("Delete this module?")) {
+    const isConfirmed = await confirm({
+      title: "Видалити модуль?",
+      description:
+        "Разом з модулем будуть видалені його уроки, тести та вправи. Цю дію не можна скасувати.",
+      confirmLabel: "Видалити",
+      tone: "danger",
+    });
+
+    if (!isConfirmed) {
       return;
     }
 

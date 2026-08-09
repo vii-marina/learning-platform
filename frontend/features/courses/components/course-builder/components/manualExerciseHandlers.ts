@@ -1,4 +1,5 @@
 import type { Dispatch, RefObject, SetStateAction } from "react";
+import type { ConfirmDialogContextValue } from "../../../../../components/ui/confirmDialogContext";
 import type { ExerciseEditorDraft } from "../types/courseBuilderUiTypes";
 import {
   AUTHOR_BLANK_TOKEN,
@@ -42,6 +43,8 @@ const insertSnippetIntoEditor = (
 
 // Plain handler factory — owns no state; the hook passes its state + setters in.
 type ManualExerciseHandlerDeps = {
+  // Passed in rather than read from context: this is a plain factory, not a hook.
+  confirm: ConfirmDialogContextValue["confirm"];
   draft: ExerciseEditorDraft;
   updateDraft: (updater: (currentDraft: ExerciseEditorDraft) => ExerciseEditorDraft) => void;
   setDraft: Dispatch<SetStateAction<ExerciseEditorDraft>>;
@@ -52,6 +55,7 @@ type ManualExerciseHandlerDeps = {
 };
 
 export function createManualExerciseHandlers({
+  confirm,
   draft,
   updateDraft,
   setDraft,
@@ -76,9 +80,18 @@ export function createManualExerciseHandlers({
     updateDraft((currentDraft) => withQuestion(currentDraft, value));
   };
 
-  const handleResetManualExercise = (confirmationMessage: string) => {
-    if (hasMeaningfulExerciseDraft(draft) && !window.confirm(confirmationMessage)) {
-      return;
+  const handleResetManualExercise = async (confirmationMessage: string) => {
+    if (hasMeaningfulExerciseDraft(draft)) {
+      const shouldReset = await confirm({
+        title: confirmationMessage,
+        description: "Введені дані вправи буде очищено.",
+        confirmLabel: "Очистити",
+        tone: "danger",
+      });
+
+      if (!shouldReset) {
+        return;
+      }
     }
 
     setAiError("");

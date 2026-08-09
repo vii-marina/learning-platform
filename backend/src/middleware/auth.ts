@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { AppError } from "../lib/appError";
+import { logger } from "../lib/logger";
+import { setRequestUser } from "../lib/requestContext";
 import { supabaseAdmin } from "../lib/supabase";
 import { getRequestAuthContext } from "../services/userService";
 
@@ -65,9 +67,11 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     // logout — so an upstream outage looked like every user's session expiring at once, with
     // nothing logged. Only an actual 4xx from GoTrue means the token is bad.
     if (error && !isTokenRejection(error)) {
-      console.error(
-        `[AUTH_UPSTREAM_UNAVAILABLE] Supabase auth did not answer: ${error.message}`
-      );
+      logger.error("Supabase auth did not answer", {
+        code: "AUTH_UPSTREAM_UNAVAILABLE",
+        detail: error.message,
+        errorName: error.name,
+      });
       throw new AppError(
         503,
         "Authentication service is temporarily unavailable.",
@@ -91,6 +95,9 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
     );
 
     req.auth = await getRequestAuthContext(data.user.id, email, fallbackFullName);
+    // From here on every log line for this request says who caused it. The id and role
+    // are recorded; the email is not, because logs are the wrong place for contact data.
+    setRequestUser(req.auth.userId, req.auth.role ?? undefined);
     next();
   } catch (error) {
     next(error);

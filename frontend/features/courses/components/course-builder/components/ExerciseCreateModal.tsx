@@ -1,3 +1,5 @@
+import { useId } from "react";
+import { Modal } from "../../../../../components/ui/Modal";
 import { Code2, X } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { ExerciseDifficulty, Lesson, Module } from "../../../api/index";
@@ -62,6 +64,7 @@ export function ExerciseCreateModal({
   onGenerateAi,
   onSave,
 }: ExerciseCreateModalProps) {
+  const headingId = useId();
   const modal = useExerciseCreateModal({
     isOpen,
     initialMode,
@@ -81,8 +84,13 @@ export function ExerciseCreateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      overlayClassName="z-[90]"
+      panelClassName="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]"
+    >
         <CourseStructureSidebar
           courseTitle={courseTitle}
           modules={modules}
@@ -108,7 +116,7 @@ export function ExerciseCreateModal({
               </div>
 
               <div className="min-w-0">
-                <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
+                <h3 id={headingId} className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                   {heading}
                 </h3>
               </div>
@@ -269,7 +277,6 @@ export function ExerciseCreateModal({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

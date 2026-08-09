@@ -1,118 +1,46 @@
-import { AppError, toServiceError } from "../lib/appError";
-import { supabaseAdmin } from "../lib/supabase";
-import type { AuthenticatedRequestContext, UserProfileRow } from "../types/auth";
+/**
+ * The teacher dashboard API.
+ *
+ * Reads live in `teacherDashboard/repository`; the scoring helpers in
+ * `teacherDashboard/resultScores`. What remains here is the join: turning per-course rows
+ * into the per-student view the dashboard renders.
+ */
 
-type CourseRow = {
-  id: string;
-  title: string;
-  description: string | null;
-  teacher_id: string;
-  status: "draft" | "published" | "archived";
-  access_type: "public" | "private" | "invite";
-  slug: string;
-  thumbnail_path: string | null;
-  is_published: boolean;
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
-};
+import { AppError } from "../lib/appError";
+import { groupByToMap as groupBy, groupCounts } from "../lib/collections";
+import type { AuthenticatedRequestContext } from "../types/auth";
+import {
+  listCompletedLessonProgressByUsers,
+  listCourseProgressByCourseIds,
+  listExercises,
+  listLessons,
+  listModules,
+  listOptionalUserTestResults,
+  listStudentProfiles,
+  listTeacherCourses,
+  listTests,
+} from "./teacherDashboard/repository";
+import {
+  getLatestCourseProgressRows,
+  getLatestIsoDate,
+  getNumericTestScore,
+  getResultDate,
+} from "./teacherDashboard/resultScores";
+import type {
+  TeacherDashboardCourseSummary,
+  TeacherDashboardStudentCourseProgress,
+  TeacherDashboardStudentsSummary,
+  UserTestResultRow,
+} from "./teacherDashboard/types";
 
-type ModuleRow = {
-  id: string;
-  course_id: string;
-};
-
-type LessonRow = {
-  id: string;
-  module_id: string;
-};
-
-type CourseProgressRow = {
-  id: string;
-  user_id: string;
-  course_id: string;
-  started_at: string | null;
-  finished_at: string | null;
-  created_at: string;
-  updated_at: string;
-};
-
-type LessonProgressRow = {
-  user_id: string;
-  lesson_id: string;
-  is_completed: boolean;
-};
-
-type TestRow = {
-  id: string;
-  module_id: string;
-};
-
-type ExerciseRow = {
-  id: string;
-  module_id: string;
-};
-
-type UserTestResultRow = Record<string, unknown> & {
-  user_id?: string | null;
-  test_id?: string | null;
-};
-
-export type TeacherDashboardCourseSummary = CourseRow & {
-  modulesCount: number;
-  lessonsCount: number;
-};
-
-export type TeacherDashboardStudentCourseProgress = Pick<
-  CourseRow,
-  "id" | "title" | "slug" | "status" | "access_type" | "thumbnail_path"
-> & {
-  started_at: string | null;
-  finished_at: string | null;
-  last_activity_at: string | null;
-  completed_lessons_count: number;
-  total_lessons_count: number;
-  progress_percent: number;
-  test_count: number;
-  exercise_count: number;
-  test_results_count: number;
-  best_test_score: number | null;
-  latest_test_result_at: string | null;
-};
-
-export type TeacherDashboardStudent = {
-  id: string;
-  full_name: string | null;
-  email: string;
-  created_at: string | null;
-  courses: TeacherDashboardStudentCourseProgress[];
-  enrolled_courses_count: number;
-  completed_courses_count: number;
-  average_progress_percent: number;
-};
-
-export type TeacherDashboardStudentsCourse = Pick<
-  CourseRow,
-  "id" | "title" | "slug" | "status" | "access_type" | "thumbnail_path"
-> & {
-  students_count: number;
-  average_progress_percent: number;
-  completed_students_count: number;
-  test_count: number;
-  exercise_count: number;
-  students: Array<
-    Pick<TeacherDashboardStudent, "id" | "full_name" | "email"> &
-      TeacherDashboardStudentCourseProgress
-  >;
-};
-
-export type TeacherDashboardStudentsSummary = {
-  students: TeacherDashboardStudent[];
-  courses: TeacherDashboardStudentsCourse[];
-  total_students_count: number;
-  total_course_views_count: number;
-  completed_course_views_count: number;
-};
+export { getNumericTestScore } from "./teacherDashboard/resultScores";
+export type {
+  TeacherDashboardCourseSummary,
+  TeacherDashboardStudent,
+  TeacherDashboardStudentCourseProgress,
+  TeacherDashboardStudentsCourse,
+  TeacherDashboardStudentsSummary,
+} from "./teacherDashboard/types";
 
 function ensureTeacherAccess(auth: AuthenticatedRequestContext) {
   if (auth.isAdmin || auth.role === "teacher") {
@@ -120,329 +48,6 @@ function ensureTeacherAccess(auth: AuthenticatedRequestContext) {
   }
 
   throw new AppError(403, "Teacher access is required.", "TEACHER_REQUIRED");
-}
-
-function chunkValues<TValue>(values: TValue[], size = 50) {
-  const chunks: TValue[][] = [];
-
-  for (let index = 0; index < values.length; index += size) {
-    chunks.push(values.slice(index, index + size));
-  }
-
-  return chunks;
-}
-
-function groupCounts<TItem>(items: TItem[], getKey: (item: TItem) => string) {
-  return items.reduce((counts, item) => {
-    const key = getKey(item);
-    counts.set(key, (counts.get(key) ?? 0) + 1);
-    return counts;
-  }, new Map<string, number>());
-}
-
-function groupBy<TItem>(items: TItem[], getKey: (item: TItem) => string) {
-  return items.reduce((groups, item) => {
-    const key = getKey(item);
-    const currentItems = groups.get(key) ?? [];
-    currentItems.push(item);
-    groups.set(key, currentItems);
-    return groups;
-  }, new Map<string, TItem[]>());
-}
-
-function isMissingOptionalRelationError(error: { message: string; code?: string }) {
-  const message = error.message.toLowerCase();
-
-  return (
-    error.code === "PGRST205" ||
-    error.code === "42P01" ||
-    message.includes("does not exist") ||
-    message.includes("could not find the table") ||
-    message.includes("could not find")
-  );
-}
-
-async function listTeacherCourses(teacherId: string) {
-  const { data, error } = await supabaseAdmin
-    .from("courses")
-    .select("*")
-    .eq("teacher_id", teacherId)
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) {
-    throw toServiceError(500, "COURSES_LIST_FAILED", "Unable to load teacher courses", error);
-  }
-
-  return (data ?? []) as CourseRow[];
-}
-
-async function listModules(courseIds: string[]) {
-  if (courseIds.length === 0) {
-    return [] as ModuleRow[];
-  }
-
-  const modules: ModuleRow[] = [];
-
-  for (const chunk of chunkValues(courseIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("modules")
-      .select("id,course_id")
-      .in("course_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "MODULES_LIST_FAILED", "Unable to load modules", error);
-    }
-
-    modules.push(...((data ?? []) as ModuleRow[]));
-  }
-
-  return modules;
-}
-
-async function listLessons(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return [] as LessonRow[];
-  }
-
-  const lessons: LessonRow[] = [];
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("lessons")
-      .select("id,module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "LESSONS_LIST_FAILED", "Unable to load lessons", error);
-    }
-
-    lessons.push(...((data ?? []) as LessonRow[]));
-  }
-
-  return lessons;
-}
-
-async function listCourseProgressByCourseIds(courseIds: string[]) {
-  if (courseIds.length === 0) {
-    return [] as CourseProgressRow[];
-  }
-
-  const progressRows: CourseProgressRow[] = [];
-
-  for (const chunk of chunkValues(courseIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("course_progress")
-      .select("*")
-      .in("course_id", chunk)
-      .order("updated_at", { ascending: false });
-
-    if (error) {
-      throw toServiceError(
-        500,
-        "COURSE_PROGRESS_LIST_FAILED",
-        "Unable to load course progress",
-        error
-      );
-    }
-
-    progressRows.push(...((data ?? []) as CourseProgressRow[]));
-  }
-
-  return progressRows;
-}
-
-async function listStudentProfiles(studentIds: string[]) {
-  if (studentIds.length === 0) {
-    return new Map<string, UserProfileRow>();
-  }
-
-  const profiles: UserProfileRow[] = [];
-
-  for (const chunk of chunkValues(studentIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("profiles")
-      .select("id,email,full_name,role,created_at")
-      .in("id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "STUDENTS_LIST_FAILED", "Unable to load students", error);
-    }
-
-    profiles.push(...((data ?? []) as UserProfileRow[]));
-  }
-
-  return new Map(profiles.map((profile) => [profile.id, profile]));
-}
-
-async function listCompletedLessonProgressByUsers(
-  userIds: string[],
-  lessonIds: string[]
-) {
-  if (userIds.length === 0 || lessonIds.length === 0) {
-    return [] as LessonProgressRow[];
-  }
-
-  const progressRows: LessonProgressRow[] = [];
-
-  for (const lessonChunk of chunkValues(lessonIds)) {
-    for (const userChunk of chunkValues(userIds)) {
-      const { data, error } = await supabaseAdmin
-        .from("lesson_progress")
-        .select("user_id,lesson_id,is_completed")
-        .eq("is_completed", true)
-        .in("lesson_id", lessonChunk)
-        .in("user_id", userChunk);
-
-      if (error) {
-        throw toServiceError(
-          500,
-          "LESSON_PROGRESS_LIST_FAILED",
-          "Unable to load lesson progress",
-          error
-        );
-      }
-
-      progressRows.push(...((data ?? []) as LessonProgressRow[]));
-    }
-  }
-
-  return progressRows;
-}
-
-async function listTests(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return [] as TestRow[];
-  }
-
-  const tests: TestRow[] = [];
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("test_entities")
-      .select("id,module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(500, "TESTS_LIST_FAILED", "Unable to load tests", error);
-    }
-
-    tests.push(...((data ?? []) as TestRow[]));
-  }
-
-  return tests;
-}
-
-async function listExercises(moduleIds: string[]) {
-  if (moduleIds.length === 0) {
-    return [] as ExerciseRow[];
-  }
-
-  const exercises: ExerciseRow[] = [];
-
-  for (const chunk of chunkValues(moduleIds)) {
-    const { data, error } = await supabaseAdmin
-      .from("exercises")
-      .select("id,module_id")
-      .in("module_id", chunk);
-
-    if (error) {
-      throw toServiceError(
-        500,
-        "EXERCISES_LIST_FAILED",
-        "Unable to load exercises",
-        error
-      );
-    }
-
-    exercises.push(...((data ?? []) as ExerciseRow[]));
-  }
-
-  return exercises;
-}
-
-async function listOptionalUserTestResults(userIds: string[], testIds: string[]) {
-  if (userIds.length === 0 || testIds.length === 0) {
-    return [] as UserTestResultRow[];
-  }
-
-  const results: UserTestResultRow[] = [];
-
-  for (const userChunk of chunkValues(userIds)) {
-    for (const testChunk of chunkValues(testIds)) {
-      const { data, error } = await supabaseAdmin
-        .from("user_test_results")
-        .select("*")
-        .in("user_id", userChunk)
-        .in("test_id", testChunk);
-
-      if (error) {
-        if (isMissingOptionalRelationError(error)) {
-          return [];
-        }
-
-        console.warn("[teacher-dashboard] Unable to load user test results", error);
-        return [];
-      }
-
-      results.push(...((data ?? []) as UserTestResultRow[]));
-    }
-  }
-
-  return results;
-}
-
-function getLatestCourseProgressRows(progressRows: CourseProgressRow[]) {
-  const progressByUserAndCourse = new Map<string, CourseProgressRow>();
-
-  for (const progressRow of progressRows) {
-    const key = `${progressRow.user_id}:${progressRow.course_id}`;
-    const currentProgress = progressByUserAndCourse.get(key);
-
-    if (
-      !currentProgress ||
-      new Date(progressRow.updated_at).getTime() >
-        new Date(currentProgress.updated_at).getTime()
-    ) {
-      progressByUserAndCourse.set(key, progressRow);
-    }
-  }
-
-  return [...progressByUserAndCourse.values()];
-}
-
-export function getNumericTestScore(result: UserTestResultRow) {
-  const rawValue =
-    result.score_percent ??
-    result.percentage ??
-    result.percent ??
-    result.score ??
-    result.result;
-
-  if (typeof rawValue !== "number" || Number.isNaN(rawValue)) {
-    return null;
-  }
-
-  // Scores are written as an integer percentage (scoreSubmission rounds correct/total * 100), but
-  // older rows may hold a 0-1 fraction. Only a NON-integer in that range can be a fraction: an
-  // integer 1 is a legitimate 1%, and treating it as 0.01 rendered the worst possible non-zero
-  // score as a perfect 100.
-  const isFraction = rawValue > 0 && rawValue < 1 && !Number.isInteger(rawValue);
-
-  return isFraction ? Math.round(rawValue * 100) : Math.round(rawValue);
-}
-
-function getResultDate(result: UserTestResultRow) {
-  const rawValue =
-    result.completed_at ?? result.submitted_at ?? result.created_at ?? result.updated_at;
-
-  return typeof rawValue === "string" ? rawValue : null;
-}
-
-function getLatestIsoDate(values: Array<string | null | undefined>) {
-  return values
-    .filter((value): value is string => Boolean(value))
-    .sort((left, right) => new Date(right).getTime() - new Date(left).getTime())[0] ?? null;
 }
 
 export async function listTeacherDashboardCourses(

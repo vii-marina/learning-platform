@@ -1,4 +1,5 @@
 import { AppError, toServiceError } from "../lib/appError";
+import { logger } from "../lib/logger";
 import { supabaseAdmin } from "../lib/supabase";
 
 export type LandingPageSettingsRow = {
@@ -89,15 +90,20 @@ export async function saveLandingPreviewSnapshot(
   }
 
   if (isMissingTableError(error, LANDING_PREVIEW_SNAPSHOT_TABLE)) {
-    console.warn(
-      `[LANDING_PREVIEW_SNAPSHOT] table missing — landing will keep using the backend endpoint. Run claude/${LANDING_PREVIEW_SNAPSHOT_TABLE}.sql in Supabase.`
+    logger.warn(
+      "Landing preview snapshot table is missing — the landing will keep using the backend endpoint",
+      {
+        code: "LANDING_PREVIEW_SNAPSHOT_TABLE_MISSING",
+        remedy: `Run claude/${LANDING_PREVIEW_SNAPSHOT_TABLE}.sql in Supabase.`,
+      }
     );
     return false;
   }
 
-  console.error(
-    `[LANDING_PREVIEW_SNAPSHOT_SAVE_FAILED] Unable to store landing preview snapshot: ${error.message}`
-  );
+  logger.error("Unable to store the landing preview snapshot", {
+    code: "LANDING_PREVIEW_SNAPSHOT_SAVE_FAILED",
+    detail: error.message,
+  });
   return false;
 }
 
@@ -125,9 +131,11 @@ export async function clearLandingPreviewSnapshotForCourse(courseId: string): Pr
     return false;
   }
 
-  console.error(
-    `[LANDING_PREVIEW_SNAPSHOT_CLEAR_FAILED] Unable to clear landing preview snapshot: ${error.message}`
-  );
+  logger.error("Unable to clear the landing preview snapshot", {
+    code: "LANDING_PREVIEW_SNAPSHOT_CLEAR_FAILED",
+    detail: error.message,
+    courseId,
+  });
   return false;
 }
 

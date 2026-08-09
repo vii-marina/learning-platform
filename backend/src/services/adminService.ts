@@ -12,6 +12,7 @@ import {
   saveAdminRecord,
   saveProfile,
 } from "./userService";
+import { logger } from "../lib/logger";
 import { supabaseAdmin } from "../lib/supabase";
 import type { NormalizedUser, PublicRegistrationRole, UserRole } from "../types/auth";
 
@@ -136,7 +137,14 @@ export async function createManagedUser(input: CreateManagedUserInput): Promise<
           await deleteStudentAccount(createdUserId);
         }
       } catch (cleanupError) {
-        console.error(cleanupError);
+        // The original failure is what the caller sees; this one would otherwise vanish,
+        // leaving an orphaned auth user with nothing recorded about it.
+        logger.error("Failed to roll back a partially created managed user", {
+          code: "MANAGED_USER_CLEANUP_FAILED",
+          createdUserId,
+          role: input.role,
+          error: cleanupError,
+        });
       }
     }
 

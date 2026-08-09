@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { env } from "../config/env";
+import { logger } from "../lib/logger";
 import { openai } from "../lib/openai";
 import {
   AiQualityError,
@@ -390,9 +391,9 @@ export async function generateExerciseFromLesson(
     throw new AiQualityError("Empty AI response");
   }
 
-  if (env.NODE_ENV === "development") {
-    console.log("[AI] Raw exercise response:", response);
-  }
+  // Debug level rather than a NODE_ENV check: the log level already decides whether this
+  // is emitted, and the raw response is large enough that it should never ship by default.
+  logger.debug("Raw AI exercise response", { response });
 
   let parsed: unknown;
 

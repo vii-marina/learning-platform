@@ -1,25 +1,13 @@
-import { BookOpen, Plus, X } from "lucide-react";
+import { BookOpen, Plus } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../../components/ui/button";
 import { Card } from "../../../components/ui/Card";
 import { LoadingState } from "../../../components/ui/LoadingState";
-import {
-  listModuleContent,
-  listModulesByCourse,
-  publishCourse,
-  softDeleteCourse,
-  unpublishCourse,
-  type Lesson,
-  type Module,
-} from "../../courses/api";
-import { getCourseMediaPublicUrl } from "../../courses/api/courseMediaStorage";
-import { CoursePreviewPage } from "../../courses/components/course-builder/components/CoursePreviewPage";
-import {
-  mapExerciseToCourseExercise,
-  mapHydratedTestsToCourseTests,
-} from "../../courses/components/course-builder/lib/courseBuilderPageUtils";
-import type { CourseExercise, CourseTest } from "../../courses/components/course-builder/types/courseBuilderUiTypes";
+import { publishCourse, softDeleteCourse, unpublishCourse } from "../../courses/api";
 import { getErrorMessage } from "../../auth/api/backendClient";
+import { TeacherCourseDeleteModal } from "./TeacherCourseDeleteModal";
+import { TeacherCourseDetailsModal } from "./TeacherCourseDetailsModal";
+import { loadTeacherCoursePreview, type TeacherCoursePreviewData } from "./teacherCoursePreview";
 import { listTeacherDashboardCourses } from "../api/teacherDashboardApi";
 import { TeacherContinueEditing } from "./TeacherContinueEditing";
 import { TeacherCourseCard } from "./TeacherCourseCard";
@@ -34,29 +22,11 @@ import type {
   TeacherCourseSummary,
 } from "./teacherCourseDashboard.types";
 import {
-  formatCourseRelativeTime,
-  getCourseStatusClassName,
-  getCourseStatusLabel,
   isArchivedCourse,
   isPublishedCourse,
   matchesCourseFilter,
   sortCoursesByRecent,
 } from "./teacherCourseDashboard.utils";
-
-type TeacherDashboardCoursesProps = {
-  teacherId: string | null;
-  onCreateCourse: () => void;
-  onContinueCourse: (courseId: string) => void;
-  onOpenPublishCourse: (courseId: string) => void;
-};
-
-type TeacherCoursePreviewData = {
-  course: TeacherCourseSummary;
-  modules: Module[];
-  lessonsByModule: Record<string, Lesson[]>;
-  testsByModule: Record<string, CourseTest[]>;
-  exercisesByModule: Record<string, CourseExercise[]>;
-};
 
 type PendingCourseAction = {
   courseId: string;
@@ -69,193 +39,13 @@ function buildAlertClassName(type: "error" | "success") {
     : "border-[#13daec]/30 bg-[#13daec]/10 text-slate-800";
 }
 
-async function loadTeacherCoursePreview(
-  course: TeacherCourseSummary
-): Promise<TeacherCoursePreviewData> {
-  const modules = await listModulesByCourse(course.id);
-  const moduleContent = await Promise.all(
-    modules.map(async (module) => {
-      const content = await listModuleContent(module.id);
+type TeacherDashboardCoursesProps = {
+  teacherId: string | null;
+  onCreateCourse: () => void;
+  onContinueCourse: (courseId: string) => void;
+  onOpenPublishCourse: (courseId: string) => void;
+};
 
-      return {
-        moduleId: module.id,
-        lessons: content.lessons,
-        tests: mapHydratedTestsToCourseTests(content.tests),
-        exercises: content.exercises.map(mapExerciseToCourseExercise),
-      };
-    })
-  );
-
-  return {
-    course,
-    modules,
-    lessonsByModule: Object.fromEntries(
-      moduleContent.map(({ moduleId, lessons }) => [moduleId, lessons])
-    ) as Record<string, Lesson[]>,
-    testsByModule: Object.fromEntries(
-      moduleContent.map(({ moduleId, tests }) => [moduleId, tests])
-    ) as Record<string, CourseTest[]>,
-    exercisesByModule: Object.fromEntries(
-      moduleContent.map(({ moduleId, exercises }) => [moduleId, exercises])
-    ) as Record<string, CourseExercise[]>,
-  };
-}
-
-function TeacherCourseDeleteModal({
-  course,
-  isDeleting,
-  onClose,
-  onConfirm,
-}: {
-  course: TeacherCourseSummary | null;
-  isDeleting: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  if (!course) {
-    return null;
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[120] bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget && !isDeleting) {
-          onClose();
-        }
-      }}
-    >
-      <div className="mx-auto flex min-h-full max-w-md items-center justify-center">
-        <div className="w-full rounded-xl border border-slate-200 bg-white p-6 shadow-xl">
-          <div className="space-y-3">
-            <p className="text-sm font-semibold  text-rose-600">
-              Видалити курс
-            </p>
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-950">
-              Видалити {course.title}?
-            </h2>
-            <p className="text-sm leading-6 text-slate-500">
-              Курс буде прибрано з вашого дашборду.
-            </p>
-          </div>
-
-          <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-            <Button type="button" variant="secondary" size="lg" onClick={onClose} disabled={isDeleting}>
-              Скасувати
-            </Button>
-            <Button
-              type="button"
-              size="lg"
-              onClick={onConfirm}
-              disabled={isDeleting}
-              className="border-rose-600 bg-rose-600 text-white hover:bg-rose-700"
-            >
-              Видалити
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function TeacherCourseDetailsModal({
-  course,
-  previewData,
-  isLoading,
-  message,
-  onClose,
-  onContinue,
-}: {
-  course: TeacherCourseSummary | null;
-  previewData: TeacherCoursePreviewData | null;
-  isLoading: boolean;
-  message: string;
-  onClose: () => void;
-  onContinue: (course: TeacherCourseSummary) => void;
-}) {
-  if (!course) {
-    return null;
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-[110] bg-slate-950/55 p-4 backdrop-blur-sm lg:p-6"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div className="mx-auto flex h-full max-w-[1540px] flex-col overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-2xl">
-        <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200/80 bg-white px-5 py-5 md:px-6">
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-semibold ${getCourseStatusClassName(course)}`}
-              >
-                {getCourseStatusLabel(course)}
-              </span>
-              <span className="text-sm text-slate-500">
-                Останнє редагування: {formatCourseRelativeTime(course.updated_at)}
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-2 text-sm text-slate-600">
-              <span className="rounded-full bg-slate-100 px-3 py-1.5">
-                {course.modulesCount} модулів
-              </span>
-              <span className="rounded-full bg-slate-100 px-3 py-1.5">
-                {course.lessonsCount} уроків
-              </span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <Button type="button" size="lg" onClick={() => onContinue(course)}>
-              Продовжити редагування
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              size="lg"
-              onClick={onClose}
-              className="w-15 px-0"
-              aria-label="Закрити деталі курсу"
-            >
-              <X className="h-5 w-5" />
-            </Button>
-          </div>
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6">
-          {message ? (
-            <Card className="border-rose-200 bg-rose-50 p-6 text-rose-700 shadow-none">
-              <p className="text-sm font-medium">{message}</p>
-            </Card>
-          ) : isLoading ? (
-            <LoadingState variant="modal" />
-          ) : previewData ? (
-            <CoursePreviewPage
-              courseId={course.id}
-              courseTitle={course.title}
-              courseDescription={course.description}
-              courseThumbnailPath={course.thumbnail_path}
-              courseThumbnailUrl={getCourseMediaPublicUrl(course.thumbnail_path)}
-              modules={previewData.modules}
-              lessonsByModule={previewData.lessonsByModule}
-              testsByModule={previewData.testsByModule}
-              exercisesByModule={previewData.exercisesByModule}
-            />
-          ) : (
-            <Card className="p-10 text-sm text-slate-500">
-              Перегляд недоступний.
-            </Card>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export function TeacherDashboardCourses({
   teacherId,

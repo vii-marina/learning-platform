@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useConfirmDialog } from "../../../../../components/ui/confirmDialogContext";
 import { getExerciseAiGenerationLimit } from "../../../api/index";
 import type {
   ExerciseDifficulty,
@@ -59,6 +60,7 @@ export function useExerciseCreateModal({
   onSave,
   onClose,
 }: UseExerciseCreateModalInput) {
+  const { confirm } = useConfirmDialog();
   const [creationMode, setCreationMode] = useState<CreateContentMode | null>(initialMode);
   const [isExerciseTypeSelected, setIsExerciseTypeSelected] = useState(
     activeExerciseId !== null
@@ -340,6 +342,7 @@ export function useExerciseCreateModal({
   };
 
   const aiGenerationHandlers = createAiGenerationHandlers({
+    confirm,
     draft,
     isAiMode,
     generatedExercises,
@@ -378,6 +381,7 @@ export function useExerciseCreateModal({
   });
 
   const manualExerciseHandlers = createManualExerciseHandlers({
+    confirm,
     draft,
     updateDraft,
     setDraft,

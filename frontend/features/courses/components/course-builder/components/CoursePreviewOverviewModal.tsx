@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { BadgeCheck, Code2, Layers3, Play, X } from "lucide-react";
+import { Modal } from "../../../../../components/ui/Modal";
 import { Button } from "../../../../../components/ui/button";
 import type { Lesson, Module } from "../../../api/index";
-import { hasLessonContent, studentQuestionTypeLabels } from "../lib/courseBuilderPageUtils";
+import { hasLessonContent } from "../lib/courseBuilderPageUtils";
 import type { CourseExercise, CourseTest } from "../types/courseBuilderUiTypes";
 import {
   getCoursePreviewTestTitle,
@@ -14,7 +15,15 @@ import {
   isGeneratedCoursePreviewItem,
 } from "../lib/coursePreviewUtils";
 import { getYouTubeEmbedUrl } from "../lib/youtube";
-import { ExercisePreview } from "./ExercisePreview";
+import { CourseOverviewExercisesTab } from "./CourseOverviewExercisesTab";
+import {
+  CourseOverviewPath,
+  TestQuestionPreviewCard,
+} from "./coursePreviewOverviewParts";
+import {
+  getOpenButtonClassName,
+  getOverviewTabButtonClassName,
+} from "./coursePreviewOverviewStyles";
 
 export type CoursePreviewOverviewTab = "modules" | "lessons" | "exercises" | "tests";
 
@@ -51,153 +60,6 @@ type OverviewTestItem = {
   displayTitle: string;
 };
 
-type CourseOverviewPathProps = {
-  module: Module;
-  lesson?: Lesson | null;
-};
-
-type TestQuestionPreviewCardProps = {
-  question: CourseTest["questions"][number];
-  index: number;
-};
-
-function getOverviewTabButtonClassName(
-  tab: CoursePreviewOverviewTab,
-  isActive: boolean
-) {
-  const baseClassName =
-    "inline-flex items-center gap-2.5 rounded-[1.1rem] border px-4 py-2.5 text-sm font-semibold shadow-[0_10px_24px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5";
-
-  if (tab === "modules") {
-    return isActive
-      ? `${baseClassName} border-[#13daec] bg-[#13daec] text-[#0f172a]`
-      : `${baseClassName} border-[#13daec]/30 bg-white text-[#0f8ea0] hover:border-[#13daec]/45 hover:bg-[#ecfeff]`;
-  }
-
-  if (tab === "lessons") {
-    return isActive
-      ? `${baseClassName} border-emerald-500 bg-emerald-500 text-white`
-      : `${baseClassName} border-emerald-200 bg-white text-emerald-800 hover:border-emerald-300 hover:bg-emerald-50`;
-  }
-
-  if (tab === "exercises") {
-    return isActive
-      ? `${baseClassName} border-amber-500 bg-amber-500 text-white`
-      : `${baseClassName} border-amber-200 bg-white text-amber-800 hover:border-amber-300 hover:bg-amber-50`;
-  }
-
-  return isActive
-    ? `${baseClassName} border-violet-500 bg-violet-500 text-white`
-    : `${baseClassName} border-violet-200 bg-white text-violet-800 hover:border-violet-300 hover:bg-violet-50`;
-}
-
-function getOpenButtonClassName(tab: CoursePreviewOverviewTab) {
-  const baseClassName =
-    "h-11 rounded-xl border bg-white px-5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50";
-
-  if (tab === "modules") {
-    return `${baseClassName} border-[#13daec]/30 text-[#0f8ea0] hover:border-[#13daec]/45 hover:bg-[#ecfeff]`;
-  }
-
-  if (tab === "lessons") {
-    return `${baseClassName} border-emerald-200 text-emerald-800 hover:border-emerald-300 hover:bg-emerald-50`;
-  }
-
-  if (tab === "exercises") {
-    return `${baseClassName} border-orange-200 text-orange-800 hover:border-orange-300 hover:bg-orange-50`;
-  }
-
-  return `${baseClassName} border-violet-200 text-violet-800 hover:border-violet-300 hover:bg-violet-50`;
-}
-
-function getExerciseTypeLabel(exercise: CourseExercise) {
-  return exercise.type === "drag_drop_code" ? "Заповнити пропуски в коді" : "Написати код";
-}
-
-function CourseOverviewPath({ module, lesson = null }: CourseOverviewPathProps) {
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
-        <Layers3 className="h-3.5 w-3.5 text-[#08bfd4]" />
-        <span>{`Модуль ${module.order}`}</span>
-      </span>
-
-      {lesson ? (
-        <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-[0_8px_18px_rgba(15,23,42,0.04)]">
-          <Play className="ml-0.5 h-3.5 w-3.5 text-emerald-600" />
-          <span>{`Урок ${module.order}.${lesson.order}`}</span>
-        </span>
-      ) : null}
-    </div>
-  );
-}
-
-function TestQuestionPreviewCard({ question, index }: TestQuestionPreviewCardProps) {
-  const isSingleChoice = question.type === "single_choice";
-
-  return (
-    <div className="rounded-[1.25rem] border border-violet-200 bg-slate-50 p-4 shadow-[0_14px_30px_rgba(139,92,246,0.06)]">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-8 min-w-8 shrink-0 items-center justify-center rounded-lg border border-violet-200 bg-white px-2 text-xs font-semibold text-violet-700 shadow-[0_8px_18px_rgba(139,92,246,0.08)]">
-            {index + 1}
-          </span>
-          <label className="text-sm font-semibold text-[#14213d]">Запитання</label>
-        </div>
-
-        <span className="rounded-full border border-violet-200 bg-white px-3 py-1 text-[11px] font-semibold text-violet-700">
-          {studentQuestionTypeLabels[question.type]}
-        </span>
-      </div>
-
-      <div className="mt-3 rounded-xl border border-transparent bg-white px-4 py-3 text-sm leading-6 text-slate-700">
-        {question.questionText.trim() || `Запитання ${index + 1}`}
-      </div>
-
-      <div className="mt-4 space-y-3">
-        {question.options.map((option, optionIndex) => {
-          const isCorrect = question.correctOptionIndexes.includes(optionIndex);
-
-          return (
-            <div key={`${question.id}-${optionIndex}`} className="flex items-center gap-3">
-              <span
-                className={`flex h-4 w-4 shrink-0 items-center justify-center border ${
-                  isSingleChoice ? "rounded-full" : "rounded-[4px]"
-                } ${
-                  isCorrect ? "border-violet-500 bg-violet-500" : "border-slate-300 bg-white"
-                }`}
-              >
-                {isCorrect ? (
-                  <span
-                    className={`block bg-white ${
-                      isSingleChoice ? "h-1.5 w-1.5 rounded-full" : "h-2 w-2 rounded-[2px]"
-                    }`}
-                  />
-                ) : null}
-              </span>
-
-              <div
-                className={`flex h-11 flex-1 items-center rounded-xl border px-4 text-sm ${
-                  isCorrect
-                    ? "border-violet-200 bg-violet-50 text-violet-900"
-                    : "border-transparent bg-white text-[#14213d]"
-                }`}
-              >
-                {option}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {question.hint?.trim() ? (
-        <div className="mt-4 rounded-xl border border-violet-100 bg-white px-4 py-3 text-sm leading-6 text-slate-600">
-          <span className="font-semibold text-slate-700">Підказка:</span> {question.hint.trim()}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 export function CoursePreviewOverviewModal({
   isOpen,
@@ -213,6 +75,7 @@ export function CoursePreviewOverviewModal({
   onSelectExercise,
   onSelectTest,
 }: CoursePreviewOverviewModalProps) {
+  const headingId = useId();
   useEffect(() => {
     if (!isOpen) {
       return;
@@ -339,19 +202,17 @@ export function CoursePreviewOverviewModal({
   ];
 
   return (
-    <div
-      className="fixed inset-0 z-[135] overscroll-contain bg-slate-950/55 px-4 py-4 backdrop-blur-sm"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          onClose();
-        }
-      }}
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      closeOnOverlayClick
+      overlayClassName="z-[120]"
+      panelClassName="flex h-[84vh] max-h-[46rem] w-full max-w-6xl flex-col overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]"
     >
-      <div className="mx-auto flex min-h-full max-w-6xl items-center justify-center">
-        <div className="flex h-[84vh] max-h-[46rem] w-full flex-col overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
           <div className="flex min-h-[92px] items-center justify-between border-b border-slate-200 px-5 py-4 md:px-6">
             <div>
-              <h2 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
+              <h2 id={headingId} className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                 Огляд курсу
               </h2>
             </div>
@@ -519,90 +380,10 @@ export function CoursePreviewOverviewModal({
             ) : null}
 
             {activeTab === "exercises" ? (
-              exerciseItems.length === 0 ? (
-                <div className="rounded-[1.25rem] border border-dashed border-slate-200 bg-white px-5 py-8 text-sm text-slate-500">
-                  Поки немає доступних вправ.
-                </div>
-              ) : (
-                <div className="space-y-5">
-                  {exerciseItems.map(({ module, lesson, exercise }, index) => {
-                    const exerciseTypeLabel = getExerciseTypeLabel(exercise);
-                    const showExerciseTitle =
-                      exercise.title.trim().length > 0 &&
-                      exercise.title.trim().toLowerCase() !==
-                        exerciseTypeLabel.toLowerCase();
-
-                    return (
-                      <section
-                        key={exercise.id}
-                        className="rounded-[1.5rem] border border-orange-200 bg-white p-5 shadow-[0_14px_32px_rgba(249,115,22,0.08)]"
-                      >
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                          <div className="min-w-0 flex-1">
-                            <CourseOverviewPath module={module} lesson={lesson} />
-
-                            <div className="mt-4 flex flex-wrap items-center gap-2">
-                              {isGeneratedCoursePreviewItem(exercise.id) ? (
-                                <span className="rounded-full border border-orange-200 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-700">
-                                  AI Practice
-                                </span>
-                              ) : null}
-                            </div>
-
-                            {showExerciseTitle ? (
-                              <h3 className="mt-3 text-2xl font-extrabold tracking-tight text-[#14213d]">
-                                {exercise.title}
-                              </h3>
-                            ) : null}
-
-                            {exercise.description?.trim() ? (
-                              <p className="mt-3 text-sm leading-6 text-slate-600">
-                                {exercise.description}
-                              </p>
-                            ) : null}
-                          </div>
-
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => {
-                              if (!lesson) {
-                                return;
-                              }
-
-                              onSelectExercise(module.id, lesson.id, exercise.id);
-                            }}
-                            disabled={!lesson}
-                            className={getOpenButtonClassName("exercises")}
-                          >
-                            Відкрити вправу
-                          </Button>
-                        </div>
-
-                        <div className="mt-5 rounded-2xl border border-orange-300 bg-orange-50/40 p-4 shadow-[inset_0_0_0_1px_rgba(251,146,60,0.18)]">
-                          <div className="flex items-start gap-3">
-                            <span className="flex h-9 min-w-9 shrink-0 items-center justify-center rounded-xl bg-white text-sm font-extrabold text-orange-600">
-                              {`${index + 1}.`}
-                            </span>
-
-                            <div className="min-w-0 flex-1 rounded-xl border border-orange-200 bg-white px-4 py-3 text-base font-semibold leading-6 text-[#14213d]">
-                              {exercise.content.question.trim() || exercise.title || "Вправа"}
-                            </div>
-                          </div>
-
-                          <div className="mt-4">
-                            <ExercisePreview
-                              content={exercise.content}
-                              showAnswerKey
-                              showQuestion={false}
-                            />
-                          </div>
-                        </div>
-                      </section>
-                    );
-                  })}
-                </div>
-              )
+              <CourseOverviewExercisesTab
+                exerciseItems={exerciseItems}
+                onSelectExercise={onSelectExercise}
+              />
             ) : null}
 
             {activeTab === "tests" ? (
@@ -659,8 +440,6 @@ export function CoursePreviewOverviewModal({
               )
             ) : null}
           </div>
-        </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

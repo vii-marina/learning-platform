@@ -6,6 +6,7 @@ import { AppError } from "./lib/appError";
 import { errorHandler } from "./middleware/errorHandler";
 import { notFoundHandler } from "./middleware/notFound";
 import { globalRateLimiter } from "./middleware/rateLimit";
+import { requestLogger } from "./middleware/requestLogger";
 import { adminRoutes } from "./routes/adminRoutes";
 import { authRoutes } from "./routes/authRoutes";
 import { authoringRoutes } from "./routes/authoringRoutes";
@@ -44,6 +45,10 @@ export function createApp() {
     },
   };
 
+  // First in the chain: everything after this point runs inside a request context, so
+  // any log line — including ones from CORS rejections and body-parse failures — carries
+  // a request id.
+  app.use(requestLogger);
   app.use(cors(corsOptions));
   // 1mb (up from the 100kb default) headroom for bulk authoring payloads (whole-test save).
   app.use(express.json({ limit: "1mb" }));

@@ -10,6 +10,7 @@ type ModalProps = {
   panelClassName?: string;
   overlayClassName?: string;
   labelledById?: string;
+  describedById?: string;
   ariaLabel?: string;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
@@ -27,6 +28,7 @@ export function Modal({
   panelClassName = "",
   overlayClassName = "z-50",
   labelledById,
+  describedById,
   ariaLabel,
   closeOnOverlayClick = false,
   closeOnEscape = true,
@@ -127,6 +129,7 @@ export function Modal({
           role="dialog"
           aria-modal="true"
           aria-labelledby={labelledById}
+          aria-describedby={describedById}
           aria-label={ariaLabel}
           tabIndex={-1}
           className={panelClassName}

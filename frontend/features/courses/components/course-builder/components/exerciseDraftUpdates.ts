@@ -1,8 +1,4 @@
-import type {
-  DragDropCodeExerciseBlank,
-  DragDropCodeExerciseContent,
-  WriteCodeExerciseContent,
-} from "../../../api/index";
+import type { DragDropCodeExerciseBlank, DragDropCodeExerciseContent, WriteCodeExerciseContent } from "../../../api/index";
 import type { ExerciseEditorDraft } from "../types/courseBuilderUiTypes";
 
 // Pure draft transformations shared by the manual and AI-generated editors.

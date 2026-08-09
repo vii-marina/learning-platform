@@ -1,4 +1,6 @@
 import type { Request, Response } from "express";
+import { logger } from "../lib/logger";
+import { getMetricsSnapshot } from "../lib/metrics";
 import { supabaseAdmin } from "../lib/supabase";
 
 export function getHealth(_req: Request, res: Response) {
@@ -22,7 +24,10 @@ export async function getReadiness(_req: Request, res: Response) {
   const { error } = await supabaseAdmin.from("profiles").select("id").limit(1);
 
   if (error) {
-    console.error(`[READINESS_FAILED] Supabase is not reachable: ${error.message}`);
+    logger.error("Readiness check failed: Supabase is not reachable", {
+      code: "READINESS_FAILED",
+      detail: error.message,
+    });
     res.status(503).json({
       status: "unavailable",
       dependency: "supabase",
@@ -37,4 +42,15 @@ export async function getReadiness(_req: Request, res: Response) {
     latencyMs: Date.now() - startedAt,
     timestamp: new Date().toISOString(),
   });
+}
+
+/**
+ * Request counters, latency and per-route totals since the process started.
+ *
+ * Admin-only: on its own the data is harmless, but it describes traffic volume and the
+ * route table, and there is no reason for that to be public. It sits with the health
+ * routes because it is operational rather than product data.
+ */
+export function getMetrics(_req: Request, res: Response) {
+  res.status(200).json(getMetricsSnapshot());
 }

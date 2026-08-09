@@ -11,11 +11,16 @@ const envSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
   CORS_ORIGIN: z.string().min(1),
+  // Left undefined the logger picks a level from NODE_ENV (debug in development,
+  // info otherwise), so this only needs setting to override that.
+  LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).optional(),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);
 
 if (!parsedEnv.success) {
+  // The one place `console` is still correct: the logger reads its level from this module,
+  // so it cannot be imported before the config is known to be valid.
   console.error("Invalid backend environment variables", parsedEnv.error.flatten().fieldErrors);
   throw new Error("Invalid backend environment variables");
 }

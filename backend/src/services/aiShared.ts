@@ -1,4 +1,5 @@
 import type OpenAI from "openai";
+import { logger } from "../lib/logger";
 
 /**
  * A quality failure: the model responded, but the output was unusable
@@ -47,7 +48,7 @@ export function logAiUsage(
   label: string,
   completion: OpenAI.Chat.Completions.ChatCompletion
 ) {
-  console.log(`[AI] ${label} usage:`, {
+  logger.info(`AI ${label} usage`, {
     model: completion.model,
     promptTokens: completion.usage?.prompt_tokens,
     completionTokens: completion.usage?.completion_tokens,

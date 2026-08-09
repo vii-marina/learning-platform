@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { Minus, PenSquare, Plus, Sparkles, X, BadgeCheck } from "lucide-react";
+import { useId, useState } from "react";
+import { Modal } from "../../../../../components/ui/Modal";
+import {
+  TestCreationMethodCards,
+  TestPlacementControls,
+} from "./TestCreateModalSections";
+import { Minus, Plus, X, BadgeCheck } from "lucide-react";
 import { Button } from "../../../../../components/ui/button";
 import type { AiQuestionGenerationMode, Lesson, Module } from "../../../api/index";
 import type {
@@ -82,6 +87,7 @@ export function TestCreateModal({
   onQuestionChange,
   onDeleteQuestion,
 }: TestCreateModalProps) {
+  const headingId = useId();
   const [manualPreviewLessonId, setManualPreviewLessonId] = useState<string | null>(null);
   const hasMeaningfulQuestions = hasMeaningfulTestQuestionDraft(questions);
   const initialResolvedMode: CreateContentMode | null =
@@ -198,58 +204,15 @@ export function TestCreateModal({
   };
 
   const placementControls = (
-    <div className="mt-5 space-y-3">
-      <div className="grid gap-3 md:grid-cols-2">
-        <button
-          type="button"
-          onClick={() => handlePlacementChange(null)}
-          className={`h-12 w-full rounded-xl border px-4 text-sm font-medium transition ${
-            selectedAfterLessonId === null
-              ? "border-violet-200 bg-violet-50 text-violet-700"
-              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-          }`}
-          disabled={controlsDisabled}
-        >
-          This Module
-        </button>
-
-        <select
-          value={selectedAfterLessonId ?? ""}
-          onChange={(event) => handlePlacementChange(event.target.value || null)}
-          disabled={lessons.length === 0 || controlsDisabled}
-          className={`${surfaceControlClassName} px-4 ${
-            selectedAfterLessonId !== null
-              ? "border-violet-200 bg-violet-50 text-violet-700"
-              : "text-slate-700"
-          }`}
-        >
-          <option value="" disabled>
-            {lessons.length === 0 ? "Немає доступних уроків" : "Оберіть урок"}
-          </option>
-          {lessons.map((lesson) => (
-            <option key={lesson.id} value={lesson.id}>
-              {`${lesson.order}. ${lesson.title}`}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <label className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
-        <span>
-          <span className="block text-sm font-semibold text-slate-800">Оцінюваний тест</span>
-          <span className="mt-0.5 block text-xs text-slate-500">
-            Студент не бачить правильних відповідей під час проходження — лише результат наприкінці.
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          checked={isGraded}
-          onChange={(event) => onIsGradedChange(event.target.checked)}
-          disabled={controlsDisabled}
-          className="h-5 w-5 shrink-0 accent-violet-600"
-        />
-      </label>
-    </div>
+    <TestPlacementControls
+      lessons={lessons}
+      selectedAfterLessonId={selectedAfterLessonId}
+      isGraded={isGraded}
+      controlsDisabled={controlsDisabled}
+      surfaceControlClassName={surfaceControlClassName}
+      onPlacementChange={handlePlacementChange}
+      onIsGradedChange={onIsGradedChange}
+    />
   );
 
   const questionList = (
@@ -268,70 +231,21 @@ export function TestCreateModal({
   );
 
   const creationMethodCards = (
-    <div className="mt-5 grid gap-3 xl:grid-cols-2">
-      <button
-        type="button"
-        onClick={() => setMode("ai")}
-        aria-pressed={mode === "ai"}
-        disabled={isSaving}
-        className={`rounded-xl border p-4 text-left transition ${
-          mode === "ai"
-            ? "border-violet-200 bg-violet-50"
-            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-              mode === "ai"
-                ? "bg-white text-violet-600"
-                : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            <Sparkles className="h-4 w-4" />
-          </span>
-          <div className="min-w-0">
-            <h4 className="text-base font-semibold text-[#14213d]">
-              Генерувати за допомогою ШІ
-            </h4>
-          </div>
-        </div>
-      </button>
-
-      <button
-        type="button"
-        onClick={() => setMode("manual")}
-        aria-pressed={mode === "manual"}
-        disabled={isSaving}
-        className={`rounded-xl border p-4 text-left transition ${
-          mode === "manual"
-            ? "border-violet-200 bg-violet-50"
-            : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
-        }`}
-      >
-        <div className="flex items-center gap-3">
-          <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
-              mode === "manual"
-                ? "bg-white text-violet-600"
-                : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            <PenSquare className="h-4 w-4" />
-          </span>
-          <div className="min-w-0">
-            <h4 className="text-base font-semibold text-[#14213d]">
-              Створити самостійно
-            </h4>
-          </div>
-        </div>
-      </button>
-    </div>
+    <TestCreationMethodCards
+      mode={mode}
+      isSaving={isSaving}
+      onModeChange={setMode}
+    />
   );
 
   return (
-    <div className="fixed inset-0 z-[90] bg-slate-950/60 px-4 py-4 backdrop-blur-sm">
-      <div className="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]">
+    <Modal
+      isOpen
+      onClose={onClose}
+      labelledById={headingId}
+      overlayClassName="z-[90]"
+      panelClassName="mx-auto flex h-full max-h-[94vh] w-full max-w-[98rem] overflow-hidden rounded-[0.75rem] border border-slate-200 bg-white shadow-[0_30px_70px_rgba(15,23,42,0.22)]"
+    >
         <CourseStructureSidebar
           courseTitle={courseTitle}
           modules={modules}
@@ -356,7 +270,7 @@ export function TestCreateModal({
                 <BadgeCheck className="h-4 w-4 text-[#8b5cf6]" />
               </div>
               <div>
-                <h3 className="text-2xl font-extrabold tracking-tight text-[#14213d]">
+                <h3 id={headingId} className="text-2xl font-extrabold tracking-tight text-[#14213d]">
                   {heading}
                 </h3>
               </div>
@@ -554,7 +468,6 @@ export function TestCreateModal({
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

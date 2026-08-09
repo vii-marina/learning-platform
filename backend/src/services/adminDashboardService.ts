@@ -1,88 +1,38 @@
+/**
+ * The admin overview and teacher-management API.
+ *
+ * Profile field readers live in `adminDashboard/teacherProfileFields`.
+ */
+
 import { AppError, toServiceError } from "../lib/appError";
 import { isAdminRole, normalizeUserRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import type { AdminRow, NormalizedUser, UserProfileRow } from "../types/auth";
+import {
+  extractAssignedStudentIds,
+  listStudentsByIds,
+  pickNumberValue,
+  pickStringValue,
+} from "./adminDashboard/teacherProfileFields";
+import type {
+  AdminDashboardOverviewData,
+  AdminDashboardTeacher,
+  AdminDashboardTeacherProfileInput,
+  CountedTable,
+  CourseStatusRow,
+  TeacherProfileRow,
+} from "./adminDashboard/types";
+
 import { updateCurrentUserProfile } from "./authService";
 import {
   deleteTeacherAccount,
   getAdminRecordById,
   getRequestAuthContext,
-  listAdminRecordsByIds,
   listProfileUsersByRole,
 } from "./userService";
 
-type CountedTable =
-  | "modules"
-  | "lessons"
-  | "lesson_blocks"
-  | "test_entities"
-  | "test_questions"
-  | "test_answers";
+export type { AdminDashboardTeacher } from "./adminDashboard/types";
 
-type TeacherProfileRow = {
-  id: string;
-} & Record<string, unknown>;
-
-type CourseStatusRow = {
-  teacher_id: string | null;
-  status: string | null;
-  is_published: boolean | null;
-  deleted_at?: string | null;
-};
-
-type AdminDashboardOverviewData = {
-  totals: {
-    users: number;
-    teachers: number;
-    students: number;
-    courses: number;
-    modules: number;
-    lessons: number;
-    blocks: number;
-    tests: number;
-    questions: number;
-    answers: number;
-  };
-  courseStatuses: {
-    total: number;
-    draft: number;
-    published: number;
-    archived: number;
-  };
-};
-
-type AdminDashboardTeacher = NormalizedUser & {
-  headline?: string | null;
-  bio?: string | null;
-  specialization?: string | null;
-  experienceYears?: number | null;
-  education?: string | null;
-  gender?: "male" | "female" | "other" | null;
-  birthDate?: string | null;
-  avatarPath?: string | null;
-  linkedinUrl?: string | null;
-  githubUrl?: string | null;
-  assignedStudents: NormalizedUser[];
-  courseCount: number;
-  publishedCourseCount: number;
-  draftCourseCount: number;
-};
-
-type AdminDashboardTeacherProfileInput = {
-  email?: string;
-  fullName?: string;
-  headline?: string | null;
-  bio?: string | null;
-  specialization?: string | null;
-  experienceYears?: number | null;
-  education?: string | null;
-  educationPlace?: string | null;
-  gender?: "male" | "female" | "other" | null;
-  birthDate?: string | null;
-  avatarPath?: string | null;
-  linkedinUrl?: string | null;
-  githubUrl?: string | null;
-};
 
 const profileSelect = "id,email,full_name,role,created_at";
 
@@ -189,130 +139,6 @@ async function getTeacherProfile(teacherId: string) {
   return (data as TeacherProfileRow | null) ?? null;
 }
 
-function pickStringValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!record) {
-    return null;
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === "string" && value.trim()) {
-      return value.trim();
-    }
-  }
-
-  return null;
-}
-
-function pickNumberValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!record) {
-    return null;
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-
-    if (typeof value === "number" && Number.isFinite(value)) {
-      return value;
-    }
-
-    if (typeof value === "string" && value.trim()) {
-      const parsed = Number(value);
-
-      if (Number.isFinite(parsed)) {
-        return parsed;
-      }
-    }
-  }
-
-  return null;
-}
-
-function pickArrayValue(record: Record<string, unknown> | null | undefined, keys: string[]) {
-  if (!record) {
-    return [];
-  }
-
-  for (const key of keys) {
-    const value = record[key];
-
-    if (Array.isArray(value)) {
-      return value;
-    }
-
-    if (typeof value === "string" && value.trim().startsWith("[")) {
-      try {
-        const parsed = JSON.parse(value);
-        if (Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch {
-        return [];
-      }
-    }
-  }
-
-  return [];
-}
-
-function extractAssignedStudentIds(record: TeacherProfileRow | null | undefined) {
-  const values = pickArrayValue(record, [
-    "assigned_student_ids",
-    "assignedStudents",
-    "student_ids",
-    "students",
-  ]);
-
-  const ids = values
-    .map((value) => {
-      if (typeof value === "string") {
-        return value;
-      }
-
-      if (
-        typeof value === "object" &&
-        value !== null &&
-        "id" in value &&
-        typeof value.id === "string"
-      ) {
-        return value.id;
-      }
-
-      return null;
-    })
-    .filter((value): value is string => Boolean(value));
-
-  return [...new Set(ids)];
-}
-
-async function listStudentsByIds(studentIds: string[]) {
-  if (studentIds.length === 0) {
-    return new Map<string, NormalizedUser>();
-  }
-
-  const { data, error } = await supabaseAdmin
-    .from("profiles")
-    .select(profileSelect)
-    .in("id", studentIds)
-    .eq("role", "student");
-
-  if (error) {
-    throw toServiceError(
-      500,
-      "STUDENTS_LIST_FAILED",
-      "Unable to load assigned students",
-      error
-    );
-  }
-
-  const profiles = (data ?? []) as UserProfileRow[];
-  const adminRecords = await listAdminRecordsByIds(profiles.map((profile) => profile.id));
-  const students = profiles.map((profile) =>
-    toNormalizedUser(profile, adminRecords.get(profile.id) ?? null)
-  );
-  return new Map(students.map((student) => [student.id, student]));
-}
 
 function buildCourseStats(courseRows: CourseStatusRow[]) {
   const statsByTeacherId = new Map<

@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { reportError } from "../../lib/observability/errorReporter";
 
 type ErrorBoundaryProps = {
   children: ReactNode;
@@ -6,20 +7,28 @@ type ErrorBoundaryProps = {
 
 type ErrorBoundaryState = {
   hasError: boolean;
+  errorId: string | null;
 };
 
 // Top-level safety net: a render error anywhere below shows this fallback instead of a
 // blank white screen. Self-contained (no shared-component imports) so it still renders
 // even if a shared component is what threw. Recovery is a hard reload or navigate home.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  state: ErrorBoundaryState = { hasError: false, errorId: null };
 
-  static getDerivedStateFromError(): ErrorBoundaryState {
+  static getDerivedStateFromError(): Partial<ErrorBoundaryState> {
     return { hasError: true };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error("Unhandled UI error:", error, info.componentStack);
+    // Reporting happens here rather than in getDerivedStateFromError because that one is
+    // meant to be pure and React may call it more than once for a single failure.
+    const reported = reportError(error, {
+      source: "react",
+      componentStack: info.componentStack ?? undefined,
+    });
+
+    this.setState({ errorId: reported.id });
   }
 
   render() {
@@ -35,6 +44,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             Сталася неочікувана помилка. Спробуйте перезавантажити сторінку — якщо це не
             допоможе, поверніться на головну або повідомте адміністратора.
           </p>
+          {this.state.errorId ? (
+            <p className="mt-4 text-xs font-medium text-[#8d8ab8]">
+              Код помилки:{" "}
+              <span className="font-mono font-bold text-[#5549f1]">{this.state.errorId}</span>
+            </p>
+          ) : null}
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button
               type="button"
