@@ -1,4 +1,5 @@
-import { BookOpen, CheckCircle2, Plus, Users } from "lucide-react";
+import { BookOpen, CheckCircle2, Plus, TrendingUp, Users } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { LoadingState } from "../../../components/ui/LoadingState";
@@ -129,7 +130,15 @@ export function TeacherDashboardOverview({
     );
   }, [studentsSummary?.courses]);
 
-  const stats = [
+  // `hint` turns a tile into a hover/focus target that reveals the detail which does not fit on the
+  // tile itself. Only the progress tile uses it, but any tile can.
+  const stats: Array<{
+    label: string;
+    value: string | number;
+    icon: LucideIcon;
+    className: string;
+    hint?: { value: string; description: string };
+  }> = [
     {
       label: "Опублікованих курсів",
       value: publishedCourses.length,
@@ -147,6 +156,16 @@ export function TeacherDashboardOverview({
       value: studentsSummary?.completed_course_views_count ?? 0,
       icon: CheckCircle2,
       className: "bg-emerald-100 text-emerald-700",
+    },
+    {
+      label: "Загальний прогрес",
+      value: `${averageProgress}%`,
+      icon: TrendingUp,
+      className: "bg-orange-100 text-orange-700",
+      hint: {
+        value: `${studentsSummary?.total_course_views_count ?? 0} проходжень`,
+        description: "Середній прогрес серед курсів, які вже проходять студенти.",
+      },
     },
   ];
 
@@ -178,14 +197,19 @@ export function TeacherDashboardOverview({
         <LoadingState variant="section" />
       ) : (
         <>
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {stats.map((stat) => {
               const Icon = stat.icon;
 
               return (
                 <Card
                   key={stat.label}
-                  className="rounded-[1.25rem] border-slate-200 bg-white p-4 shadow-[0_14px_28px_rgba(15,23,42,0.05)]"
+                  tabIndex={stat.hint ? 0 : undefined}
+                  className={`group relative rounded-[1.25rem] border-slate-200 bg-white p-4 shadow-[0_14px_28px_rgba(15,23,42,0.05)] ${
+                    stat.hint
+                      ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                      : ""
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -198,12 +222,24 @@ export function TeacherDashboardOverview({
                       <p className="text-xs font-medium text-slate-500">{stat.label}</p>
                     </div>
                   </div>
+
+                  {stat.hint ? (
+                    <div
+                      role="tooltip"
+                      className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 w-60 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-3 opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100"
+                    >
+                      <p className="text-sm font-semibold text-slate-950">{stat.hint.value}</p>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        {stat.hint.description}
+                      </p>
+                    </div>
+                  ) : null}
                 </Card>
               );
             })}
           </section>
 
-          <section className="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.8fr)]">
+          <section>
             <div className="space-y-4">
               <h2 className="text-lg font-semibold tracking-tight text-slate-950">
                 Опубліковані курси
@@ -216,7 +252,7 @@ export function TeacherDashboardOverview({
                   </p>
                 </Card>
               ) : (
-                <div className="grid gap-4 lg:grid-cols-2">
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {publishedCourses.map((course) => {
                     const thumbnailUrl = getCourseMediaPublicUrl(course.thumbnail_path);
                     const courseProgress = studentsSummary?.courses.find(
@@ -300,30 +336,6 @@ export function TeacherDashboardOverview({
                 </div>
               )}
             </div>
-
-            <Card className="h-fit rounded-xl border-slate-200 bg-white p-5 shadow-sm">
-              <div className="space-y-4">
-                <div>
-                  <h2 className="text-lg font-semibold tracking-tight text-slate-950">
-                    Загальний прогрес
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    Середній прогрес серед курсів, які вже проходять студенти.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-end justify-between">
-                    <span className="text-4xl font-semibold text-slate-950">
-                      {averageProgress}%
-                    </span>
-                    <span className="text-sm font-semibold text-slate-500">
-                      {studentsSummary?.total_course_views_count ?? 0} проходжень
-                    </span>
-                  </div>
-                  <ProgressBar value={averageProgress} />
-                </div>
-              </div>
-            </Card>
           </section>
         </>
       )}
