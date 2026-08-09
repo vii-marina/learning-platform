@@ -86,11 +86,15 @@ function ensureTeacherOrAdmin(auth: AuthenticatedRequestContext) {
   }
 }
 
+// Soft-deleted courses are invisible to authoring: a course an admin archived must not stay
+// editable, publishable or restorable by its owner. Matches courseBuilderService.getCourseOwnership
+// and exerciseService, which have always filtered this.
 async function getCourseById(courseId: string) {
   const { data, error } = await supabaseAdmin
     .from("courses")
     .select("*")
     .eq("id", courseId)
+    .is("deleted_at", null)
     .maybeSingle();
   if (error) throw toServiceError(500, "COURSE_FETCH_FAILED", "Unable to load course", error);
   if (!data) throw new AppError(404, "Course was not found.", "COURSE_NOT_FOUND");
@@ -245,7 +249,7 @@ export async function updateCourse(
     slug?: string;
     thumbnail_path?: string | null;
     is_published?: boolean;
-    deleted_at?: string | null;
+    deleted_at?: string;
   }
 ) {
   await authorizeCourseAccess(auth, courseId);

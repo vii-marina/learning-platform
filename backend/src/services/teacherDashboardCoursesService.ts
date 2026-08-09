@@ -411,7 +411,7 @@ function getLatestCourseProgressRows(progressRows: CourseProgressRow[]) {
   return [...progressByUserAndCourse.values()];
 }
 
-function getNumericTestScore(result: UserTestResultRow) {
+export function getNumericTestScore(result: UserTestResultRow) {
   const rawValue =
     result.score_percent ??
     result.percentage ??
@@ -423,7 +423,13 @@ function getNumericTestScore(result: UserTestResultRow) {
     return null;
   }
 
-  return rawValue > 0 && rawValue <= 1 ? Math.round(rawValue * 100) : Math.round(rawValue);
+  // Scores are written as an integer percentage (scoreSubmission rounds correct/total * 100), but
+  // older rows may hold a 0-1 fraction. Only a NON-integer in that range can be a fraction: an
+  // integer 1 is a legitimate 1%, and treating it as 0.01 rendered the worst possible non-zero
+  // score as a perfect 100.
+  const isFraction = rawValue > 0 && rawValue < 1 && !Number.isInteger(rawValue);
+
+  return isFraction ? Math.round(rawValue * 100) : Math.round(rawValue);
 }
 
 function getResultDate(result: UserTestResultRow) {

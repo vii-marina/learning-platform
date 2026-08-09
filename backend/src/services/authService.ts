@@ -1,5 +1,4 @@
 import { AppError, toServiceError } from "../lib/appError";
-import { isAdminRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
 import {
   ensureStudentProfile,
@@ -417,7 +416,10 @@ async function patchStudentProfile(
 
 export async function registerProfile(input: RegisterProfileInput): Promise<NormalizedUser> {
   const existingUser = await getNormalizedUserById(input.userId, input.email);
-  const nextRole = existingUser && isAdminRole(existingUser.role) ? existingUser.role : input.role;
+  // The request body may only choose a role while the user has no profile yet, i.e. at sign-up.
+  // Once a profile exists its role is the server's to change (admin panel), otherwise anyone
+  // demoted by a super-admin could re-POST this endpoint and grant themselves teacher again.
+  const nextRole = existingUser ? existingUser.role : input.role;
 
   await saveProfile({
     id: input.userId,

@@ -37,7 +37,9 @@ export const updateCourseSchema = z
     slug: z.string().trim().max(200).optional(),
     thumbnail_path: optionalNullableTrimmed,
     is_published: z.boolean().optional(),
-    deleted_at: z.union([z.string(), z.null()]).optional(),
+    // Soft delete only. Clearing this to null was a self-restore path: a teacher could revive a
+    // course an admin had archived. Restoring is an admin action (publish/unpublish clears it).
+    deleted_at: z.string().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, { message: "At least one field must be provided." });
 

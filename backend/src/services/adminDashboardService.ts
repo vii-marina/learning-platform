@@ -1,11 +1,13 @@
 import { AppError, toServiceError } from "../lib/appError";
-import { isAdminRole } from "../lib/roles";
+import { isAdminRole, normalizeUserRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
-import type { NormalizedUser, UserProfileRow } from "../types/auth";
+import type { AdminRow, NormalizedUser, UserProfileRow } from "../types/auth";
 import { updateCurrentUserProfile } from "./authService";
 import {
   deleteTeacherAccount,
+  getAdminRecordById,
   getRequestAuthContext,
+  listAdminRecordsByIds,
   listProfileUsersByRole,
 } from "./userService";
 
@@ -84,14 +86,22 @@ type AdminDashboardTeacherProfileInput = {
 
 const profileSelect = "id,email,full_name,role,created_at";
 
-function toNormalizedUser(profile: UserProfileRow): NormalizedUser {
+// `admins` decides elevation, `profiles.role` is only the fallback — the same rule the request
+// context uses. Reading profiles.role alone made these lists disagree with the rest of the system
+// about who is an admin whenever the two drifted.
+function toNormalizedUser(
+  profile: UserProfileRow,
+  adminRecord: AdminRow | null = null
+): NormalizedUser {
+  const role = normalizeUserRole(profile.role, adminRecord) ?? profile.role;
+
   return {
     id: profile.id,
     email: profile.email,
     fullName: profile.full_name,
-    role: profile.role,
-    isAdmin: isAdminRole(profile.role),
-    isSuperAdmin: profile.role === "super-admin",
+    role,
+    isAdmin: isAdminRole(role),
+    isSuperAdmin: role === "super-admin",
     createdAt: profile.created_at,
   };
 }
@@ -296,7 +306,11 @@ async function listStudentsByIds(studentIds: string[]) {
     );
   }
 
-  const students = ((data ?? []) as UserProfileRow[]).map(toNormalizedUser);
+  const profiles = (data ?? []) as UserProfileRow[];
+  const adminRecords = await listAdminRecordsByIds(profiles.map((profile) => profile.id));
+  const students = profiles.map((profile) =>
+    toNormalizedUser(profile, adminRecords.get(profile.id) ?? null)
+  );
   return new Map(students.map((student) => [student.id, student]));
 }
 
@@ -474,7 +488,10 @@ export async function getAdminDashboardTeacher(teacherId: string): Promise<Admin
     throw new AppError(404, "Teacher not found.", "TEACHER_NOT_FOUND");
   }
 
-  const teacher = toNormalizedUser(data as UserProfileRow);
+  const teacher = toNormalizedUser(
+    data as UserProfileRow,
+    await getAdminRecordById(teacherId)
+  );
   const teacherProfile = await getTeacherProfile(teacherId);
   const assignedStudentIds = extractAssignedStudentIds(teacherProfile);
   const [assignedStudentsById, courseRows] = await Promise.all([

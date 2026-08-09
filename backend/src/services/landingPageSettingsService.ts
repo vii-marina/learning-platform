@@ -101,6 +101,36 @@ export async function saveLandingPreviewSnapshot(
   return false;
 }
 
+/**
+ * Drops the cached landing preview when it was built from `courseId`. The snapshot is a derived
+ * cache with no invalidation of its own, so a course that is deleted, archived or unpublished
+ * would otherwise keep rendering on the public landing page indefinitely — the frontend only falls
+ * back to the backend endpoint when the row is absent or unrenderable, and a stale row is neither.
+ *
+ * Scoped by `source_course_id` so unpublishing an unrelated course leaves the cache alone.
+ * Best-effort, like the writer: losing the cache must never fail the admin operation.
+ */
+export async function clearLandingPreviewSnapshotForCourse(courseId: string): Promise<boolean> {
+  const { error } = await supabaseAdmin
+    .from(LANDING_PREVIEW_SNAPSHOT_TABLE)
+    .delete()
+    .eq("id", LANDING_PREVIEW_SNAPSHOT_ID)
+    .eq("source_course_id", courseId);
+
+  if (!error) {
+    return true;
+  }
+
+  if (isMissingTableError(error, LANDING_PREVIEW_SNAPSHOT_TABLE)) {
+    return false;
+  }
+
+  console.error(
+    `[LANDING_PREVIEW_SNAPSHOT_CLEAR_FAILED] Unable to clear landing preview snapshot: ${error.message}`
+  );
+  return false;
+}
+
 export async function saveLandingPageSettings(input: LandingPageSettingsInput) {
   const { data, error } = await supabaseAdmin
     .from("landing_page_settings")

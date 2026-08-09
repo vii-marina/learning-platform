@@ -11,7 +11,6 @@ import {
   deleteLesson,
   listLessonBlocksByLesson,
   updateLesson,
-  updateTestEntity,
   upsertLessonPrimaryRichTextBlock,
 } from "../../../api/index";
 import {
@@ -31,7 +30,6 @@ type UseCourseBuilderLessonEditorArgs = {
   currentCourseId: string | null;
   draftCourseSessionId: string;
   lessonsByModule: Record<string, Lesson[]>;
-  testsByModule: Record<string, CourseTest[]>;
   setLessonsByModule: Dispatch<SetStateAction<Record<string, Lesson[]>>>;
   setTestsByModule: Dispatch<SetStateAction<Record<string, CourseTest[]>>>;
   fetchLessons: (moduleId: string) => Promise<Lesson[] | null>;
@@ -46,7 +44,6 @@ export function useCourseBuilderLessonEditor({
   currentCourseId,
   draftCourseSessionId,
   lessonsByModule,
-  testsByModule,
   setLessonsByModule,
   setTestsByModule,
   fetchLessons,
@@ -468,15 +465,10 @@ export function useCourseBuilderLessonEditor({
     }
 
     try {
-      const moduleTests = testsByModule[moduleId] ?? (await fetchTests(moduleId)) ?? [];
-      const linkedTests = moduleTests.filter((test) => test.afterLessonId === lessonId);
-
-      for (const test of linkedTests) {
-        await updateTestEntity(test.id, {
-          after_lesson_id: null,
-        });
-      }
-
+      // deleteLessonById unlinks both tests AND exercises server-side, in one place, before the
+      // delete. This used to unlink only the tests, from here, one request each — half the job and
+      // N+1 round-trips. See the unlink comment in backend courseBuilderService: it is what stops
+      // the after_lesson_id cascade from taking the tests with the lesson.
       await deleteLesson(lessonId);
       await fetchLessons(moduleId);
       await fetchTests(moduleId);

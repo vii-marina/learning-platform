@@ -424,6 +424,12 @@ export async function updateLessonById(
 export async function deleteLessonById(auth: AuthenticatedRequestContext, lessonId: string) {
   await authorizeLessonAccess(auth, lessonId);
 
+  // ⚠️ DO NOT REMOVE THESE TWO UNLINKS. They look defensive; they are load-bearing.
+  // `test_entities.after_lesson_id` and `exercises.after_lesson_id` are both declared
+  // ON DELETE CASCADE in the database (confirmed 09-08-2026). Those columns record *position*,
+  // not ownership — a test simply sits after a lesson. So deleting a lesson without nulling them
+  // first makes Postgres delete every test and exercise anchored to it, along with their questions,
+  // answers, content and student results. Nulling them first is what keeps the cascade from firing.
   const { error: testLinkError } = await supabaseAdmin
     .from("test_entities")
     .update({ after_lesson_id: null })

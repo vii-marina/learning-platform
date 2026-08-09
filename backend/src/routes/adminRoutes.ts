@@ -20,8 +20,6 @@ import {
 } from "../controllers/adminDashboardCoursesController";
 import {
   createManagedUserHandler,
-  listStudentsHandler,
-  listTeachersHandler,
   listUsersHandler,
   updateUserHandler,
 } from "../controllers/adminController";
@@ -62,9 +60,9 @@ router.get("/dashboard/teachers", requireAdmin, listAdminDashboardTeachersHandle
 router.get("/dashboard/teachers/:id", requireAdmin, getAdminDashboardTeacherHandler);
 router.patch("/dashboard/teachers/:id", requireAdmin, updateAdminDashboardTeacherHandler);
 router.delete("/dashboard/teachers/:id", requireAdmin, deleteAdminDashboardTeacherHandler);
+// GET /teachers and GET /students were removed: both were `listUsers("teacher"|"student")`,
+// which GET /users?role= already covers and is the one the dashboard actually calls.
 router.get("/users", requireAdmin, listUsersHandler);
-router.get("/teachers", requireAdmin, listTeachersHandler);
-router.get("/students", requireAdmin, listStudentsHandler);
 router.patch("/users/:id", requireSuperAdmin, updateUserHandler);
 
 export { router as adminRoutes };

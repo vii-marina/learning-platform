@@ -282,7 +282,6 @@ export const CourseBuilderPage = forwardRef<
     currentCourseId,
     draftCourseSessionId,
     lessonsByModule,
-    testsByModule,
     setLessonsByModule,
     setTestsByModule,
     fetchLessons,

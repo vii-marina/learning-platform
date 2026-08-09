@@ -299,7 +299,7 @@ function buildNormalizedUser(
   };
 }
 
-export async function getProfileById(userId: string): Promise<UserProfileRow | null> {
+async function getProfileById(userId: string): Promise<UserProfileRow | null> {
   const { data, error } = await supabaseAdmin
     .from("profiles")
     .select(profileSelect)
@@ -325,6 +325,28 @@ export async function getAdminRecordById(userId: string): Promise<AdminRow | nul
   }
 
   return (data as AdminRow | null) ?? null;
+}
+
+/**
+ * Batch form of getAdminRecordById, for list endpoints that must resolve roles the same way a
+ * request does. `admins` — not `profiles.role` — is what elevates a user (see normalizeUserRole),
+ * so any reader that skips it can disagree with the request context about who is an admin.
+ */
+export async function listAdminRecordsByIds(userIds: string[]): Promise<Map<string, AdminRow>> {
+  if (userIds.length === 0) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from("admins")
+    .select(adminSelect)
+    .in("id", userIds);
+
+  if (error) {
+    throw toServiceError(500, "ADMINS_LIST_FAILED", "Unable to list admin records", error);
+  }
+
+  return new Map(((data ?? []) as AdminRow[]).map((record) => [record.id, record]));
 }
 
 export async function saveProfile(payload: ProfilePayload): Promise<void> {

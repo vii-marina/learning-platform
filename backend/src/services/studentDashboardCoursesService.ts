@@ -684,39 +684,12 @@ async function upsertUserTestResult(
     updated_at: now,
   };
 
-  const { data: existingResult, error: existingError } = await supabaseAdmin
+  // One statement instead of select-then-insert (the R7 race): two concurrent submissions used to
+  // both read "no row" and both insert. `user_test_results_user_id_test_id_key` is the unique
+  // constraint this conflicts on — verified present in the DB on 09-08-2026.
+  const { error } = await supabaseAdmin
     .from("user_test_results")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("test_id", testId)
-    .order("updated_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existingError) {
-    throw toServiceError(
-      500,
-      "TEST_RESULT_FETCH_FAILED",
-      "Unable to load test result",
-      existingError
-    );
-  }
-
-  const resultId =
-    existingResult &&
-    typeof existingResult === "object" &&
-    "id" in existingResult &&
-    typeof existingResult.id === "string"
-      ? existingResult.id
-      : null;
-  const { error } = resultId
-    ? await supabaseAdmin
-        .from("user_test_results")
-        .update(payload)
-        .eq("id", resultId)
-    : await supabaseAdmin
-        .from("user_test_results")
-        .insert(payload);
+    .upsert(payload, { onConflict: "user_id,test_id" });
 
   if (error) {
     throw toServiceError(
@@ -758,7 +731,6 @@ async function upsertUserExerciseResult(userId: string, exerciseId: string) {
     existingResult && typeof existingResult === "object"
       ? (existingResult as { id?: unknown; attempts?: unknown; completed_at?: unknown })
       : null;
-  const resultId = typeof result?.id === "string" ? result.id : null;
   const attempts =
     typeof result?.attempts === "number" && Number.isFinite(result.attempts)
       ? result.attempts + 1
@@ -772,14 +744,16 @@ async function upsertUserExerciseResult(userId: string, exerciseId: string) {
     completed_at: completedAt,
     updated_at: now,
   };
-  const { error } = resultId
-    ? await supabaseAdmin
-        .from("user_exercise_results")
-        .update(payload)
-        .eq("id", resultId)
-    : await supabaseAdmin
-        .from("user_exercise_results")
-        .insert(payload);
+  // Upsert rather than branch on the read: `user_exercise_results_user_id_exercise_id_key` already
+  // enforces one row per (user, exercise), so the old select-then-insert did not create duplicates —
+  // it made a concurrent second submission fail the insert with 23505 and surface as a 500.
+  //
+  // `attempts` is deliberately best-effort: PostgREST cannot express `attempts = attempts + 1`, so
+  // two genuinely simultaneous submissions can still collapse into one increment. Making it exact
+  // needs a Postgres function, which is not worth a migration for a display-only counter.
+  const { error } = await supabaseAdmin
+    .from("user_exercise_results")
+    .upsert(payload, { onConflict: "user_id,exercise_id" });
 
   if (error) {
     throw toServiceError(

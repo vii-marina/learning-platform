@@ -212,7 +212,6 @@ export async function publishCourse(courseId: string) {
   return updateCourse(courseId, {
     status: "published",
     is_published: true,
-    deleted_at: null,
   });
 }
 
@@ -220,7 +219,6 @@ export async function unpublishCourse(courseId: string) {
   return updateCourse(courseId, {
     status: "draft",
     is_published: false,
-    deleted_at: null,
   });
 }
 
@@ -236,12 +234,6 @@ export async function softDeleteCourse(courseId: string) {
     deleted_at: new Date().toISOString(),
     status: "archived",
     is_published: false,
-  });
-}
-
-export async function deleteCourse(courseId: string) {
-  await authorizedBackendRequest<void>(`/authoring/courses/${courseId}`, {
-    method: "DELETE",
   });
 }
 
@@ -499,12 +491,6 @@ export async function updateLessonBlock(lessonBlockId: string, input: UpdateLess
   );
 
   return response.lessonBlock;
-}
-
-export async function deleteLessonBlock(lessonBlockId: string) {
-  await authorizedBackendRequest<void>(`/auth/course-builder/lesson-blocks/${lessonBlockId}`, {
-    method: "DELETE",
-  });
 }
 
 export async function upsertLessonPrimaryRichTextBlock(lessonId: string, html: string) {

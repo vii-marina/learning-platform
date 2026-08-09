@@ -131,9 +131,11 @@ export type CreateCourseInput = {
   is_published?: boolean;
 };
 
+// `deleted_at` is set-only: the backend accepts a soft-delete timestamp but rejects null, so a
+// teacher cannot restore a course an admin archived.
 export type UpdateCourseInput = Partial<
   Omit<CreateCourseInput, "teacher_id"> & {
-    deleted_at: string | null;
+    deleted_at: string;
   }
 >;
 

@@ -159,16 +159,6 @@ export async function listAdminUsers(role?: UserRole) {
   return response.users;
 }
 
-export async function listTeachers() {
-  const response = await authorizedBackendRequest<UsersResponse>("/admin/teachers");
-  return response.users;
-}
-
-export async function listStudents() {
-  const response = await authorizedBackendRequest<UsersResponse>("/admin/students");
-  return response.users;
-}
-
 export async function updateAdminUser(userId: string, input: UpdateAdminUserInput) {
   const response = await authorizedBackendRequest<SingleUserResponse>(`/admin/users/${userId}`, {
     method: "PATCH",

@@ -623,6 +623,55 @@ async function listLessonsByModuleIds(moduleIds: string[]) {
   return lessons;
 }
 
+// Ids of the course's graded content, needed to clear a student's results when their enrollment
+// is reset. Results are keyed by test_id / exercise_id, never by course, so the ids have to be
+// resolved first — the same approach permanentlyDeleteAdminDashboardCourse takes.
+async function listContentIdsByModuleIds(table: "test_entities" | "exercises", moduleIds: string[]) {
+  if (moduleIds.length === 0) {
+    return [] as string[];
+  }
+
+  const ids: string[] = [];
+
+  for (const chunk of chunkValues(moduleIds)) {
+    const { data, error } = await supabaseAdmin.from(table).select("id").in("module_id", chunk);
+
+    if (error) {
+      throw toServiceError(
+        500,
+        "COURSE_CONTENT_LIST_FAILED",
+        "Unable to load course content",
+        error
+      );
+    }
+
+    ids.push(...((data ?? []) as Array<{ id: string }>).map((row) => row.id));
+  }
+
+  return ids;
+}
+
+async function deleteStudentResults(
+  table: "user_test_results" | "user_exercise_results",
+  column: "test_id" | "exercise_id",
+  studentId: string,
+  contentIds: string[],
+  errorCode: string,
+  errorMessage: string
+) {
+  for (const chunk of chunkValues(contentIds)) {
+    const { error } = await supabaseAdmin
+      .from(table)
+      .delete()
+      .eq("user_id", studentId)
+      .in(column, chunk);
+
+    if (error) {
+      throw toServiceError(500, errorCode, errorMessage, error);
+    }
+  }
+}
+
 async function listCompletedLessonProgress(studentIds: string[], lessonIds: string[]) {
   if (studentIds.length === 0 || lessonIds.length === 0) {
     return [] as LessonProgressRow[];
@@ -811,8 +860,34 @@ export async function clearAdminDashboardStudentCourse(
   await getAdminDashboardStudent(studentId);
 
   const modules = await listModulesByCourseIds([courseId]);
-  const lessons = await listLessonsByModuleIds(modules.map((module) => module.id));
+  const moduleIds = modules.map((module) => module.id);
+  const lessons = await listLessonsByModuleIds(moduleIds);
   const lessonIds = lessons.map((lesson) => lesson.id);
+
+  // Clearing only lesson_progress + course_progress left the student's test scores and exercise
+  // completions behind, so a "reset" student came back reading 0% lessons and 100% tests, and the
+  // teacher dashboard still showed their results for a course they were removed from.
+  const [testIds, exerciseIds] = await Promise.all([
+    listContentIdsByModuleIds("test_entities", moduleIds),
+    listContentIdsByModuleIds("exercises", moduleIds),
+  ]);
+
+  await deleteStudentResults(
+    "user_test_results",
+    "test_id",
+    studentId,
+    testIds,
+    "USER_TEST_RESULTS_DELETE_FAILED",
+    "Unable to clear test results"
+  );
+  await deleteStudentResults(
+    "user_exercise_results",
+    "exercise_id",
+    studentId,
+    exerciseIds,
+    "USER_EXERCISE_RESULTS_DELETE_FAILED",
+    "Unable to clear exercise results"
+  );
 
   if (lessonIds.length > 0) {
     for (const lessonChunk of chunkValues(lessonIds)) {

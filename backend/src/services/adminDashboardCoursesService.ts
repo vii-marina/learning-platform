@@ -1,7 +1,9 @@
 import { AppError, toServiceError } from "../lib/appError";
-import { isAdminRole } from "../lib/roles";
+import { isAdminRole, normalizeUserRole } from "../lib/roles";
 import { supabaseAdmin } from "../lib/supabase";
-import type { NormalizedUser, UserProfileRow } from "../types/auth";
+import { clearLandingPreviewSnapshotForCourse } from "./landingPageSettingsService";
+import { listAdminRecordsByIds } from "./userService";
+import type { AdminRow, NormalizedUser, UserProfileRow } from "../types/auth";
 
 type CourseRow = {
   id: string;
@@ -97,14 +99,21 @@ const profileSelect = "id,email,full_name,role,created_at";
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function toNormalizedUser(profile: UserProfileRow): NormalizedUser {
+// `admins` decides elevation, `profiles.role` is only the fallback — the same rule the request
+// context uses (normalizeUserRole).
+function toNormalizedUser(
+  profile: UserProfileRow,
+  adminRecord: AdminRow | null = null
+): NormalizedUser {
+  const role = normalizeUserRole(profile.role, adminRecord) ?? profile.role;
+
   return {
     id: profile.id,
     email: profile.email,
     fullName: profile.full_name,
-    role: profile.role,
-    isAdmin: isAdminRole(profile.role),
-    isSuperAdmin: profile.role === "super-admin",
+    role,
+    isAdmin: isAdminRole(role),
+    isSuperAdmin: role === "super-admin",
     createdAt: profile.created_at,
   };
 }
@@ -219,7 +228,10 @@ async function listProfilesByIds(ids: string[]) {
     profiles.push(...((data ?? []) as UserProfileRow[]));
   }
 
-  const users = profiles.map(toNormalizedUser);
+  const adminRecords = await listAdminRecordsByIds(profiles.map((profile) => profile.id));
+  const users = profiles.map((profile) =>
+    toNormalizedUser(profile, adminRecords.get(profile.id) ?? null)
+  );
   return new Map(users.map((user) => [user.id, user]));
 }
 
@@ -691,6 +703,12 @@ export async function updateAdminDashboardCourse(
     throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
   }
 
+  // Taking a course off the public site must also drop its cached landing preview, or the
+  // unpublished content keeps rendering on the homepage.
+  if (action !== "publish") {
+    await clearLandingPreviewSnapshotForCourse(courseId);
+  }
+
   const [hydratedCourse] = await hydrateCourseSummaries([updatedCourse]);
   return hydratedCourse;
 }
@@ -705,6 +723,8 @@ export async function deleteAdminDashboardCourse(courseId: string) {
   if (!deletedCourse) {
     throw new AppError(404, "Course not found.", "COURSE_NOT_FOUND");
   }
+
+  await clearLandingPreviewSnapshotForCourse(courseId);
 
   const [hydratedCourse] = await hydrateCourseSummaries([deletedCourse]);
   return hydratedCourse;
@@ -729,6 +749,9 @@ export async function permanentlyDeleteAdminDashboardCourse(courseId: string) {
   const exerciseIds = exercises.map((exercise) => exercise.id);
 
   await clearLandingSettingsForDeletedCourse(course.id, lessonIds);
+  // The settings row above points the landing at a course; the snapshot is the cached render of
+  // it. Clearing only the settings left the deleted course's content live on the public page.
+  await clearLandingPreviewSnapshotForCourse(course.id);
   await deleteRowsByValues("user_test_results", "test_id", testIds, {
     optional: true,
     errorCode: "USER_TEST_RESULTS_DELETE_FAILED",

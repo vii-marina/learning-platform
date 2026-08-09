@@ -1,4 +1,4 @@
-import { AppError } from "../lib/appError";
+import { AppError, toServiceError } from "../lib/appError";
 import {
   ensureTeacherProfile,
   ensureStudentProfile,
@@ -91,10 +91,13 @@ export async function createManagedUser(input: CreateManagedUserInput): Promise<
         );
       }
 
-      throw new AppError(
+      // R16: the error handler returns AppError.message verbatim, so the upstream detail is
+      // logged server-side and never interpolated into the response.
+      throw toServiceError(
         500,
-        `Unable to create auth user: ${error?.message ?? "Unknown error."}`,
-        "AUTH_USER_CREATE_FAILED"
+        "AUTH_USER_CREATE_FAILED",
+        "Unable to create the user.",
+        error ?? { message: "Unknown error." }
       );
     }
 
