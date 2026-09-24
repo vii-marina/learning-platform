@@ -76,15 +76,23 @@ function splitIntoSections(text: string) {
   });
 }
 
+// Truncate the overflowing section instead of dropping it. The previous `break`
+// returned an empty string whenever the FIRST section was already over the cap,
+// and stripped HTML has no blank lines, so a whole lesson is always one section —
+// every lesson longer than maxChars produced no text at all, surfacing to the
+// teacher as "Content is too short" when the content was in fact too long.
 function limitTextLength(sections: string[], maxChars = 6000) {
   const result: string[] = [];
   let total = 0;
 
   for (const section of sections) {
-    if (total + section.length > maxChars) break;
+    if (total >= maxChars) break;
 
-    result.push(section);
-    total += section.length;
+    const remaining = maxChars - total;
+    const piece = section.length > remaining ? section.slice(0, remaining) : section;
+
+    result.push(piece);
+    total += piece.length;
   }
 
   return result.join("\n\n");
