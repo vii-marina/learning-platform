@@ -26,35 +26,35 @@ export const estimateMaxAiQuestionCount = (
   }
 
   if (wordCount <= 40) {
-    return Math.min(hardLimit, 2);
-  }
-
-  if (wordCount <= 90) {
-    return Math.min(hardLimit, 3);
-  }
-
-  if (wordCount <= 160) {
     return Math.min(hardLimit, 5);
   }
 
+  if (wordCount <= 90) {
+    return Math.min(hardLimit, 10);
+  }
+
+  if (wordCount <= 160) {
+    return Math.min(hardLimit, 18);
+  }
+
   if (wordCount <= 280) {
-    return Math.min(hardLimit, 8);
+    return Math.min(hardLimit, 30);
   }
 
   if (wordCount <= 450) {
-    return Math.min(hardLimit, 10);
+    return Math.min(hardLimit, 45);
   }
 
   return hardLimit;
 };
 
 export const getLessonAiQuestionLimit = (content: string) =>
-  estimateMaxAiQuestionCount(getPlainTextFromHtml(content), 5);
+  estimateMaxAiQuestionCount(getPlainTextFromHtml(content), 50);
 
 export const getModuleAiQuestionLimit = (lessons: Lesson[]) =>
   estimateMaxAiQuestionCount(
     lessons.map((lesson) => getPlainTextFromHtml(lesson.content)).filter(Boolean).join("\n\n"),
-    15
+    100
   );
 
 export const getDefaultAiQuestionCount = (maxQuestionCount: number) =>

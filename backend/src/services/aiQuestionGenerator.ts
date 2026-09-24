@@ -362,7 +362,7 @@ export async function generateQuestionsFromLesson(
   const completion = await openai.chat.completions.create({
     model: env.OPENAI_MODEL,
     temperature: 0.7,
-    max_completion_tokens: 4096,
+    max_completion_tokens: 16384,
     response_format: {
       type: "json_schema",
       json_schema: {

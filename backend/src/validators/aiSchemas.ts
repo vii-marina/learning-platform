@@ -14,7 +14,7 @@ export const generateTestQuestionsSchema = z
   .object({
     afterLessonId: uuid.optional(),
     moduleId: uuid.optional(),
-    questionCount: z.number().int().positive().max(50).optional(),
+    questionCount: z.number().int().positive().max(100).optional(),
     generationMode: z
       .enum(["true_false", "single_choice", "multiple_choice", "mixed"])
       .optional(),

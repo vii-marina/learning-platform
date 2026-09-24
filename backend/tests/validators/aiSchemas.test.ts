@@ -42,10 +42,10 @@ describe("generateTestQuestionsSchema", () => {
 
   it("caps the requested question count", () => {
     expect(
-      generateTestQuestionsSchema.safeParse({ moduleId: MODULE_ID, questionCount: 50 }).success
+      generateTestQuestionsSchema.safeParse({ moduleId: MODULE_ID, questionCount: 100 }).success
     ).toBe(true);
     expect(
-      generateTestQuestionsSchema.safeParse({ moduleId: MODULE_ID, questionCount: 51 }).success
+      generateTestQuestionsSchema.safeParse({ moduleId: MODULE_ID, questionCount: 101 }).success
     ).toBe(false);
     expect(
       generateTestQuestionsSchema.safeParse({ moduleId: MODULE_ID, questionCount: 0 }).success
